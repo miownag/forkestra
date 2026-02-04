@@ -14,7 +14,13 @@
       {
         "title": "forkestra",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 24,
+          "y": 24
+        }
       }
     ],
     "security": {

@@ -91,11 +91,17 @@ export function NewSessionDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className="sm:max-w-md"
+        onInteractOutside={(e) => {
+          e.preventDefault();
+          return false;
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Create New Session</DialogTitle>
           <DialogDescription>
-            Start a new AI coding session with an isolated git worktree.
+            Start a new AI coding session with an isolated git work tree.
           </DialogDescription>
         </DialogHeader>
 

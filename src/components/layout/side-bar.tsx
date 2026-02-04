@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { VscSettingsGear, VscAdd, VscClose } from "react-icons/vsc";
-import { PiSidebarSimple } from "react-icons/pi";
 import { LuGitBranch } from "react-icons/lu";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,17 +11,21 @@ import {
 } from "@/components/ui/tooltip";
 import { useSessionStore, useProviderStore } from "@/stores";
 import { NewSessionDialog } from "@/components/session/NewSessionDialog";
-import { SettingsPanel } from "@/components/settings/SettingsPanel";
 import { cn } from "@/lib/utils";
+import { useStreamEvents } from "@/hooks/useStreamEvents";
+import { useRouter, useLocation } from "@tanstack/react-router";
 
 interface SidebarProps {
   collapsed: boolean;
-  onToggle: () => void;
 }
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed }: SidebarProps) {
+  useStreamEvents();
+
   const [showNewSession, setShowNewSession] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+
+  const router = useRouter();
+  const location = useLocation();
 
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
@@ -41,20 +44,32 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     await terminateSession(sessionId, false);
   };
 
+  const handleSettingsClick = () => {
+    if (location.pathname === "/settings") {
+      router.history.back();
+    } else {
+      router.navigate({ to: "/settings" });
+    }
+  };
+
   return (
     <>
       <aside
         className={cn(
-          "bg-muted/30 border-r flex flex-col transition-all duration-300",
+          "bg-background border-r flex flex-col transition-all duration-300 h-full",
           collapsed ? "w-0 overflow-hidden" : "w-64",
         )}
       >
         {/* Header with Logo and Collapse Button */}
         <div className="flex items-center justify-between p-4">
           <div className="flex gap-2">
-            <LuGitBranch className="h-5 w-5 shrink-0" />
+            <img
+              src="/icon-dark.png"
+              alt="Forkestra"
+              className="h-5 w-5 shrink-0 cursor-pointer"
+            />
             <div className="flex flex-col gap-2">
-              <h1 className="text-lg font-semibold leading-none whitespace-nowrap select-none">
+              <h1 className="text-lg font-semibold leading-none whitespace-nowrap select-none cursor-default">
                 Forkestra
               </h1>
               <p className="text-xs text-muted-foreground whitespace-nowrap">
@@ -62,36 +77,34 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               </p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0"
-            onClick={onToggle}
-          >
-            <PiSidebarSimple />
-          </Button>
         </div>
 
         {/* New Session Button */}
-        <div className="p-3">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={() => setShowNewSession(true)}
-                className="w-full mb-2"
-                size="sm"
-                disabled={installedProviders.length === 0}
-              >
-                <VscAdd className="mr-1 h-4 w-4" />
-                New Session
-              </Button>
-            </TooltipTrigger>
-            {installedProviders.length === 0 && (
+        <div className="px-3 mb-2 mt-1">
+          {installedProviders.length === 0 ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="w-full">
+                  <Button className="w-full mb-2" size="sm" disabled>
+                    <VscAdd className="mr-1 h-4 w-4" />
+                    New Session
+                  </Button>
+                </div>
+              </TooltipTrigger>
               <TooltipContent>
                 <p>No AI CLI tools installed</p>
               </TooltipContent>
-            )}
-          </Tooltip>
+            </Tooltip>
+          ) : (
+            <Button
+              onClick={() => setShowNewSession(true)}
+              className="w-full mb-2"
+              size="sm"
+            >
+              <VscAdd className="mr-1 h-4 w-4" />
+              New Session
+            </Button>
+          )}
         </div>
 
         <Separator />
@@ -153,7 +166,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         <div className="flex p-2">
           <Button
             variant="ghost"
-            onClick={() => setShowSettings(true)}
+            onClick={handleSettingsClick}
             className="w-full"
             size="sm"
           >
@@ -168,7 +181,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         open={showNewSession}
         onOpenChange={setShowNewSession}
       />
-      <SettingsPanel open={showSettings} onOpenChange={setShowSettings} />
     </>
   );
 }

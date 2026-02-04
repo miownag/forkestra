@@ -3,7 +3,6 @@ import { ChatWindow } from "@/components/chat/ChatWindow";
 import { VscFolderOpened } from "react-icons/vsc";
 import { LuGitBranch } from "react-icons/lu";
 
-
 export function SessionPanel() {
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const sessions = useSessionStore((s) => s.sessions);
@@ -14,7 +13,7 @@ export function SessionPanel() {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground">
         <div className="text-center max-w-md px-4">
-          <LuGitBranch className="h-16 w-16 mx-auto mb-4 opacity-20" />
+          <LuGitBranch className="h-24 w-24 mx-auto mb-6 opacity-20" />
           <h2 className="text-lg font-medium mb-2">No Session Selected</h2>
           <p className="text-sm">
             Create a new session or select an existing one from the sidebar to
@@ -50,15 +49,15 @@ export function SessionPanel() {
               activeSession.status === "active"
                 ? "bg-green-500/10 text-green-600"
                 : activeSession.status === "creating"
-                ? "bg-yellow-500/10 text-yellow-600"
-                : "bg-muted text-muted-foreground"
+                  ? "bg-yellow-500/10 text-yellow-600"
+                  : "bg-muted text-muted-foreground"
             }`}
           >
             {activeSession.status === "active"
               ? "Active"
               : activeSession.status === "creating"
-              ? "Creating..."
-              : activeSession.status}
+                ? "Creating..."
+                : activeSession.status}
           </span>
           <span className="text-xs text-muted-foreground">
             {activeSession.provider === "claude" ? "Claude Code" : "Kimi Code"}
