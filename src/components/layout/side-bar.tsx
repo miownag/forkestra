@@ -126,8 +126,8 @@ export function Sidebar({
           {installedProviders.length === 0 ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="w-full">
-                  <Button className="w-full" size="sm" disabled>
+                <div className="w-full cursor-not-allowed">
+                  <Button className="w-full select-none" size="sm" disabled>
                     <IoCreateOutline className="-mt-0.5 mr-0.5" />
                     New Session
                   </Button>
@@ -140,7 +140,7 @@ export function Sidebar({
           ) : (
             <Button
               onClick={() => setShowNewSession(true)}
-              className="w-full"
+              className="w-full select-none"
               size="sm"
             >
               <IoCreateOutline className="-mt-0.5 mr-0.5" />
