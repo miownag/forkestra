@@ -23,6 +23,8 @@ pub struct Session {
     pub branch_name: String,
     pub created_at: DateTime<Utc>,
     pub project_path: String,
+    #[serde(default)]
+    pub is_local: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,4 +33,6 @@ pub struct CreateSessionRequest {
     pub provider: ProviderType,
     pub project_path: String,
     pub base_branch: Option<String>,
+    #[serde(default)]
+    pub use_local: bool,
 }

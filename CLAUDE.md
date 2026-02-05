@@ -1,18 +1,20 @@
 # Forkestra - An AI Code Client
 
-## 多 Provider AI 编程助手桌面客户端
-
 整体：Tauri
 
 > 前端技术栈 React + Vite + shadcn/ui + TanStack Router + Zustand + Tailwind CSS + react-icons
 > 后端技术栈 git2-rs + tokio + serde
 
+规则：
+
+1. kebab-case文件名
+
 ### 核心目标
 
-| 目标 | 描述 |
-|------|------|
+| 目标                 | 描述                                                       |
+| -------------------- | ---------------------------------------------------------- |
 | **多 Provider 支持** | 统一界面管理 Claude Code、Kimi Code 等（一期先实现这两个） |
-| **多 Thread 并行** | 每个会话独立 Git Worktree，无代码冲突 |
+| **多 Thread 并行**   | 每个会话独立 Git Worktree，无代码冲突                      |
 
 ### AI Provider
 
@@ -20,12 +22,13 @@ AI Provider 是用于与 已经安装的AI Coding CLI 交互模块。
 
 一期需要实现的：
 
-| Provider | CLI 工具 | 安装方式 |
-|----------|----------|----------|
+| Provider        | CLI 工具 | 安装方式                                   |
+| --------------- | -------- | ------------------------------------------ |
 | **Claude Code** | `claude` | `npm install -g @anthropic-ai/claude-code` |
-| **Kimi Code** | `kimi` | `npm install -g @anthropic-ai/kimi-cli` |
+| **Kimi Code**   | `kimi`   | `npm install -g @anthropic-ai/kimi-cli`    |
 
 核心优化点：
+
 1. 自动检测：自动检测用户已安装的AI Coding CLI
 2. 支持自定义配置：支持用户自定义AI CLI的path、是否需要鉴权等，就像Claude Code的VSCode扩展一样
 

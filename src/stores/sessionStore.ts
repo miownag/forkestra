@@ -27,10 +27,14 @@ interface SessionState {
     sessionId: string,
     cleanupWorktree: boolean
   ) => Promise<void>;
+  renameSession: (sessionId: string, newName: string) => Promise<void>;
   addMessage: (sessionId: string, message: ChatMessage) => void;
   handleStreamChunk: (chunk: StreamChunk) => void;
   clearError: () => void;
 }
+
+const DEFAULT_SESSION_NAME = "New Session";
+const SESSION_NAME_MAX_LENGTH = 50;
 
 export const useSessionStore = create<SessionState>()(
   devtools(
@@ -79,6 +83,13 @@ export const useSessionStore = create<SessionState>()(
 
         sendMessage: async (sessionId, message) => {
           try {
+            // Check if this is the first message and session has default name
+            const state = get();
+            const session = state.sessions.find((s) => s.id === sessionId);
+            const sessionMessages = state.messages[sessionId] || [];
+            const isFirstMessage = sessionMessages.length === 0;
+            const hasDefaultName = session?.name === DEFAULT_SESSION_NAME;
+
             // Add user message to local state
             const userMessage: ChatMessage = {
               id: crypto.randomUUID(),
@@ -90,6 +101,17 @@ export const useSessionStore = create<SessionState>()(
               is_streaming: false,
             };
             get().addMessage(sessionId, userMessage);
+
+            // Auto-rename session if it's the first message and has default name
+            if (isFirstMessage && hasDefaultName) {
+              const newName = message.trim().slice(0, SESSION_NAME_MAX_LENGTH);
+              if (newName) {
+                // Fire and forget - don't block on rename
+                get().renameSession(sessionId, newName).catch(() => {
+                  // Ignore rename errors
+                });
+              }
+            }
 
             // Send to backend
             await invoke("send_message", { sessionId, message });
@@ -112,6 +134,24 @@ export const useSessionStore = create<SessionState>()(
                 state.activeSessionId === sessionId
                   ? null
                   : state.activeSessionId,
+              isLoading: false,
+            }));
+          } catch (error) {
+            set({ error: String(error), isLoading: false });
+          }
+        },
+
+        renameSession: async (sessionId, newName) => {
+          set({ isLoading: true, error: null });
+          try {
+            const session = await invoke<Session>("rename_session", {
+              sessionId,
+              newName,
+            });
+            set((state) => ({
+              sessions: state.sessions.map((s) =>
+                s.id === sessionId ? session : s
+              ),
               isLoading: false,
             }));
           } catch (error) {

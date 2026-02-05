@@ -7,8 +7,11 @@ use tauri::{AppHandle, Emitter};
 use tokio::sync::{mpsc, RwLock};
 
 use crate::error::{AppError, AppResult};
+use crate::managers::settings_manager::SettingsManager;
 use crate::managers::worktree_manager::WorktreeManager;
-use crate::models::{CreateSessionRequest, ProviderType, Session, SessionStatus, StreamChunk};
+use crate::models::{
+    CreateSessionRequest, ProviderSettings, ProviderType, Session, SessionStatus, StreamChunk,
+};
 use crate::providers::{ClaudeAdapter, KimiAdapter, ProviderAdapter};
 
 struct SessionEntry {
@@ -19,13 +22,15 @@ struct SessionEntry {
 pub struct SessionManager {
     sessions: Arc<RwLock<HashMap<String, SessionEntry>>>,
     app_handle: AppHandle,
+    settings_manager: Arc<SettingsManager>,
 }
 
 impl SessionManager {
-    pub fn new(app_handle: AppHandle) -> Self {
+    pub fn new(app_handle: AppHandle, settings_manager: Arc<SettingsManager>) -> Self {
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
             app_handle,
+            settings_manager,
         }
     }
 
@@ -42,12 +47,20 @@ impl SessionManager {
             )));
         }
 
-        // Create worktree
-        let (worktree_path, branch_name) = WorktreeManager::create_worktree(
-            &project_path,
-            &session_id,
-            request.base_branch.as_deref(),
-        )?;
+        // Determine worktree path and branch name based on use_local flag
+        let (worktree_path, branch_name) = if request.use_local {
+            // Use local mode: no worktree, use project path directly
+            let branch_name = WorktreeManager::get_current_branch(&project_path)
+                .unwrap_or_else(|_| "HEAD".to_string());
+            (project_path.clone(), branch_name)
+        } else {
+            // Create worktree
+            WorktreeManager::create_worktree(
+                &project_path,
+                &session_id,
+                request.base_branch.as_deref(),
+            )?
+        };
 
         // Create session
         let session = Session {
@@ -59,12 +72,26 @@ impl SessionManager {
             branch_name,
             created_at: Utc::now(),
             project_path: request.project_path,
+            is_local: request.use_local,
         };
 
-        // Create provider adapter
-        let mut adapter: Box<dyn ProviderAdapter> = match request.provider {
-            ProviderType::Claude => Box::new(ClaudeAdapter::new()),
-            ProviderType::Kimi => Box::new(KimiAdapter::new()),
+        // Create provider adapter with settings
+        let provider_settings = self.settings_manager.get_provider_settings(&request.provider);
+        let mut adapter: Box<dyn ProviderAdapter> = match &request.provider {
+            ProviderType::Claude => {
+                if let Some(ProviderSettings::Claude(settings)) = provider_settings {
+                    Box::new(ClaudeAdapter::with_settings(&settings))
+                } else {
+                    Box::new(ClaudeAdapter::new())
+                }
+            }
+            ProviderType::Kimi => {
+                if let Some(ProviderSettings::Kimi(settings)) = provider_settings {
+                    Box::new(KimiAdapter::with_settings(&settings))
+                } else {
+                    Box::new(KimiAdapter::new())
+                }
+            }
         };
 
         // Create channel for streaming
@@ -156,8 +183,8 @@ impl SessionManager {
                 adapter.terminate().await?;
             }
 
-            // Cleanup worktree if requested
-            if cleanup_worktree {
+            // Cleanup worktree if requested and not a local session
+            if cleanup_worktree && !entry.session.is_local {
                 let project_path = PathBuf::from(&entry.session.project_path);
                 WorktreeManager::remove_worktree(&project_path, session_id)?;
             }
@@ -177,5 +204,19 @@ impl SessionManager {
         let project_path = PathBuf::from(&session.project_path);
 
         WorktreeManager::merge_to_branch(&project_path, session_id, target_branch)
+    }
+
+    /// Rename a session
+    pub async fn rename_session(&self, session_id: &str, new_name: &str) -> AppResult<Session> {
+        let mut sessions = self.sessions.write().await;
+        if let Some(entry) = sessions.get_mut(session_id) {
+            entry.session.name = new_name.to_string();
+            Ok(entry.session.clone())
+        } else {
+            Err(AppError::NotFound(format!(
+                "Session '{}' not found",
+                session_id
+            )))
+        }
     }
 }

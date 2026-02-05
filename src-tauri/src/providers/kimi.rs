@@ -8,7 +8,7 @@ use portable_pty::{native_pty_system, CommandBuilder, PtyPair, PtySize};
 use tokio::sync::mpsc;
 
 use crate::error::{AppError, AppResult};
-use crate::models::{ProviderInfo, ProviderType, StreamChunk};
+use crate::models::{KimiProviderSettings, ProviderInfo, ProviderType, StreamChunk};
 use crate::providers::adapter::ProviderAdapter;
 use crate::providers::detector::ProviderDetector;
 
@@ -17,6 +17,8 @@ pub struct KimiAdapter {
     writer: Option<Arc<Mutex<Box<dyn Write + Send>>>>,
     session_id: Option<String>,
     is_active: bool,
+    // Configuration fields
+    cli_path: String,
 }
 
 impl KimiAdapter {
@@ -26,6 +28,20 @@ impl KimiAdapter {
             writer: None,
             session_id: None,
             is_active: false,
+            cli_path: "kimi".to_string(),
+        }
+    }
+
+    pub fn with_settings(settings: &KimiProviderSettings) -> Self {
+        Self {
+            pty: None,
+            writer: None,
+            session_id: None,
+            is_active: false,
+            cli_path: settings
+                .custom_cli_path
+                .clone()
+                .unwrap_or_else(|| "kimi".to_string()),
         }
     }
 }
@@ -64,8 +80,8 @@ impl ProviderAdapter for KimiAdapter {
             })
             .map_err(|e| AppError::Provider(format!("Failed to create PTY: {}", e)))?;
 
-        // Build command
-        let mut cmd = CommandBuilder::new("kimi");
+        // Build command using configured CLI path
+        let mut cmd = CommandBuilder::new(&self.cli_path);
         cmd.cwd(worktree_path);
         // Use print mode for JSON output that's easier to parse
         cmd.arg("--print");

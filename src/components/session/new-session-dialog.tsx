@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { useSessionStore, useProviderStore } from "@/stores";
+import { homeDir } from "@tauri-apps/api/path";
+import { useSessionStore, useProviderStore, useSettingsStore } from "@/stores";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { BranchSearchSelect } from "./branch-search-select";
 import type { ProviderType } from "@/types";
 import { VscFolder } from "react-icons/vsc";
 
@@ -35,17 +38,20 @@ export function NewSessionDialog({
   const [provider, setProvider] = useState<ProviderType>("claude");
   const [projectPath, setProjectPath] = useState("");
   const [baseBranch, setBaseBranch] = useState("");
+  const [useLocal, setUseLocal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const createSession = useSessionStore((s) => s.createSession);
   const providers = useProviderStore((s) => s.providers);
   const installedProviders = providers.filter((p) => p.installed);
+  const defaultProjectPath = useSettingsStore((s) => s.defaultProjectPath);
 
   const handleSelectFolder = async () => {
     try {
+      const home = await homeDir();
       const selected = await openDialog({
-        defaultPath: "/Users",
+        defaultPath: defaultProjectPath || home,
         directory: true,
         multiple: false,
         title: "Select Project Directory",
@@ -59,22 +65,24 @@ export function NewSessionDialog({
   };
 
   const handleCreate = async () => {
-    if (!name || !projectPath || !provider) return;
+    if (!projectPath || !provider) return;
 
     setIsCreating(true);
     setError(null);
     try {
       await createSession({
-        name,
+        name: name.trim() || "New Session",
         provider,
         project_path: projectPath,
-        base_branch: baseBranch || undefined,
+        base_branch: useLocal ? undefined : baseBranch || undefined,
+        use_local: useLocal,
       });
       onOpenChange(false);
       // Reset form
       setName("");
       setProjectPath("");
       setBaseBranch("");
+      setUseLocal(false);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -113,13 +121,18 @@ export function NewSessionDialog({
           )}
 
           <div>
-            <Label htmlFor="name">Session Name</Label>
+            <Label htmlFor="name">
+              Session Name{" "}
+              <span className="text-muted-foreground font-normal">
+                (optional)
+              </span>
+            </Label>
             <Input
               id="name"
               className="mt-2"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Feature: Add login page"
+              placeholder="Default is `New Session`"
             />
           </div>
 
@@ -165,29 +178,43 @@ export function NewSessionDialog({
             </p>
           </div>
 
-          <div>
-            <Label htmlFor="baseBranch">Base Branch (optional)</Label>
-            <Input
-              id="baseBranch"
-              value={baseBranch}
-              onChange={(e) => setBaseBranch(e.target.value)}
-              placeholder="main"
-              className="mt-2"
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="useLocal">Local Mode</Label>
+              <p className="text-xs text-muted-foreground">
+                Use the project directory directly without creating a worktree
+              </p>
+            </div>
+            <Switch
+              id="useLocal"
+              checked={useLocal}
+              onCheckedChange={setUseLocal}
             />
-            <p className="text-xs text-muted-foreground mt-2">
-              Leave empty to use the default branch
-            </p>
           </div>
+
+          {!useLocal && (
+            <div>
+              <Label htmlFor="baseBranch">Base Branch</Label>
+              <div className="mt-2">
+                <BranchSearchSelect
+                  projectPath={projectPath}
+                  value={baseBranch}
+                  onChange={setBaseBranch}
+                  placeholder="Select base branch..."
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Leave empty to use the default branch
+              </p>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={isCreating}>
             Cancel
           </Button>
-          <Button
-            onClick={handleCreate}
-            disabled={isCreating || !name || !projectPath}
-          >
+          <Button onClick={handleCreate} disabled={isCreating || !projectPath}>
             {isCreating ? "Creating..." : "Create Session"}
           </Button>
         </DialogFooter>

@@ -17,6 +17,57 @@ export interface ProviderConfig {
   enabled: boolean;
 }
 
+// Provider-specific settings
+export interface ClaudeProviderSettings {
+  provider_type: "claude";
+  enabled: boolean;
+  custom_cli_path: string | null;
+  disable_login_prompt: boolean;
+}
+
+export interface KimiProviderSettings {
+  provider_type: "kimi";
+  enabled: boolean;
+  custom_cli_path: string | null;
+}
+
+// Discriminated union for all provider settings
+export type ProviderSettings = ClaudeProviderSettings | KimiProviderSettings;
+
+// Type guards
+export function isClaudeSettings(
+  settings: ProviderSettings
+): settings is ClaudeProviderSettings {
+  return settings.provider_type === "claude";
+}
+
+export function isKimiSettings(
+  settings: ProviderSettings
+): settings is KimiProviderSettings {
+  return settings.provider_type === "kimi";
+}
+
+// Default settings factory
+export function createDefaultProviderSettings(
+  providerType: ProviderType
+): ProviderSettings {
+  switch (providerType) {
+    case "claude":
+      return {
+        provider_type: "claude",
+        enabled: true,
+        custom_cli_path: null,
+        disable_login_prompt: false,
+      };
+    case "kimi":
+      return {
+        provider_type: "kimi",
+        enabled: true,
+        custom_cli_path: null,
+      };
+  }
+}
+
 // Session types
 export type SessionStatus =
   | "creating"
@@ -34,6 +85,7 @@ export interface Session {
   branch_name: string;
   created_at: string;
   project_path: string;
+  is_local: boolean;
 }
 
 export interface CreateSessionRequest {
@@ -41,6 +93,7 @@ export interface CreateSessionRequest {
   provider: ProviderType;
   project_path: string;
   base_branch?: string;
+  use_local?: boolean;
 }
 
 // Message types
@@ -74,10 +127,9 @@ export interface StreamChunk {
 
 // Settings types
 export type Theme = "light" | "dark" | "system";
+export type FontSize = "small" | "base" | "large";
 
+// App settings from backend
 export interface AppSettings {
-  providers: ProviderConfig[];
-  default_provider: string | null;
-  worktree_base_path: string | null;
-  theme: Theme;
+  provider_settings: Record<ProviderType, ProviderSettings>;
 }

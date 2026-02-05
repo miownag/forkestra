@@ -1,4 +1,4 @@
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufReader, Write};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -8,7 +8,7 @@ use portable_pty::{native_pty_system, CommandBuilder, PtyPair, PtySize};
 use tokio::sync::mpsc;
 
 use crate::error::{AppError, AppResult};
-use crate::models::{ProviderInfo, ProviderType, StreamChunk};
+use crate::models::{ClaudeProviderSettings, ProviderInfo, ProviderType, StreamChunk};
 use crate::providers::adapter::ProviderAdapter;
 use crate::providers::detector::ProviderDetector;
 
@@ -17,6 +17,9 @@ pub struct ClaudeAdapter {
     writer: Option<Arc<Mutex<Box<dyn Write + Send>>>>,
     session_id: Option<String>,
     is_active: bool,
+    // Configuration fields
+    cli_path: String,
+    disable_login_prompt: bool,
 }
 
 impl ClaudeAdapter {
@@ -26,6 +29,22 @@ impl ClaudeAdapter {
             writer: None,
             session_id: None,
             is_active: false,
+            cli_path: "claude".to_string(),
+            disable_login_prompt: false,
+        }
+    }
+
+    pub fn with_settings(settings: &ClaudeProviderSettings) -> Self {
+        Self {
+            pty: None,
+            writer: None,
+            session_id: None,
+            is_active: false,
+            cli_path: settings
+                .custom_cli_path
+                .clone()
+                .unwrap_or_else(|| "claude".to_string()),
+            disable_login_prompt: settings.disable_login_prompt,
         }
     }
 }
@@ -64,11 +83,16 @@ impl ProviderAdapter for ClaudeAdapter {
             })
             .map_err(|e| AppError::Provider(format!("Failed to create PTY: {}", e)))?;
 
-        // Build command
-        let mut cmd = CommandBuilder::new("claude");
+        // Build command using configured CLI path
+        let mut cmd = CommandBuilder::new(&self.cli_path);
         cmd.cwd(worktree_path);
-        // Use print mode for JSON output that's easier to parse
-        cmd.arg("--print");
+        // Interactive mode - no --print flag
+        // --print is for non-interactive one-shot queries
+
+        // Add disable login prompt flag if configured
+        if self.disable_login_prompt {
+            cmd.env("DISABLE_AUTHN", "1");
+        }
 
         // Spawn the child process
         let mut child = pair
@@ -92,22 +116,49 @@ impl ProviderAdapter for ClaudeAdapter {
         let message_id = uuid::Uuid::new_v4().to_string();
 
         // Spawn task to read output and send to channel
+        // Use byte-by-byte reading for interactive CLI that may not output full lines
         tokio::spawn(async move {
-            let buf_reader = BufReader::new(reader);
-            for line in buf_reader.lines() {
-                match line {
-                    Ok(content) => {
-                        let chunk = StreamChunk {
-                            session_id: session_id_clone.clone(),
-                            message_id: message_id.clone(),
-                            content: format!("{}\n", content),
-                            is_complete: false,
-                        };
-                        if stream_tx.send(chunk).await.is_err() {
-                            break;
+            let mut buf_reader = BufReader::new(reader);
+            let mut buffer = Vec::new();
+            let mut byte = [0u8; 1];
+
+            loop {
+                use std::io::Read;
+                match buf_reader.get_mut().read(&mut byte) {
+                    Ok(0) => break, // EOF
+                    Ok(_) => {
+                        buffer.push(byte[0]);
+                        // Send on newline or when we have content after a potential prompt
+                        if byte[0] == b'\n' || buffer.ends_with(b"> ") || buffer.ends_with(b"? ") {
+                            if let Ok(content) = String::from_utf8(buffer.clone()) {
+                                let chunk = StreamChunk {
+                                    session_id: session_id_clone.clone(),
+                                    message_id: message_id.clone(),
+                                    content,
+                                    is_complete: false,
+                                };
+                                if stream_tx.send(chunk).await.is_err() {
+                                    break;
+                                }
+                            }
+                            buffer.clear();
                         }
                     }
                     Err(_) => break,
+                }
+            }
+
+            // Send any remaining content
+            if !buffer.is_empty() {
+                if let Ok(content) = String::from_utf8(buffer) {
+                    let _ = stream_tx
+                        .send(StreamChunk {
+                            session_id: session_id_clone.clone(),
+                            message_id: message_id.clone(),
+                            content,
+                            is_complete: false,
+                        })
+                        .await;
                 }
             }
 

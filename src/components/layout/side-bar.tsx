@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { VscSettingsGear, VscAdd, VscClose } from "react-icons/vsc";
-import { LuGitBranch } from "react-icons/lu";
+import { VscSettingsGear, VscAdd } from "react-icons/vsc";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -9,10 +8,15 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useSessionStore, useProviderStore } from "@/stores";
-import { NewSessionDialog } from "@/components/session/NewSessionDialog";
+import {
+  useSessionStore,
+  useProviderStore,
+  useSelectorSettingsStore,
+} from "@/stores";
+import { NewSessionDialog } from "@/components/session/new-session-dialog";
+import { SessionItem } from "@/components/session/session-context-menu";
 import { cn } from "@/lib/utils";
-import { useStreamEvents } from "@/hooks/useStreamEvents";
+import { useStreamEvents } from "@/hooks/use-stream-events";
 import { useRouter, useLocation } from "@tanstack/react-router";
 
 interface SidebarProps {
@@ -23,15 +27,13 @@ export function Sidebar({ collapsed }: SidebarProps) {
   useStreamEvents();
 
   const [showNewSession, setShowNewSession] = useState(false);
-
   const router = useRouter();
   const location = useLocation();
-
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
-  const terminateSession = useSessionStore((s) => s.terminateSession);
   const providers = useProviderStore((s) => s.providers);
+  const { resolvedTheme } = useSelectorSettingsStore(["resolvedTheme"]);
 
   const installedProviders = providers.filter((p) => p.installed);
 
@@ -39,15 +41,8 @@ export function Sidebar({ collapsed }: SidebarProps) {
     (s) => s.status === "active" || s.status === "creating",
   );
 
-  const handleTerminate = async (e: React.MouseEvent, sessionId: string) => {
-    e.stopPropagation();
-    await terminateSession(sessionId, false);
-  };
-
   const handleSettingsClick = () => {
-    if (location.pathname === "/settings") {
-      router.history.back();
-    } else {
+    if (location.pathname !== "/settings") {
       router.navigate({ to: "/settings" });
     }
   };
@@ -64,9 +59,9 @@ export function Sidebar({ collapsed }: SidebarProps) {
         <div className="flex items-center justify-between p-4">
           <div className="flex gap-2">
             <img
-              src="/icon-dark.png"
+              src={`/icon-${resolvedTheme}.png`}
               alt="Forkestra"
-              className="h-5 w-5 shrink-0 cursor-pointer"
+              className="h-5 w-5 shrink-0 opacity-75 select-none pointer-events-none"
             />
             <div className="flex flex-col gap-2">
               <h1 className="text-lg font-semibold leading-none whitespace-nowrap select-none cursor-default">
@@ -112,7 +107,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
         {/* Sessions List */}
         <ScrollArea className="flex-1">
           <div className="p-2">
-            <div className="text-xs font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider whitespace-nowrap">
+            <div className="text-xs font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider whitespace-nowrap mb-1">
               Sessions ({activeSessions.length})
             </div>
             {activeSessions.length === 0 ? (
@@ -121,42 +116,12 @@ export function Sidebar({ collapsed }: SidebarProps) {
               </p>
             ) : (
               activeSessions.map((session) => (
-                <button
+                <SessionItem
                   key={session.id}
+                  session={session}
+                  isActive={activeSessionId === session.id}
                   onClick={() => setActiveSession(session.id)}
-                  className={cn(
-                    "w-full text-left px-3 py-2 rounded-md mb-1 transition-colors group relative",
-                    activeSessionId === session.id
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-muted",
-                  )}
-                >
-                  <div className="font-medium truncate pr-6 text-sm">
-                    {session.name}
-                  </div>
-                  <div
-                    className={cn(
-                      "text-xs truncate",
-                      activeSessionId === session.id
-                        ? "text-primary-foreground/70"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {session.provider === "claude" ? "Claude" : "Kimi"} •{" "}
-                    {session.branch_name.split("/").pop()}
-                  </div>
-                  <button
-                    onClick={(e) => handleTerminate(e, session.id)}
-                    className={cn(
-                      "absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity",
-                      activeSessionId === session.id
-                        ? "hover:bg-primary-foreground/20"
-                        : "hover:bg-muted-foreground/20",
-                    )}
-                  >
-                    <VscClose className="h-3.5 w-3.5" />
-                  </button>
-                </button>
+                />
               ))
             )}
           </div>
@@ -167,7 +132,10 @@ export function Sidebar({ collapsed }: SidebarProps) {
           <Button
             variant="ghost"
             onClick={handleSettingsClick}
-            className="w-full"
+            className={cn(
+              "w-full",
+              location.pathname === "/settings" && "bg-muted cursor-default",
+            )}
             size="sm"
           >
             <VscSettingsGear className="mr-1 h-4 w-4" />

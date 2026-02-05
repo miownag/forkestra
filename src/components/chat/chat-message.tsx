@@ -21,16 +21,14 @@ export function ChatMessage({ message }: ChatMessageProps) {
   };
 
   return (
-    <div
-      className={cn("flex gap-3", isUser ? "flex-row-reverse" : "flex-row")}
-    >
+    <div className={cn("flex gap-3", isUser ? "flex-row-reverse" : "flex-row")}>
       {/* Avatar */}
       <div
         className={cn(
           "shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
           isUser
             ? "bg-primary text-primary-foreground"
-            : "bg-muted text-muted-foreground"
+            : "bg-muted text-muted-foreground",
         )}
       >
         {isUser ? (
@@ -43,8 +41,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
       {/* Message Content */}
       <div
         className={cn(
-          "flex-1 max-w-[85%] rounded-lg px-4 py-3",
-          isUser ? "bg-primary text-primary-foreground" : "bg-muted"
+          "max-w-[85%] rounded-lg px-4 py-3",
+          isUser ? "bg-primary text-primary-foreground" : "bg-muted",
         )}
       >
         <div className="prose prose-sm dark:prose-invert max-w-none">
@@ -61,9 +59,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
                     <code
                       className={cn(
                         "px-1.5 py-0.5 rounded text-xs font-mono",
-                        isUser
-                          ? "bg-primary-foreground/20"
-                          : "bg-background"
+                        isUser ? "bg-primary-foreground/20" : "bg-background",
                       )}
                       {...props}
                     >
@@ -79,7 +75,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
                         "flex items-center justify-between px-3 py-1.5 rounded-t-md text-xs",
                         isUser
                           ? "bg-primary-foreground/10"
-                          : "bg-background/50"
+                          : "bg-background/50",
                       )}
                     >
                       <span className="font-mono opacity-70">
@@ -103,7 +99,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
                         "p-3 rounded-b-md overflow-x-auto text-xs",
                         isUser
                           ? "bg-primary-foreground/10"
-                          : "bg-background/50"
+                          : "bg-background/50",
                       )}
                     >
                       <code className="font-mono">{code}</code>
@@ -133,7 +129,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
                       "underline underline-offset-2",
                       isUser
                         ? "text-primary-foreground/90 hover:text-primary-foreground"
-                        : "text-primary hover:text-primary/80"
+                        : "text-primary hover:text-primary/80",
                     )}
                   >
                     {children}

@@ -17,7 +17,7 @@ export function ChatInput({ onSend }: ChatInputProps) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${Math.min(
         textareaRef.current.scrollHeight,
-        200
+        200,
       )}px`;
     }
   }, [content]);

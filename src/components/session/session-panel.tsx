@@ -1,5 +1,5 @@
 import { useSessionStore } from "@/stores";
-import { ChatWindow } from "@/components/chat/ChatWindow";
+import { ChatWindow } from "@/components/chat/chat-window";
 import { VscFolderOpened } from "react-icons/vsc";
 import { LuGitBranch } from "react-icons/lu";
 
@@ -11,7 +11,7 @@ export function SessionPanel() {
 
   if (!activeSession) {
     return (
-      <div className="flex-1 flex items-center justify-center text-muted-foreground">
+      <div className="h-full flex-1 flex items-center justify-center text-muted-foreground">
         <div className="text-center max-w-md px-4">
           <LuGitBranch className="h-24 w-24 mx-auto mb-6 opacity-20" />
           <h2 className="text-lg font-medium mb-2">No Session Selected</h2>
@@ -25,7 +25,7 @@ export function SessionPanel() {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden h-full">
       {/* Session Header */}
       <div className="border-b px-4 py-3 flex items-center justify-between bg-muted/20">
         <div className="flex items-center gap-3">
@@ -34,11 +34,14 @@ export function SessionPanel() {
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <LuGitBranch className="h-3 w-3" />
-                {activeSession.branch_name.split("/").pop()}
+                {activeSession.branch_name || "-"}
               </span>
-              <span className="flex items-center gap-1">
+              <span
+                className="flex items-center gap-1"
+                title={activeSession.project_path || "-"}
+              >
                 <VscFolderOpened className="h-3 w-3" />
-                {activeSession.project_path.split("/").pop()}
+                {activeSession.project_path.split("/").pop() || "-"}
               </span>
             </div>
           </div>

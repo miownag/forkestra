@@ -4,8 +4,11 @@ mod managers;
 mod models;
 mod providers;
 
-use managers::SessionManager;
-use tauri::Manager;
+use std::sync::Arc;
+
+use managers::{SessionManager, SettingsManager};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -14,8 +17,72 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            let session_manager = SessionManager::new(app.handle().clone());
+            // Build the application menu with Preferences
+            let preferences = MenuItemBuilder::with_id("preferences", "Settings...")
+                .accelerator("CmdOrCtrl+,")
+                .build(app)?;
+
+            let app_submenu = SubmenuBuilder::new(app, "Forkestra")
+                .about(None)
+                .separator()
+                .item(&preferences)
+                .separator()
+                .services()
+                .separator()
+                .hide()
+                .hide_others()
+                .show_all()
+                .separator()
+                .quit()
+                .build()?;
+
+            let edit_submenu = SubmenuBuilder::new(app, "Edit")
+                .undo()
+                .redo()
+                .separator()
+                .cut()
+                .copy()
+                .paste()
+                .select_all()
+                .build()?;
+
+            let view_submenu = SubmenuBuilder::new(app, "View")
+                .fullscreen()
+                .build()?;
+
+            let window_submenu = SubmenuBuilder::new(app, "Window")
+                .minimize()
+                .close_window()
+                .build()?;
+
+            let menu = MenuBuilder::new(app)
+                .item(&app_submenu)
+                .item(&edit_submenu)
+                .item(&view_submenu)
+                .item(&window_submenu)
+                .build()?;
+
+            app.set_menu(menu)?;
+
+            // Handle menu events
+            app.on_menu_event(|app, event| {
+                if event.id().as_ref() == "preferences" {
+                    // Emit event to frontend to navigate to settings
+                    let _ = app.emit("menu:preferences", ());
+                }
+            });
+
+            // Initialize settings manager first
+            let settings_manager = Arc::new(
+                SettingsManager::new(app.handle())
+                    .expect("Failed to initialize settings manager"),
+            );
+            app.manage(settings_manager.clone());
+
+            // Initialize session manager with settings
+            let session_manager = SessionManager::new(app.handle().clone(), settings_manager);
             app.manage(session_manager);
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -26,6 +93,11 @@ pub fn run() {
             commands::send_message,
             commands::terminate_session,
             commands::merge_session,
+            commands::list_branches,
+            commands::rename_session,
+            commands::get_settings,
+            commands::update_settings,
+            commands::update_provider_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

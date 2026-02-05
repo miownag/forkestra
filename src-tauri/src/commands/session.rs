@@ -1,6 +1,7 @@
+use std::path::Path;
 use tauri::State;
 
-use crate::managers::SessionManager;
+use crate::managers::{SessionManager, WorktreeManager};
 use crate::models::{CreateSessionRequest, Session};
 
 #[tauri::command]
@@ -62,6 +63,23 @@ pub async fn merge_session(
 ) -> Result<(), String> {
     manager
         .merge_session(&session_id, &target_branch)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn list_branches(project_path: String) -> Result<Vec<String>, String> {
+    WorktreeManager::list_branches(Path::new(&project_path)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn rename_session(
+    manager: State<'_, SessionManager>,
+    session_id: String,
+    new_name: String,
+) -> Result<Session, String> {
+    manager
+        .rename_session(&session_id, &new_name)
         .await
         .map_err(|e| e.to_string())
 }

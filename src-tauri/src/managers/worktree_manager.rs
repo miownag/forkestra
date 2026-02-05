@@ -176,6 +176,25 @@ impl WorktreeManager {
         Repository::open(path).is_ok()
     }
 
+    /// List all branches in a repository
+    pub fn list_branches(project_path: &Path) -> AppResult<Vec<String>> {
+        let repo = Repository::open(project_path)?;
+        let mut branches = Vec::new();
+
+        // Get local branches
+        for branch in repo.branches(Some(BranchType::Local))? {
+            let (branch, _) = branch?;
+            if let Some(name) = branch.name()? {
+                branches.push(name.to_string());
+            }
+        }
+
+        // Sort branches alphabetically
+        branches.sort();
+
+        Ok(branches)
+    }
+
     /// Get the default branch name of a repository
     pub fn get_default_branch(project_path: &Path) -> AppResult<String> {
         let repo = Repository::open(project_path)?;
@@ -194,5 +213,17 @@ impl WorktreeManager {
         }
 
         Err(AppError::Git("Could not determine default branch".to_string()))
+    }
+
+    /// Get the current branch name of a repository
+    pub fn get_current_branch(project_path: &Path) -> AppResult<String> {
+        let repo = Repository::open(project_path)?;
+        let head = repo.head()?;
+
+        if let Some(name) = head.shorthand() {
+            Ok(name.to_string())
+        } else {
+            Err(AppError::Git("Could not determine current branch".to_string()))
+        }
     }
 }
