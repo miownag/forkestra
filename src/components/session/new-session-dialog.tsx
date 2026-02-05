@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { homeDir } from "@tauri-apps/api/path";
-import { useSessionStore, useProviderStore, useSettingsStore } from "@/stores";
+import {
+  useSelectorSettingsStore,
+  useSelectorProviderStore,
+  useSelectorSessionStore,
+} from "@/stores";
 import {
   Dialog,
   DialogContent,
@@ -41,11 +45,13 @@ export function NewSessionDialog({
   const [useLocal, setUseLocal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { createSession } = useSelectorSessionStore(["createSession"]);
+  const { providers } = useSelectorProviderStore(["providers"]);
+  const { defaultProjectPath } = useSelectorSettingsStore([
+    "defaultProjectPath",
+  ]);
 
-  const createSession = useSessionStore((s) => s.createSession);
-  const providers = useProviderStore((s) => s.providers);
   const installedProviders = providers.filter((p) => p.installed);
-  const defaultProjectPath = useSettingsStore((s) => s.defaultProjectPath);
 
   const handleSelectFolder = async () => {
     try {

@@ -1,5 +1,5 @@
 import { useRef, useEffect, useMemo } from "react";
-import { useSessionStore } from "@/stores";
+import { useSelectorSessionStore } from "@/stores";
 import { ChatMessage } from "./chat-message";
 import { ChatInput } from "./chat-input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,12 +11,14 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({ sessionId }: ChatWindowProps) {
-  const messagesMap = useSessionStore((s) => s.messages);
+  const { messages: messagesMap, sendMessage } = useSelectorSessionStore([
+    "messages",
+    "sendMessage",
+  ]);
   const messages = useMemo(
     () => messagesMap[sessionId] ?? EMPTY_MESSAGES,
     [messagesMap, sessionId],
   );
-  const sendMessage = useSessionStore((s) => s.sendMessage);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

@@ -9,8 +9,11 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useProviderStore, useProviderSettingsStore } from "@/stores";
-import useSelectorSettingsStore from "@/stores/settingsStore";
+import {
+  useSelectorProviderStore,
+  useSelectorProviderSettingsStore,
+} from "@/stores";
+import useSelectorSettingsStore from "@/stores/settings-store";
 import { ProviderSettingsCard } from "@/components/settings/provider-settings-card";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { VscRefresh, VscArrowLeft, VscFolder } from "react-icons/vsc";
@@ -24,10 +27,12 @@ export const Route = createFileRoute("/settings")({
 });
 
 function RouteComponent() {
-  const providers = useProviderStore((s) => s.providers);
-  const isDetecting = useProviderStore((s) => s.isDetecting);
-  const detectProviders = useProviderStore((s) => s.detectProviders);
-  const loadSettings = useProviderSettingsStore((s) => s.loadSettings);
+  const { providers, isDetecting, detectProviders } = useSelectorProviderStore([
+    "providers",
+    "isDetecting",
+    "detectProviders",
+  ]);
+  const { loadSettings } = useSelectorProviderSettingsStore(["loadSettings"]);
   const {
     theme,
     fontSize,
@@ -187,7 +192,7 @@ function RouteComponent() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => detectProviders()}
+            onClick={detectProviders}
             disabled={isDetecting}
           >
             <VscRefresh

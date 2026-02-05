@@ -9,6 +9,8 @@ import type {
   KimiProviderSettings,
 } from "@/types";
 import { createDefaultProviderSettings } from "@/types";
+import { useShallow } from "zustand/react/shallow";
+import { pick } from "es-toolkit";
 
 interface ProviderSettingsState {
   // State
@@ -113,3 +115,10 @@ export const useProviderSettingsStore = create<ProviderSettingsState>()(
     { name: "ProviderSettingsStore" }
   )
 );
+
+const useSelectorProviderSettingsStore = <T extends (keyof ProviderSettingsState)[]>(
+  keys: T,
+): Pick<ProviderSettingsState, T[number]> =>
+  useProviderSettingsStore(useShallow((state) => pick(state, keys)));
+
+export default useSelectorProviderSettingsStore;
