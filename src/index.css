@@ -78,3 +78,269 @@ body {
   width: 100%;
   table-layout: fixed;
 }
+
+/* Accent Color Themes - Light Mode */
+[data-accent-color="zinc"] {
+  --color-primary: hsl(240, 6%, 25%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(240, 6%, 25%);
+}
+
+[data-accent-color="slate"] {
+  --color-primary: hsl(222, 30%, 25%);
+  --color-primary-foreground: hsl(210, 40%, 98%);
+  --color-ring: hsl(222, 30%, 25%);
+}
+
+[data-accent-color="stone"] {
+  --color-primary: hsl(24, 10%, 35%);
+  --color-primary-foreground: hsl(60, 9.1%, 97.8%);
+  --color-ring: hsl(24, 10%, 35%);
+}
+
+[data-accent-color="gray"] {
+  --color-primary: hsl(220, 9%, 50%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(220, 9%, 50%);
+}
+
+[data-accent-color="neutral"] {
+  --color-primary: hsl(0, 0%, 60%);
+  --color-primary-foreground: hsl(0, 0%, 9%);
+  --color-ring: hsl(0, 0%, 60%);
+}
+
+[data-accent-color="red"] {
+  --color-primary: hsl(0, 72.2%, 50.6%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(0, 72.2%, 50.6%);
+}
+
+[data-accent-color="rose"] {
+  --color-primary: hsl(346.8, 77.2%, 49.8%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(346.8, 77.2%, 49.8%);
+}
+
+[data-accent-color="orange"] {
+  --color-primary: hsl(24.6, 95%, 53.1%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(24.6, 95%, 53.1%);
+}
+
+[data-accent-color="amber"] {
+  --color-primary: hsl(37.7, 92.1%, 50.2%);
+  --color-primary-foreground: hsl(0, 0%, 9%);
+  --color-ring: hsl(37.7, 92.1%, 50.2%);
+}
+
+[data-accent-color="yellow"] {
+  --color-primary: hsl(47.9, 95.8%, 53.1%);
+  --color-primary-foreground: hsl(26, 83.3%, 14.1%);
+  --color-ring: hsl(47.9, 95.8%, 53.1%);
+}
+
+[data-accent-color="lime"] {
+  --color-primary: hsl(142.1, 76.2%, 36.3%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(142.1, 76.2%, 36.3%);
+}
+
+[data-accent-color="green"] {
+  --color-primary: hsl(142.1, 76.2%, 36.3%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(142.1, 76.2%, 36.3%);
+}
+
+[data-accent-color="emerald"] {
+  --color-primary: hsl(160.1, 84.1%, 39.4%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(160.1, 84.1%, 39.4%);
+}
+
+[data-accent-color="teal"] {
+  --color-primary: hsl(173.4, 80.4%, 40%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(173.4, 80.4%, 40%);
+}
+
+[data-accent-color="cyan"] {
+  --color-primary: hsl(188.7, 94.5%, 42.7%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(188.7, 94.5%, 42.7%);
+}
+
+[data-accent-color="sky"] {
+  --color-primary: hsl(199, 89.5%, 48.2%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(199, 89.5%, 48.2%);
+}
+
+[data-accent-color="blue"] {
+  --color-primary: hsl(217.2, 91.2%, 59.8%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(217.2, 91.2%, 59.8%);
+}
+
+[data-accent-color="indigo"] {
+  --color-primary: hsl(238.7, 83.5%, 66.7%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(238.7, 83.5%, 66.7%);
+}
+
+[data-accent-color="violet"] {
+  --color-primary: hsl(258.3, 89.5%, 66.3%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(258.3, 89.5%, 66.3%);
+}
+
+[data-accent-color="purple"] {
+  --color-primary: hsl(270, 95.8%, 65.9%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(270, 95.8%, 65.9%);
+}
+
+[data-accent-color="fuchsia"] {
+  --color-primary: hsl(291.1, 93.1%, 62.8%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(291.1, 93.1%, 62.8%);
+}
+
+[data-accent-color="pink"] {
+  --color-primary: hsl(330.4, 81.2%, 60.4%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(330.4, 81.2%, 60.4%);
+}
+
+/* Accent Color Themes - Dark Mode */
+.dark[data-accent-color="zinc"] {
+  --color-primary: hsl(240, 6%, 75%);
+  --color-primary-foreground: hsl(240, 6%, 10%);
+  --color-ring: hsl(240, 6%, 75%);
+}
+
+.dark[data-accent-color="slate"] {
+  --color-primary: hsl(222, 30%, 65%);
+  --color-primary-foreground: hsl(222, 30%, 10%);
+  --color-ring: hsl(222, 30%, 65%);
+}
+
+.dark[data-accent-color="stone"] {
+  --color-primary: hsl(24, 10%, 65%);
+  --color-primary-foreground: hsl(24, 9.8%, 10%);
+  --color-ring: hsl(24, 10%, 65%);
+}
+
+.dark[data-accent-color="gray"] {
+  --color-primary: hsl(220, 9%, 70%);
+  --color-primary-foreground: hsl(220, 8.6%, 11%);
+  --color-ring: hsl(220, 9%, 70%);
+}
+
+.dark[data-accent-color="neutral"] {
+  --color-primary: hsl(0, 0%, 75%);
+  --color-primary-foreground: hsl(0, 0%, 9%);
+  --color-ring: hsl(0, 0%, 75%);
+}
+
+.dark[data-accent-color="red"] {
+  --color-primary: hsl(0, 62.8%, 60.6%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(0, 62.8%, 60.6%);
+}
+
+.dark[data-accent-color="rose"] {
+  --color-primary: hsl(346.8, 77.2%, 60.8%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(346.8, 77.2%, 60.8%);
+}
+
+.dark[data-accent-color="orange"] {
+  --color-primary: hsl(24.6, 95%, 60.1%);
+  --color-primary-foreground: hsl(0, 0%, 98%);
+  --color-ring: hsl(24.6, 95%, 60.1%);
+}
+
+.dark[data-accent-color="amber"] {
+  --color-primary: hsl(37.7, 92.1%, 60.2%);
+  --color-primary-foreground: hsl(0, 0%, 9%);
+  --color-ring: hsl(37.7, 92.1%, 60.2%);
+}
+
+.dark[data-accent-color="yellow"] {
+  --color-primary: hsl(47.9, 95.8%, 60.1%);
+  --color-primary-foreground: hsl(26, 83.3%, 14.1%);
+  --color-ring: hsl(47.9, 95.8%, 60.1%);
+}
+
+.dark[data-accent-color="lime"] {
+  --color-primary: hsl(142.1, 76.2%, 56.3%);
+  --color-primary-foreground: hsl(0, 0%, 9%);
+  --color-ring: hsl(142.1, 76.2%, 56.3%);
+}
+
+.dark[data-accent-color="green"] {
+  --color-primary: hsl(142.1, 76.2%, 56.3%);
+  --color-primary-foreground: hsl(0, 0%, 9%);
+  --color-ring: hsl(142.1, 76.2%, 56.3%);
+}
+
+.dark[data-accent-color="emerald"] {
+  --color-primary: hsl(160.1, 84.1%, 59.4%);
+  --color-primary-foreground: hsl(0, 0%, 9%);
+  --color-ring: hsl(160.1, 84.1%, 59.4%);
+}
+
+.dark[data-accent-color="teal"] {
+  --color-primary: hsl(173.4, 80.4%, 60%);
+  --color-primary-foreground: hsl(0, 0%, 9%);
+  --color-ring: hsl(173.4, 80.4%, 60%);
+}
+
+.dark[data-accent-color="cyan"] {
+  --color-primary: hsl(188.7, 94.5%, 62.7%);
+  --color-primary-foreground: hsl(0, 0%, 9%);
+  --color-ring: hsl(188.7, 94.5%, 62.7%);
+}
+
+.dark[data-accent-color="sky"] {
+  --color-primary: hsl(199, 89.5%, 68.2%);
+  --color-primary-foreground: hsl(0, 0%, 9%);
+  --color-ring: hsl(199, 89.5%, 68.2%);
+}
+
+.dark[data-accent-color="blue"] {
+  --color-primary: hsl(217.2, 91.2%, 69.8%);
+  --color-primary-foreground: hsl(0, 0%, 9%);
+  --color-ring: hsl(217.2, 91.2%, 69.8%);
+}
+
+.dark[data-accent-color="indigo"] {
+  --color-primary: hsl(238.7, 83.5%, 76.7%);
+  --color-primary-foreground: hsl(0, 0%, 9%);
+  --color-ring: hsl(238.7, 83.5%, 76.7%);
+}
+
+.dark[data-accent-color="violet"] {
+  --color-primary: hsl(258.3, 89.5%, 76.3%);
+  --color-primary-foreground: hsl(0, 0%, 9%);
+  --color-ring: hsl(258.3, 89.5%, 76.3%);
+}
+
+.dark[data-accent-color="purple"] {
+  --color-primary: hsl(270, 95.8%, 75.9%);
+  --color-primary-foreground: hsl(0, 0%, 9%);
+  --color-ring: hsl(270, 95.8%, 75.9%);
+}
+
+.dark[data-accent-color="fuchsia"] {
+  --color-primary: hsl(291.1, 93.1%, 72.8%);
+  --color-primary-foreground: hsl(0, 0%, 9%);
+  --color-ring: hsl(291.1, 93.1%, 72.8%);
+}
+
+.dark[data-accent-color="pink"] {
+  --color-primary: hsl(330.4, 81.2%, 70.4%);
+  --color-primary-foreground: hsl(0, 0%, 9%);
+  --color-ring: hsl(330.4, 81.2%, 70.4%);
+}

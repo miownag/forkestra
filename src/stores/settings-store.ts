@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { devtools, persist, subscribeWithSelector } from "zustand/middleware";
-import type { Theme, FontSize } from "@/types";
+import type { Theme, FontSize, AccentColor, DefaultWorkMode } from "@/types";
 import { useShallow } from "zustand/react/shallow";
 import { pick } from "es-toolkit";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -18,20 +18,24 @@ interface SettingsState {
 
   // Appearance
   fontSize: FontSize;
+  accentColor: AccentColor;
 
   // Other settings
   defaultProvider: string | null;
   worktreeBasePath: string | null;
   defaultProjectPath: string | null;
+  defaultWorkMode: DefaultWorkMode;
 
   // Actions
   setTheme: (theme: Theme) => void;
   setSystemTheme: (theme: ResolvedTheme) => void;
   setIsFullscreen: (isFullscreen: boolean) => void;
   setFontSize: (fontSize: FontSize) => void;
+  setAccentColor: (accentColor: AccentColor) => void;
   setDefaultProvider: (provider: string | null) => void;
   setWorktreeBasePath: (path: string | null) => void;
   setDefaultProjectPath: (path: string | null) => void;
+  setDefaultWorkMode: (mode: DefaultWorkMode) => void;
 }
 
 const resolveTheme = (
@@ -49,10 +53,12 @@ export const useSettingsStore = create<SettingsState>()(
           resolvedTheme: "light",
           isFullscreen: false,
           fontSize: "base",
+          accentColor: "default",
 
           defaultProvider: null,
           worktreeBasePath: null,
           defaultProjectPath: null,
+          defaultWorkMode: "worktree",
 
           setTheme: (theme) =>
             set({
@@ -66,18 +72,22 @@ export const useSettingsStore = create<SettingsState>()(
             }),
           setIsFullscreen: (isFullscreen) => set({ isFullscreen }),
           setFontSize: (fontSize) => set({ fontSize }),
+          setAccentColor: (accentColor) => set({ accentColor }),
           setDefaultProvider: (provider) => set({ defaultProvider: provider }),
           setWorktreeBasePath: (path) => set({ worktreeBasePath: path }),
           setDefaultProjectPath: (path) => set({ defaultProjectPath: path }),
+          setDefaultWorkMode: (mode) => set({ defaultWorkMode: mode }),
         }),
         {
           name: "forkestra-settings",
           partialize: (state) => ({
             theme: state.theme,
             fontSize: state.fontSize,
+            accentColor: state.accentColor,
             defaultProvider: state.defaultProvider,
             worktreeBasePath: state.worktreeBasePath,
             defaultProjectPath: state.defaultProjectPath,
+            defaultWorkMode: state.defaultWorkMode,
           }),
         },
       ),

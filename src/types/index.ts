@@ -128,6 +128,32 @@ export interface StreamChunk {
 // Settings types
 export type Theme = "light" | "dark" | "system";
 export type FontSize = "small" | "base" | "large";
+export type AccentColor =
+  | "default"
+  | "zinc"
+  | "slate"
+  | "stone"
+  | "gray"
+  | "neutral"
+  | "red"
+  | "rose"
+  | "orange"
+  | "amber"
+  | "yellow"
+  | "lime"
+  | "green"
+  | "emerald"
+  | "teal"
+  | "cyan"
+  | "sky"
+  | "blue"
+  | "indigo"
+  | "violet"
+  | "purple"
+  | "fuchsia"
+  | "pink";
+
+export type DefaultWorkMode = "worktree" | "local";
 
 // App settings from backend
 export interface AppSettings {

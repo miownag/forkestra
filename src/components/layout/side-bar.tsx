@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { VscSettingsGear, VscAdd } from "react-icons/vsc";
+import { VscSettingsGear } from "react-icons/vsc";
 import { IoCreateOutline } from "react-icons/io5";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -19,7 +19,7 @@ import { SessionItem } from "@/components/session/session-context-menu";
 import { cn } from "@/lib/utils";
 import { useStreamEvents } from "@/hooks/use-stream-events";
 import { useRouter, useLocation } from "@tanstack/react-router";
-import { PiSidebarDuotone } from "react-icons/pi";
+import { PiSidebar } from "react-icons/pi";
 
 interface SidebarProps {
   sidebarCollapsed: boolean;
@@ -56,6 +56,8 @@ export function Sidebar({
   const handleSettingsClick = () => {
     if (location.pathname !== "/settings") {
       router.navigate({ to: "/settings" });
+    } else {
+      router.history.back();
     }
   };
 
@@ -64,7 +66,7 @@ export function Sidebar({
   return (
     <div
       className={cn(
-        "h-full flex flex-col border-r bg-muted/75",
+        "h-full flex flex-col border-r bg-muted/30",
         sidebarCollapsed ? "w-0 overflow-hidden" : "w-64",
       )}
     >
@@ -79,10 +81,10 @@ export function Sidebar({
           <Button
             variant="ghost"
             size="icon"
-            className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-6"
+            className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-5"
             onClick={toggleSidebar}
           >
-            <PiSidebarDuotone />
+            <PiSidebar />
           </Button>
         </div>
       )}
@@ -113,10 +115,10 @@ export function Sidebar({
             <Button
               variant="ghost"
               size="icon"
-              className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-6 self-start"
+              className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-5 self-start"
               onClick={toggleSidebar}
             >
-              <PiSidebarDuotone />
+              <PiSidebar />
             </Button>
           )}
         </div>

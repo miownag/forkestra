@@ -8,7 +8,7 @@ import {
 } from "@/stores";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sidebar } from "@/components/layout/side-bar";
-import { PiSidebarDuotone } from "react-icons/pi";
+import { PiSidebar } from "react-icons/pi";
 import { CgSun, CgMoon } from "react-icons/cg";
 import { cn } from "@/lib/utils";
 import { listen } from "@tauri-apps/api/event";
@@ -21,11 +21,14 @@ function RootComponent() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { fetchSessions } = useSelectorSessionStore(["fetchSessions"]);
   const { detectProviders } = useSelectorProviderStore(["detectProviders"]);
-  const { resolvedTheme, setTheme, isFullscreen } = useSelectorSettingsStore([
-    "resolvedTheme",
-    "setTheme",
-    "isFullscreen",
-  ]);
+  const { resolvedTheme, setTheme, isFullscreen, fontSize, accentColor } =
+    useSelectorSettingsStore([
+      "resolvedTheme",
+      "setTheme",
+      "isFullscreen",
+      "fontSize",
+      "accentColor",
+    ]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -50,6 +53,29 @@ function RootComponent() {
     root.classList.add(resolvedTheme);
   }, [resolvedTheme]);
 
+  // Inject font size class to document root
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove("text-sm", "text-base", "text-lg");
+    const fontSizeClass = {
+      small: "text-sm",
+      base: "text-base",
+      large: "text-lg",
+    }[fontSize];
+    root.classList.add(fontSizeClass);
+  }, [fontSize]);
+
+  // Inject accent color to document root
+  useEffect(() => {
+    const root = document.documentElement;
+    // Remove existing accent color attribute
+    root.removeAttribute("data-accent-color");
+    // Set new accent color if not default
+    if (accentColor !== "default") {
+      root.setAttribute("data-accent-color", accentColor);
+    }
+  }, [accentColor]);
+
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex h-screen bg-background">
@@ -69,10 +95,10 @@ function RootComponent() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-6"
+                className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-5"
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
               >
-                <PiSidebarDuotone />
+                <PiSidebar />
               </Button>
             ) : (
               <div />
@@ -81,7 +107,7 @@ function RootComponent() {
               variant="ghost"
               size="icon"
               className={cn(
-                "w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-5 rounded-full cursor-default",
+                "w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-4 rounded-full cursor-default",
               )}
               onClick={() =>
                 setTheme(resolvedTheme === "light" ? "dark" : "light")

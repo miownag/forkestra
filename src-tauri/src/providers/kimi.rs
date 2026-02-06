@@ -59,7 +59,7 @@ impl ProviderAdapter for KimiAdapter {
     }
 
     fn detect(&self) -> AppResult<ProviderInfo> {
-        Ok(ProviderDetector::detect_provider(&ProviderType::Kimi))
+        Ok(ProviderDetector::detect_provider(&ProviderType::Kimi, None))
     }
 
     async fn start_session(

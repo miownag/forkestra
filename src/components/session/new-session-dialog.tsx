@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { homeDir } from "@tauri-apps/api/path";
 import {
@@ -47,9 +47,17 @@ export function NewSessionDialog({
   const [error, setError] = useState<string | null>(null);
   const { createSession } = useSelectorSessionStore(["createSession"]);
   const { providers } = useSelectorProviderStore(["providers"]);
-  const { defaultProjectPath } = useSelectorSettingsStore([
+  const { defaultProjectPath, defaultWorkMode } = useSelectorSettingsStore([
     "defaultProjectPath",
+    "defaultWorkMode",
   ]);
+
+  // Update useLocal when dialog opens based on defaultWorkMode
+  useEffect(() => {
+    if (open) {
+      setUseLocal(defaultWorkMode === "local");
+    }
+  }, [open, defaultWorkMode]);
 
   const installedProviders = providers.filter((p) => p.installed);
 

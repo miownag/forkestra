@@ -17,12 +17,13 @@ import useSelectorSettingsStore from "@/stores/settings-store";
 import { ProviderSettingsCard } from "@/components/settings/provider-settings-card";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { VscRefresh, VscArrowLeft, VscFolder } from "react-icons/vsc";
-import type { Theme, FontSize } from "@/types";
+import type { Theme, FontSize, AccentColor, DefaultWorkMode } from "@/types";
+import { ACCENT_COLOR_OPTIONS } from "@/constants/theme";
 import { Separator } from "@/components/ui/separator";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { homeDir } from "@tauri-apps/api/path";
 
-export const Route = createFileRoute("/settings")({
+export const Route = createFileRoute("/settings/")({
   component: RouteComponent,
 });
 
@@ -36,17 +37,25 @@ function RouteComponent() {
   const {
     theme,
     fontSize,
+    accentColor,
     defaultProjectPath,
+    defaultWorkMode,
     setTheme,
     setFontSize,
+    setAccentColor,
     setDefaultProjectPath,
+    setDefaultWorkMode,
   } = useSelectorSettingsStore([
     "theme",
     "fontSize",
+    "accentColor",
     "defaultProjectPath",
+    "defaultWorkMode",
     "setTheme",
     "setFontSize",
+    "setAccentColor",
     "setDefaultProjectPath",
+    "setDefaultWorkMode",
   ]);
   const router = useRouter();
 
@@ -115,6 +124,30 @@ function RouteComponent() {
               </Button>
             </div>
           </div>
+
+          {/* Default Work Mode */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Preferred Work Mode</Label>
+              <p className="text-xs text-muted-foreground">
+                Default mode when creating new sessions
+              </p>
+            </div>
+            <Select
+              value={defaultWorkMode}
+              onValueChange={(value) =>
+                setDefaultWorkMode(value as DefaultWorkMode)
+              }
+            >
+              <SelectTrigger className="w-45">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="worktree">Worktree</SelectItem>
+                <SelectItem value="local">Local</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -172,6 +205,43 @@ function RouteComponent() {
                 <SelectItem value="small">Small</SelectItem>
                 <SelectItem value="base">Base (Default)</SelectItem>
                 <SelectItem value="large">Large</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Accent Color Setting */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Accent Color</Label>
+              <p className="text-xs text-muted-foreground">
+                Choose your preferred accent color theme
+              </p>
+            </div>
+            <Select
+              value={accentColor}
+              onValueChange={(value) => setAccentColor(value as AccentColor)}
+            >
+              <SelectTrigger className="w-45">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ACCENT_COLOR_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="w-3 h-3 rounded-full border border-border"
+                        style={{
+                          backgroundColor: option.color,
+                          borderColor:
+                            option.value === "default"
+                              ? "hsl(0, 0%, 89.8%)"
+                              : option.color,
+                        }}
+                      />
+                      <span>{option.label}</span>
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

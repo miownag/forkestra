@@ -62,7 +62,7 @@ impl ProviderAdapter for ClaudeAdapter {
     }
 
     fn detect(&self) -> AppResult<ProviderInfo> {
-        Ok(ProviderDetector::detect_provider(&ProviderType::Claude))
+        Ok(ProviderDetector::detect_provider(&ProviderType::Claude, None))
     }
 
     async fn start_session(

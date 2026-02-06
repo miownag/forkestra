@@ -19,10 +19,10 @@ interface ProviderSettingsCardProps {
 
 export function ProviderSettingsCard({ provider }: ProviderSettingsCardProps) {
   const storeSettings = useProviderSettingsStore(
-    (s) => s.settings[provider.provider_type]
+    (s) => s.settings[provider.provider_type],
   );
   const updateProviderSettings = useProviderSettingsStore(
-    (s) => s.updateProviderSettings
+    (s) => s.updateProviderSettings,
   );
   const isLoading = useProviderSettingsStore((s) => s.isLoading);
 
@@ -174,11 +174,7 @@ export function ProviderSettingsCard({ provider }: ProviderSettingsCardProps) {
       {/* Save Button */}
       {isDirty && (
         <div className="mt-4 pt-4 border-t">
-          <Button
-            onClick={handleSave}
-            className="w-full"
-            disabled={isLoading}
-          >
+          <Button onClick={handleSave} className="w-full" disabled={isLoading}>
             {isLoading ? "Saving..." : "Save Changes"}
           </Button>
         </div>
