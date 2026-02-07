@@ -11,7 +11,7 @@ static SHELL_PATH: OnceLock<Option<String>> = OnceLock::new();
 
 impl ProviderDetector {
     /// Get the PATH from user's shell configuration
-    fn get_shell_path() -> Option<String> {
+    pub fn get_shell_path() -> Option<String> {
         SHELL_PATH
             .get_or_init(|| {
                 let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
@@ -33,7 +33,7 @@ impl ProviderDetector {
     }
 
     /// Find executable in PATH, trying shell PATH first
-    fn find_in_path(command: &str) -> Option<std::path::PathBuf> {
+    pub fn find_in_path(command: &str) -> Option<std::path::PathBuf> {
         // First try with shell's PATH (more likely to have user-installed tools)
         if let Some(shell_path) = Self::get_shell_path() {
             for dir in shell_path.split(':') {

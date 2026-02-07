@@ -1,3 +1,4 @@
+pub mod acp_helper;
 pub mod adapter;
 pub mod claude;
 pub mod detector;

@@ -39,8 +39,10 @@ export function useStreamEvents() {
           console.log("[useStreamEvents] Calling setInteractionPrompt");
           setInteractionPrompt(event.payload.session_id, {
             sessionId: event.payload.session_id,
-            type: event.payload.prompt_type as "confirm" | "input",
+            type: event.payload.prompt_type as "confirm" | "input" | "permission",
             message: event.payload.message,
+            requestId: event.payload.request_id,
+            toolName: event.payload.tool_name,
           });
           console.log("[useStreamEvents] setInteractionPrompt called");
         }

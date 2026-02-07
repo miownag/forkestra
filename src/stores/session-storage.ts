@@ -12,8 +12,10 @@ import type {
 
 interface InteractionPrompt {
   sessionId: string;
-  type: "confirm" | "input";
+  type: "confirm" | "input" | "permission";
   message: string;
+  requestId?: string;
+  toolName?: string;
 }
 
 interface SessionState {

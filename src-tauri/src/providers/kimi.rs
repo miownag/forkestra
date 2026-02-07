@@ -1,32 +1,45 @@
-use std::io::{BufRead, BufReader, Write};
+use std::collections::HashMap;
 use std::path::Path;
+use std::process::Stdio;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use parking_lot::Mutex;
-use portable_pty::{native_pty_system, CommandBuilder, PtyPair, PtySize};
-use tokio::sync::mpsc;
+use tauri::AppHandle;
+use tokio::sync::{mpsc, Mutex};
 
 use crate::error::{AppError, AppResult};
-use crate::models::{KimiProviderSettings, ProviderInfo, ProviderType, StreamChunk};
+use crate::models::{
+    KimiProviderSettings, PendingPermission, ProviderInfo, ProviderType, StreamChunk,
+};
+use crate::providers::acp_helper::{
+    acp_handshake, build_clean_env, build_permission_response, build_prompt_request,
+    spawn_stderr_reader, spawn_stdin_writer, spawn_stdout_reader, PendingRequests,
+};
 use crate::providers::adapter::ProviderAdapter;
 use crate::providers::detector::ProviderDetector;
 
 pub struct KimiAdapter {
-    pty: Option<Arc<Mutex<PtyPair>>>,
-    writer: Option<Arc<Mutex<Box<dyn Write + Send>>>>,
+    child: Option<tokio::process::Child>,
+    stdin_tx: Option<mpsc::Sender<String>>,
+    acp_session_id: Option<String>,
     session_id: Option<String>,
+    next_request_id: Arc<Mutex<u64>>,
+    pending_requests: PendingRequests,
+    pending_permission: Arc<Mutex<Option<PendingPermission>>>,
     is_active: bool,
-    // Configuration fields
     cli_path: String,
 }
 
 impl KimiAdapter {
     pub fn new() -> Self {
         Self {
-            pty: None,
-            writer: None,
+            child: None,
+            stdin_tx: None,
+            acp_session_id: None,
             session_id: None,
+            next_request_id: Arc::new(Mutex::new(10)),
+            pending_requests: Arc::new(Mutex::new(HashMap::new())),
+            pending_permission: Arc::new(Mutex::new(None)),
             is_active: false,
             cli_path: "kimi".to_string(),
         }
@@ -34,15 +47,26 @@ impl KimiAdapter {
 
     pub fn with_settings(settings: &KimiProviderSettings) -> Self {
         Self {
-            pty: None,
-            writer: None,
+            child: None,
+            stdin_tx: None,
+            acp_session_id: None,
             session_id: None,
+            next_request_id: Arc::new(Mutex::new(10)),
+            pending_requests: Arc::new(Mutex::new(HashMap::new())),
+            pending_permission: Arc::new(Mutex::new(None)),
             is_active: false,
             cli_path: settings
                 .custom_cli_path
                 .clone()
                 .unwrap_or_else(|| "kimi".to_string()),
         }
+    }
+
+    async fn next_id(&self) -> u64 {
+        let mut id = self.next_request_id.lock().await;
+        let current = *id;
+        *id += 1;
+        current
     }
 }
 
@@ -67,85 +91,93 @@ impl ProviderAdapter for KimiAdapter {
         session_id: &str,
         worktree_path: &Path,
         stream_tx: mpsc::Sender<StreamChunk>,
-        _app_handle: tauri::AppHandle,
+        app_handle: AppHandle,
     ) -> AppResult<()> {
-        let pty_system = native_pty_system();
+        println!("[KimiAdapter] Starting ACP session for {}", session_id);
 
-        // Create PTY with reasonable size
-        let pair = pty_system
-            .openpty(PtySize {
-                rows: 24,
-                cols: 80,
-                pixel_width: 0,
-                pixel_height: 0,
-            })
-            .map_err(|e| AppError::Provider(format!("Failed to create PTY: {}", e)))?;
+        // Resolve kimi CLI path
+        let cli_path = ProviderDetector::find_in_path(&self.cli_path)
+            .unwrap_or_else(|| std::path::PathBuf::from(&self.cli_path));
 
-        // Build command using configured CLI path
-        let mut cmd = CommandBuilder::new(&self.cli_path);
-        cmd.cwd(worktree_path);
-        // Use print mode for JSON output that's easier to parse
-        cmd.arg("--print");
+        // Build clean environment
+        let env = build_clean_env();
 
-        // Spawn the child process
-        let mut child = pair
-            .slave
-            .spawn_command(cmd)
-            .map_err(|e| AppError::Provider(format!("Failed to spawn kimi: {}", e)))?;
+        // Spawn kimi with ACP subcommand
+        let mut child = tokio::process::Command::new(&cli_path)
+            .arg("acp")
+            .current_dir(worktree_path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .envs(&env)
+            .spawn()
+            .map_err(|e| {
+                AppError::Provider(format!("Failed to spawn kimi acp: {}", e))
+            })?;
 
-        // Get writer for sending input
-        let writer = pair
-            .master
-            .take_writer()
-            .map_err(|e| AppError::Provider(format!("Failed to get writer: {}", e)))?;
+        // Take stdin, stdout, stderr
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| AppError::Provider("Failed to get stdin handle".to_string()))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| AppError::Provider("Failed to get stdout handle".to_string()))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| AppError::Provider("Failed to get stderr handle".to_string()))?;
 
-        // Get reader for receiving output
-        let reader = pair
-            .master
-            .try_clone_reader()
-            .map_err(|e| AppError::Provider(format!("Failed to get reader: {}", e)))?;
+        // Create stdin writer channel
+        let (stdin_tx, stdin_rx) = mpsc::channel::<String>(100);
 
-        let session_id_clone = session_id.to_string();
+        // Spawn tasks
+        spawn_stdin_writer(stdin, stdin_rx);
+        spawn_stderr_reader(stderr, "kimi".to_string());
+
         let message_id = uuid::Uuid::new_v4().to_string();
+        let pending_requests = self.pending_requests.clone();
+        let pending_permission = self.pending_permission.clone();
 
-        // Spawn task to read output and send to channel
+        // Forward stream chunks to frontend
+        let (internal_tx, mut internal_rx) = mpsc::channel::<StreamChunk>(100);
+        let session_id_for_forwarder = session_id.to_string();
         tokio::spawn(async move {
-            let buf_reader = BufReader::new(reader);
-            for line in buf_reader.lines() {
-                match line {
-                    Ok(content) => {
-                        let chunk = StreamChunk {
-                            session_id: session_id_clone.clone(),
-                            message_id: message_id.clone(),
-                            content: format!("{}\n", content),
-                            is_complete: false,
-                        };
-                        if stream_tx.send(chunk).await.is_err() {
-                            break;
-                        }
-                    }
-                    Err(_) => break,
+            while let Some(chunk) = internal_rx.recv().await {
+                if stream_tx.send(chunk).await.is_err() {
+                    break;
                 }
             }
-
-            // Send completion signal
-            let _ = stream_tx
-                .send(StreamChunk {
-                    session_id: session_id_clone,
-                    message_id,
-                    content: String::new(),
-                    is_complete: true,
-                })
-                .await;
+            println!(
+                "[KimiAdapter] Stream forwarder ended for session {}",
+                session_id_for_forwarder
+            );
         });
 
-        // Wait for child process to exit in background
-        tokio::spawn(async move {
-            let _ = child.wait();
-        });
+        spawn_stdout_reader(
+            stdout,
+            internal_tx,
+            app_handle,
+            pending_requests.clone(),
+            pending_permission.clone(),
+            session_id.to_string(),
+            message_id,
+        );
 
-        self.pty = Some(Arc::new(Mutex::new(pair)));
-        self.writer = Some(Arc::new(Mutex::new(writer)));
+        // Perform ACP handshake
+        println!("[KimiAdapter] Starting ACP handshake...");
+        let acp_session_id = acp_handshake(&stdin_tx, &pending_requests, &worktree_path.to_string_lossy()).await?;
+
+        println!(
+            "[KimiAdapter] ACP session established: {}",
+            acp_session_id
+        );
+
+        // Store state
+        self.child = Some(child);
+        self.stdin_tx = Some(stdin_tx);
+        self.acp_session_id = Some(acp_session_id);
         self.session_id = Some(session_id.to_string());
         self.is_active = true;
 
@@ -153,17 +185,56 @@ impl ProviderAdapter for KimiAdapter {
     }
 
     async fn send_message(&mut self, message: &str) -> AppResult<()> {
-        let writer = self
-            .writer
+        let stdin_tx = self
+            .stdin_tx
             .as_ref()
             .ok_or_else(|| AppError::Provider("Session not started".to_string()))?;
 
-        let mut writer = writer.lock();
-        write!(writer, "{}\r", message)
-            .map_err(|e| AppError::Provider(format!("Failed to send message: {}", e)))?;
-        writer
-            .flush()
-            .map_err(|e| AppError::Provider(format!("Failed to flush: {}", e)))?;
+        // Check if there's a pending permission request
+        let pending_perm = {
+            let mut perm = self.pending_permission.lock().await;
+            perm.take()
+        };
+
+        if let Some(perm) = pending_perm {
+            let granted = !matches!(message.trim().to_lowercase().as_str(), "n" | "no" | "deny");
+            let response_json = build_permission_response(perm.jsonrpc_id, granted);
+
+            println!(
+                "[KimiAdapter] Sending permission response: granted={}",
+                granted
+            );
+            stdin_tx.send(response_json).await.map_err(|e| {
+                AppError::Provider(format!("Failed to send permission response: {}", e))
+            })?;
+
+            return Ok(());
+        }
+
+        // Normal message: send as session/prompt
+        let acp_session_id = self
+            .acp_session_id
+            .as_ref()
+            .ok_or_else(|| AppError::Provider("ACP session not established".to_string()))?;
+
+        let request_id = self.next_id().await;
+        let request = build_prompt_request(request_id, acp_session_id, message)?;
+
+        let json_str = serde_json::to_string(&request)
+            .map_err(|e| AppError::Provider(format!("Failed to serialize prompt request: {}", e)))?;
+
+        println!("[KimiAdapter] Sending session/prompt (id={})", request_id);
+
+        // Register the pending request for response tracking
+        {
+            let (tx, _rx) = tokio::sync::oneshot::channel();
+            let mut pending = self.pending_requests.lock().await;
+            pending.insert(request_id, tx);
+        }
+
+        stdin_tx.send(json_str).await.map_err(|e| {
+            AppError::Provider(format!("Failed to send prompt to stdin: {}", e))
+        })?;
 
         Ok(())
     }
@@ -173,16 +244,22 @@ impl ProviderAdapter for KimiAdapter {
     }
 
     async fn terminate(&mut self) -> AppResult<()> {
-        // Send Ctrl+C to gracefully terminate
-        if let Some(writer) = &self.writer {
-            let mut writer = writer.lock();
-            let _ = writer.write_all(&[0x03]); // Ctrl+C
-            let _ = writer.flush();
+        println!("[KimiAdapter] Terminating session");
+
+        self.stdin_tx = None;
+
+        if let Some(mut child) = self.child.take() {
+            let _ = child.kill().await;
         }
 
         self.is_active = false;
-        self.pty = None;
-        self.writer = None;
+        self.acp_session_id = None;
+        self.session_id = None;
+
+        {
+            let mut pending = self.pending_requests.lock().await;
+            pending.clear();
+        }
 
         Ok(())
     }

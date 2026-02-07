@@ -85,11 +85,36 @@ pub struct StreamChunk {
     pub message_id: String,
     pub content: String,
     pub is_complete: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chunk_type: Option<StreamChunkType>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_call: Option<ToolCallInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StreamChunkType {
+    Text,
+    Thinking,
+    ToolCall,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCallInfo {
+    pub tool_call_id: String,
+    pub tool_name: Option<String>,
+    pub status: String,
+    pub title: String,
+    pub content: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InteractionPrompt {
     pub session_id: String,
-    pub prompt_type: String, // "confirm" | "input"
+    pub prompt_type: String, // "confirm" | "input" | "permission"
     pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_name: Option<String>,
 }

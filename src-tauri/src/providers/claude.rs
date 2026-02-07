@@ -1,24 +1,32 @@
-use std::io::{BufReader, Write};
+use std::collections::HashMap;
 use std::path::Path;
+use std::process::Stdio;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use parking_lot::Mutex;
-use portable_pty::{native_pty_system, CommandBuilder, PtyPair, PtySize};
-use tauri::{Emitter, AppHandle};
-use tokio::sync::mpsc;
+use tauri::AppHandle;
+use tokio::sync::{mpsc, Mutex};
 
 use crate::error::{AppError, AppResult};
-use crate::models::{ClaudeProviderSettings, InteractionPrompt, ProviderInfo, ProviderType, StreamChunk};
+use crate::models::{
+    ClaudeProviderSettings, PendingPermission, ProviderInfo, ProviderType, StreamChunk,
+};
+use crate::providers::acp_helper::{
+    acp_handshake, build_clean_env, build_permission_response, build_prompt_request,
+    spawn_stderr_reader, spawn_stdin_writer, spawn_stdout_reader, PendingRequests,
+};
 use crate::providers::adapter::ProviderAdapter;
 use crate::providers::detector::ProviderDetector;
 
 pub struct ClaudeAdapter {
-    pty: Option<Arc<Mutex<PtyPair>>>,
-    writer: Option<Arc<Mutex<Box<dyn Write + Send>>>>,
+    child: Option<tokio::process::Child>,
+    stdin_tx: Option<mpsc::Sender<String>>,
+    acp_session_id: Option<String>,
     session_id: Option<String>,
+    next_request_id: Arc<Mutex<u64>>,
+    pending_requests: PendingRequests,
+    pending_permission: Arc<Mutex<Option<PendingPermission>>>,
     is_active: bool,
-    // Configuration fields
     cli_path: String,
     disable_login_prompt: bool,
 }
@@ -26,9 +34,13 @@ pub struct ClaudeAdapter {
 impl ClaudeAdapter {
     pub fn new() -> Self {
         Self {
-            pty: None,
-            writer: None,
+            child: None,
+            stdin_tx: None,
+            acp_session_id: None,
             session_id: None,
+            next_request_id: Arc::new(Mutex::new(10)), // Start at 10 to avoid colliding with handshake IDs
+            pending_requests: Arc::new(Mutex::new(HashMap::new())),
+            pending_permission: Arc::new(Mutex::new(None)),
             is_active: false,
             cli_path: "claude".to_string(),
             disable_login_prompt: false,
@@ -37,9 +49,13 @@ impl ClaudeAdapter {
 
     pub fn with_settings(settings: &ClaudeProviderSettings) -> Self {
         Self {
-            pty: None,
-            writer: None,
+            child: None,
+            stdin_tx: None,
+            acp_session_id: None,
             session_id: None,
+            next_request_id: Arc::new(Mutex::new(10)),
+            pending_requests: Arc::new(Mutex::new(HashMap::new())),
+            pending_permission: Arc::new(Mutex::new(None)),
             is_active: false,
             cli_path: settings
                 .custom_cli_path
@@ -47,6 +63,14 @@ impl ClaudeAdapter {
                 .unwrap_or_else(|| "claude".to_string()),
             disable_login_prompt: settings.disable_login_prompt,
         }
+    }
+
+    /// Get the next JSON-RPC request ID
+    async fn next_id(&self) -> u64 {
+        let mut id = self.next_request_id.lock().await;
+        let current = *id;
+        *id += 1;
+        current
     }
 }
 
@@ -63,7 +87,10 @@ impl ProviderAdapter for ClaudeAdapter {
     }
 
     fn detect(&self) -> AppResult<ProviderInfo> {
-        Ok(ProviderDetector::detect_provider(&ProviderType::Claude, None))
+        Ok(ProviderDetector::detect_provider(
+            &ProviderType::Claude,
+            None,
+        ))
     }
 
     async fn start_session(
@@ -71,217 +98,181 @@ impl ProviderAdapter for ClaudeAdapter {
         session_id: &str,
         worktree_path: &Path,
         stream_tx: mpsc::Sender<StreamChunk>,
-        app_handle: tauri::AppHandle,
+        app_handle: AppHandle,
     ) -> AppResult<()> {
-        let pty_system = native_pty_system();
+        println!(
+            "[ClaudeAdapter] Starting ACP session for {}",
+            session_id
+        );
 
-        // Create PTY with reasonable size
-        let pair = pty_system
-            .openpty(PtySize {
-                rows: 24,
-                cols: 80,
-                pixel_width: 0,
-                pixel_height: 0,
-            })
-            .map_err(|e| AppError::Provider(format!("Failed to create PTY: {}", e)))?;
+        // Resolve npx path
+        let npx_path = ProviderDetector::find_in_path("npx")
+            .ok_or_else(|| {
+                AppError::Provider(
+                    "npx not found in PATH. Please install Node.js to use Claude Code ACP."
+                        .to_string(),
+                )
+            })?;
 
-        // Build command using configured CLI path
-        let mut cmd = CommandBuilder::new(&self.cli_path);
-        cmd.cwd(worktree_path);
-        // Interactive mode - no --print flag
-        // --print is for non-interactive one-shot queries
+        // Build clean environment
+        let mut env = build_clean_env();
 
-        // Add disable login prompt flag if configured
-        if self.disable_login_prompt {
-            cmd.env("DISABLE_AUTHN", "1");
+        // Set custom CLI path if configured (non-default)
+        if self.cli_path != "claude" {
+            let resolved = ProviderDetector::find_in_path(&self.cli_path)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|| self.cli_path.clone());
+            println!("[ClaudeAdapter] Using custom CLI path: {}", resolved);
+            env.insert("CLAUDE_CODE_EXECUTABLE".to_string(), resolved);
         }
 
-        // Spawn the child process
-        let mut child = pair
-            .slave
-            .spawn_command(cmd)
-            .map_err(|e| AppError::Provider(format!("Failed to spawn claude: {}", e)))?;
+        // Set disable login prompt if configured
+        if self.disable_login_prompt {
+            env.insert("DISABLE_AUTHN".to_string(), "1".to_string());
+        }
 
-        // Get writer for sending input
-        let writer = pair
-            .master
-            .take_writer()
-            .map_err(|e| AppError::Provider(format!("Failed to get writer: {}", e)))?;
+        // Spawn the ACP bridge process
+        let mut child = tokio::process::Command::new(&npx_path)
+            .args(["@zed-industries/claude-code-acp"])
+            .current_dir(worktree_path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .envs(&env)
+            .spawn()
+            .map_err(|e| {
+                AppError::Provider(format!(
+                    "Failed to spawn npx @zed-industries/claude-code-acp: {}",
+                    e
+                ))
+            })?;
 
-        // Get reader for receiving output
-        let reader = pair
-            .master
-            .try_clone_reader()
-            .map_err(|e| AppError::Provider(format!("Failed to get reader: {}", e)))?;
+        // Take stdin, stdout, stderr
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| AppError::Provider("Failed to get stdin handle".to_string()))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| AppError::Provider("Failed to get stdout handle".to_string()))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| AppError::Provider("Failed to get stderr handle".to_string()))?;
 
-        let session_id_clone = session_id.to_string();
+        // Create stdin writer channel
+        let (stdin_tx, stdin_rx) = mpsc::channel::<String>(100);
+
+        // Spawn tasks
+        spawn_stdin_writer(stdin, stdin_rx);
+        spawn_stderr_reader(stderr, "claude".to_string());
+
         let message_id = uuid::Uuid::new_v4().to_string();
+        let pending_requests = self.pending_requests.clone();
+        let pending_permission = self.pending_permission.clone();
 
-        // Spawn task to read output and send to channel
-        // Use spawn_blocking for synchronous I/O operations
-        let session_id_for_log = session_id.to_string();
-        let (chunk_tx, mut chunk_rx) = mpsc::channel::<StreamChunk>(100);
-        let (prompt_tx, mut prompt_rx) = mpsc::channel::<InteractionPrompt>(10);
-        
-        // Spawn blocking task for reading PTY output
-        tokio::task::spawn_blocking(move || {
-            println!("[ClaudeAdapter] Starting output reader for session {}", session_id_for_log);
-            let mut buf_reader = BufReader::new(reader);
-            let mut buffer = Vec::new();
-            let mut byte = [0u8; 1];
-            let rt = tokio::runtime::Handle::current();
-
-            loop {
-                use std::io::Read;
-                match buf_reader.get_mut().read(&mut byte) {
-                    Ok(0) => {
-                        println!("[ClaudeAdapter] EOF reached for session {}", session_id_for_log);
-                        break;
-                    }, // EOF
-                    Ok(_) => {
-                        buffer.push(byte[0]);
-                        // Send on newline or when we have content after a potential prompt
-                        if byte[0] == b'\n' || buffer.ends_with(b"> ") || buffer.ends_with(b"? ") {
-                            if let Ok(content) = String::from_utf8(buffer.clone()) {
-                                let preview: String = content.chars().take(100).collect();
-                                println!("[ClaudeAdapter] Read content (len={}): {:?}", content.len(), preview);
-                                
-                                // Check for interaction prompts
-                                let lower_content = content.to_lowercase();
-                                let is_interaction = lower_content.contains("do you trust")
-                                    || lower_content.contains("press enter")
-                                    || lower_content.contains("continue?")
-                                    || lower_content.contains("confirm");
-                                
-                                if is_interaction {
-                                    println!("[ClaudeAdapter] Detected interaction prompt, sending via channel");
-                                    let prompt = InteractionPrompt {
-                                        session_id: session_id_clone.clone(),
-                                        prompt_type: "confirm".to_string(),
-                                        message: content.clone(),
-                                    };
-                                    // Send prompt via channel instead of directly emitting
-                                    if let Err(e) = rt.block_on(prompt_tx.send(prompt)) {
-                                        eprintln!("[ClaudeAdapter] Failed to send prompt via channel: {}", e);
-                                    } else {
-                                        println!("[ClaudeAdapter] Successfully sent prompt via channel");
-                                    }
-                                }
-                                
-                                let chunk = StreamChunk {
-                                    session_id: session_id_clone.clone(),
-                                    message_id: message_id.clone(),
-                                    content,
-                                    is_complete: false,
-                                };
-                                if let Err(e) = rt.block_on(chunk_tx.send(chunk)) {
-                                    eprintln!("[ClaudeAdapter] Failed to send chunk: {}", e);
-                                    break;
-                                }
-                            }
-                            buffer.clear();
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("[ClaudeAdapter] Read error for session {}: {}", session_id_for_log, e);
-                        break;
-                    },
-                }
-            }
-
-            // Send any remaining content
-            if !buffer.is_empty() {
-                if let Ok(content) = String::from_utf8(buffer) {
-                    let _ = rt.block_on(chunk_tx.send(StreamChunk {
-                        session_id: session_id_clone.clone(),
-                        message_id: message_id.clone(),
-                        content,
-                        is_complete: false,
-                    }));
-                }
-            }
-
-            // Send completion signal
-            let _ = rt.block_on(chunk_tx.send(StreamChunk {
-                session_id: session_id_clone,
-                message_id,
-                content: String::new(),
-                is_complete: true,
-            }));
-            
-            println!("[ClaudeAdapter] Output reader ended for session {}", session_id_for_log);
-        });
-        
-        // Forward chunks from blocking task to the original stream_tx
+        // Forward stream chunks to frontend
+        let (internal_tx, mut internal_rx) = mpsc::channel::<StreamChunk>(100);
+        let session_id_for_forwarder = session_id.to_string();
         tokio::spawn(async move {
-            while let Some(chunk) = chunk_rx.recv().await {
+            while let Some(chunk) = internal_rx.recv().await {
                 if stream_tx.send(chunk).await.is_err() {
                     break;
                 }
             }
+            println!(
+                "[ClaudeAdapter] Stream forwarder ended for session {}",
+                session_id_for_forwarder
+            );
         });
 
-        // Forward interaction prompts from blocking task to the frontend via app_handle
-        let app_handle_clone = app_handle.clone();
-        tokio::spawn(async move {
-            while let Some(prompt) = prompt_rx.recv().await {
-                println!("[ClaudeAdapter] Emitting interaction-prompt event for session {}", prompt.session_id);
-                if let Err(e) = app_handle_clone.emit("interaction-prompt", &prompt) {
-                    eprintln!("[ClaudeAdapter] Failed to emit interaction-prompt event: {}", e);
-                } else {
-                    println!("[ClaudeAdapter] Successfully emitted interaction-prompt event");
-                }
-            }
-        });
+        spawn_stdout_reader(
+            stdout,
+            internal_tx,
+            app_handle,
+            pending_requests.clone(),
+            pending_permission.clone(),
+            session_id.to_string(),
+            message_id,
+        );
 
-        // Wait for child process to exit in background
-        tokio::spawn(async move {
-            let _ = child.wait();
-        });
+        // Perform ACP handshake
+        println!("[ClaudeAdapter] Starting ACP handshake...");
+        let acp_session_id =
+            acp_handshake(&stdin_tx, &pending_requests, &worktree_path.to_string_lossy()).await?;
 
-        self.pty = Some(Arc::new(Mutex::new(pair)));
-        self.writer = Some(Arc::new(Mutex::new(writer)));
+        println!(
+            "[ClaudeAdapter] ACP session established: {}",
+            acp_session_id
+        );
+
+        // Store state
+        self.child = Some(child);
+        self.stdin_tx = Some(stdin_tx);
+        self.acp_session_id = Some(acp_session_id);
         self.session_id = Some(session_id.to_string());
         self.is_active = true;
-
-        // Send initial Enter key to skip welcome screen
-        // Claude CLI shows a welcome message on first run that requires Enter to continue
-        println!("[ClaudeAdapter] Sending initial Enter key to skip welcome screen");
-        if let Some(writer) = &self.writer {
-            let mut writer = writer.lock();
-            if let Err(e) = write!(writer, "\r") {
-                println!("[ClaudeAdapter] Failed to send initial Enter: {}", e);
-            } else if let Err(e) = writer.flush() {
-                println!("[ClaudeAdapter] Failed to flush initial Enter: {}", e);
-            }
-        }
 
         Ok(())
     }
 
     async fn send_message(&mut self, message: &str) -> AppResult<()> {
-        println!("[ClaudeAdapter] send_message called with message (len={}): {:?}", message.len(), message);
-        let writer = self
-            .writer
+        let stdin_tx = self
+            .stdin_tx
             .as_ref()
             .ok_or_else(|| AppError::Provider("Session not started".to_string()))?;
 
-        let mut writer = writer.lock();
-        println!("[ClaudeAdapter] Acquired writer lock");
-        
-        // Write message followed by carriage return (\r) to simulate pressing Enter.
-        // PTYs expect \r (not \n) as the "Enter" key input.
-        if let Err(e) = write!(writer, "{}\r", message) {
-            eprintln!("[ClaudeAdapter] Failed to write message: {}", e);
-            return Err(AppError::Provider(format!("Failed to send message: {}", e)));
+        // Check if there's a pending permission request
+        let pending_perm = {
+            let mut perm = self.pending_permission.lock().await;
+            perm.take()
+        };
+
+        if let Some(perm) = pending_perm {
+            // Interpret the message as a permission response
+            // "n" or "no" = deny, anything else = grant
+            let granted = !matches!(message.trim().to_lowercase().as_str(), "n" | "no" | "deny");
+            let response_json = build_permission_response(perm.jsonrpc_id, granted);
+
+            println!(
+                "[ClaudeAdapter] Sending permission response: granted={}",
+                granted
+            );
+            stdin_tx.send(response_json).await.map_err(|e| {
+                AppError::Provider(format!("Failed to send permission response: {}", e))
+            })?;
+
+            return Ok(());
         }
-        println!("[ClaudeAdapter] Message written to PTY");
-        
-        if let Err(e) = writer.flush() {
-            eprintln!("[ClaudeAdapter] Failed to flush: {}", e);
-            return Err(AppError::Provider(format!("Failed to flush: {}", e)));
+
+        // Normal message: send as session/prompt
+        let acp_session_id = self
+            .acp_session_id
+            .as_ref()
+            .ok_or_else(|| AppError::Provider("ACP session not established".to_string()))?;
+
+        let request_id = self.next_id().await;
+        let request = build_prompt_request(request_id, acp_session_id, message)?;
+
+        let json_str = serde_json::to_string(&request)
+            .map_err(|e| AppError::Provider(format!("Failed to serialize prompt request: {}", e)))?;
+
+        println!(
+            "[ClaudeAdapter] Sending session/prompt (id={})",
+            request_id
+        );
+
+        // Register the pending request for response tracking
+        {
+            let (tx, _rx) = tokio::sync::oneshot::channel();
+            let mut pending = self.pending_requests.lock().await;
+            pending.insert(request_id, tx);
         }
-        println!("[ClaudeAdapter] Writer flushed successfully");
+
+        stdin_tx.send(json_str).await.map_err(|e| {
+            AppError::Provider(format!("Failed to send prompt to stdin: {}", e))
+        })?;
 
         Ok(())
     }
@@ -291,16 +282,25 @@ impl ProviderAdapter for ClaudeAdapter {
     }
 
     async fn terminate(&mut self) -> AppResult<()> {
-        // Send Ctrl+C to gracefully terminate
-        if let Some(writer) = &self.writer {
-            let mut writer = writer.lock();
-            let _ = writer.write_all(&[0x03]); // Ctrl+C
-            let _ = writer.flush();
+        println!("[ClaudeAdapter] Terminating session");
+
+        // Drop stdin channel to signal the writer to stop
+        self.stdin_tx = None;
+
+        // Kill the child process
+        if let Some(mut child) = self.child.take() {
+            let _ = child.kill().await;
         }
 
         self.is_active = false;
-        self.pty = None;
-        self.writer = None;
+        self.acp_session_id = None;
+        self.session_id = None;
+
+        // Clear pending requests
+        {
+            let mut pending = self.pending_requests.lock().await;
+            pending.clear();
+        }
 
         Ok(())
     }

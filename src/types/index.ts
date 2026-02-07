@@ -118,17 +118,32 @@ export interface ChatMessage {
   is_streaming: boolean;
 }
 
+// Stream chunk types (ACP structured data)
+export type StreamChunkType = "text" | "thinking" | "tool_call";
+
+export interface ToolCallInfo {
+  tool_call_id: string;
+  tool_name: string | null;
+  status: string;
+  title: string;
+  content: string | null;
+}
+
 export interface StreamChunk {
   session_id: string;
   message_id: string;
   content: string;
   is_complete: boolean;
+  chunk_type?: StreamChunkType;
+  tool_call?: ToolCallInfo;
 }
 
 export interface InteractionPrompt {
   session_id: string;
   prompt_type: string;
   message: string;
+  request_id?: string;
+  tool_name?: string;
 }
 
 // Settings types
