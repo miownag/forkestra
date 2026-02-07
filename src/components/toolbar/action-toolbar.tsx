@@ -4,7 +4,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { VscTerminal, VscBrowser } from "react-icons/vsc";
+import { VscTerminal } from "react-icons/vsc";
+import { TbBrandSafari } from "react-icons/tb";
 import { cn } from "@/lib/utils";
 import { useSelectorTerminalStore } from "@/stores/terminal-store";
 
@@ -63,7 +64,7 @@ export function ActionToolbar({ sessionId, sessionCwd }: ActionToolbarProps) {
               console.log("Browser clicked");
             }}
           >
-            <VscBrowser />
+            <TbBrandSafari />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">

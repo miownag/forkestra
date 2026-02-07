@@ -1,4 +1,5 @@
 mod commands;
+mod db;
 mod error;
 mod managers;
 mod models;
@@ -79,8 +80,15 @@ pub fn run() {
             );
             app.manage(settings_manager.clone());
 
-            // Initialize session manager with settings
-            let session_manager = SessionManager::new(app.handle().clone(), settings_manager);
+            // Initialize database
+            let database = Arc::new(
+                db::Database::new(app.handle())
+                    .expect("Failed to initialize database"),
+            );
+
+            // Initialize session manager with settings and database
+            let session_manager =
+                SessionManager::new(app.handle().clone(), settings_manager, database);
             app.manage(session_manager);
 
             // Initialize terminal manager
@@ -100,6 +108,8 @@ pub fn run() {
             commands::merge_session,
             commands::list_branches,
             commands::rename_session,
+            commands::get_session_messages,
+            commands::save_message,
             commands::get_settings,
             commands::update_settings,
             commands::update_provider_settings,

@@ -12,14 +12,16 @@ import { useState } from "react";
 export function ChatInput({
   onSend,
   isLoading,
+  disabled,
 }: {
   onSend: (content: string) => Promise<void>;
   isLoading: boolean;
+  disabled?: boolean;
 }) {
   const [input, setInput] = useState("");
 
   const handleOnSubmit = async () => {
-    if (input.trim()) {
+    if (input.trim() && !disabled) {
       await onSend(input);
       setInput("");
     }
@@ -33,7 +35,10 @@ export function ChatInput({
       onSubmit={handleOnSubmit}
       className="w-full max-w-(--breakpoint-md) mx-auto mb-4"
     >
-      <PromptInputTextarea placeholder="Ask me anything..." />
+      <PromptInputTextarea
+        placeholder={disabled ? "Session ended" : "Ask me anything..."}
+        disabled={disabled}
+      />
 
       <PromptInputActions className="flex items-center justify-between gap-2 pt-2">
         <PromptInputAction tooltip="Attach files">
@@ -54,6 +59,7 @@ export function ChatInput({
             size="icon"
             className="h-8 w-8 rounded-full"
             onClick={handleOnSubmit}
+            disabled={disabled}
           >
             {isLoading ? (
               <LuSquare className="size-4 fill-current" />

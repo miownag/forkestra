@@ -14,12 +14,14 @@ interface ChatWindowProps {
 export function ChatWindow({ sessionId }: ChatWindowProps) {
   const {
     messages: messagesMap,
+    sessions,
     sendMessage,
     sendInteractionResponse,
     streamingSessions,
     interactionPrompts,
   } = useSelectorSessionStore([
     "messages",
+    "sessions",
     "sendMessage",
     "sendInteractionResponse",
     "streamingSessions",
@@ -27,6 +29,9 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
   ]);
   const isLoading = streamingSessions.has(sessionId);
   const hasInteractionPrompt = !!interactionPrompts[sessionId];
+  const session = sessions.find((s) => s.id === sessionId);
+  const isTerminated =
+    session?.status === "terminated" || session?.status === "error";
   const messages = useMemo(
     () => messagesMap[sessionId] ?? EMPTY_MESSAGES,
     [messagesMap, sessionId],
@@ -71,7 +76,7 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
       {hasInteractionPrompt && <InteractionPromptPanel sessionId={sessionId} />}
 
       {/* Input */}
-      <ChatInput onSend={handleSend} isLoading={isLoading} />
+      <ChatInput onSend={handleSend} isLoading={isLoading} disabled={isTerminated} />
     </div>
   );
 }

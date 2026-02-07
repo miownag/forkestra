@@ -2,7 +2,7 @@ use std::path::Path;
 use tauri::State;
 
 use crate::managers::{SessionManager, WorktreeManager};
-use crate::models::{CreateSessionRequest, Session};
+use crate::models::{ChatMessage, CreateSessionRequest, Session};
 
 #[tauri::command]
 pub async fn create_session(
@@ -94,4 +94,28 @@ pub async fn send_interaction_response(
         .send_interaction_response(&session_id, &response)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_session_messages(
+    manager: State<'_, SessionManager>,
+    session_id: String,
+) -> Result<Vec<ChatMessage>, String> {
+    let db = manager.database().clone();
+    let result = tokio::task::spawn_blocking(move || db.get_messages(&session_id))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?;
+    result.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn save_message(
+    manager: State<'_, SessionManager>,
+    message: ChatMessage,
+) -> Result<(), String> {
+    let db = manager.database().clone();
+    let result = tokio::task::spawn_blocking(move || db.save_message(&message))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?;
+    result.map_err(|e| e.to_string())
 }

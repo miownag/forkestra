@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { VscSettingsGear } from "react-icons/vsc";
 import { IoCreateOutline } from "react-icons/io5";
 import { Button } from "@/components/ui/button";
@@ -35,11 +35,12 @@ export function Sidebar({
   const [showNewSession, setShowNewSession] = useState(false);
   const router = useRouter();
   const location = useLocation();
-  const { sessions, activeSessionId, setActiveSession } =
+  const { sessions, activeSessionId, setActiveSession, fetchSessions } =
     useSelectorSessionStore([
       "sessions",
       "activeSessionId",
       "setActiveSession",
+      "fetchSessions",
     ]);
   const { providers } = useSelectorProviderStore(["providers"]);
   const { resolvedTheme, isFullscreen } = useSelectorSettingsStore([
@@ -49,8 +50,19 @@ export function Sidebar({
 
   const installedProviders = providers.filter((p) => p.installed);
 
+  // Load sessions from backend on mount
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
+
   const activeSessions = sessions.filter(
     (s) => s.status === "active" || s.status === "creating",
+  );
+  const historySessions = sessions.filter(
+    (s) =>
+      s.status === "terminated" ||
+      s.status === "error" ||
+      s.status === "paused",
   );
 
   const handleSettingsClick = () => {
@@ -174,6 +186,22 @@ export function Sidebar({
               ))
             )}
           </div>
+          {/* History Sessions */}
+          {historySessions.length > 0 && (
+            <div className="p-2 pt-0">
+              <div className="text-xs font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider whitespace-nowrap mb-1">
+                History ({historySessions.length})
+              </div>
+              {historySessions.map((session) => (
+                <SessionItem
+                  key={session.id}
+                  session={session}
+                  isActive={activeSessionId === session.id}
+                  onClick={() => setActiveSession(session.id)}
+                />
+              ))}
+            </div>
+          )}
         </ScrollArea>
 
         {/* Settings */}

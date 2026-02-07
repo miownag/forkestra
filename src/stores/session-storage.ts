@@ -23,6 +23,7 @@ interface SessionState {
   sessions: Session[];
   activeSessionId: string | null;
   messages: Record<string, ChatMessage[]>;
+  messagesLoaded: Record<string, boolean>;
   isLoading: boolean;
   streamingSessions: Set<string>;
   interactionPrompts: Record<string, InteractionPrompt | null>;
@@ -32,6 +33,7 @@ interface SessionState {
   fetchSessions: () => Promise<void>;
   createSession: (request: CreateSessionRequest) => Promise<Session>;
   setActiveSession: (sessionId: string | null) => void;
+  loadSessionMessages: (sessionId: string) => Promise<void>;
   sendMessage: (sessionId: string, message: string) => Promise<void>;
   sendInteractionResponse: (
     sessionId: string,
@@ -62,6 +64,7 @@ export const useSessionStore = create<SessionState>()(
         sessions: [],
         activeSessionId: null,
         messages: {},
+        messagesLoaded: {},
         isLoading: false,
         streamingSessions: new Set(),
         interactionPrompts: {},
@@ -88,6 +91,7 @@ export const useSessionStore = create<SessionState>()(
               sessions: [...state.sessions, session],
               activeSessionId: session.id,
               messages: { ...state.messages, [session.id]: [] },
+              messagesLoaded: { ...state.messagesLoaded, [session.id]: true },
               isLoading: false,
             }));
             return session;
@@ -99,6 +103,28 @@ export const useSessionStore = create<SessionState>()(
 
         setActiveSession: (sessionId) => {
           set({ activeSessionId: sessionId });
+          // Lazy-load messages when a session is selected
+          if (sessionId) {
+            get().loadSessionMessages(sessionId);
+          }
+        },
+
+        loadSessionMessages: async (sessionId) => {
+          // Skip if already loaded
+          if (get().messagesLoaded[sessionId]) return;
+
+          try {
+            const messages = await invoke<ChatMessage[]>(
+              "get_session_messages",
+              { sessionId },
+            );
+            set((state) => ({
+              messages: { ...state.messages, [sessionId]: messages },
+              messagesLoaded: { ...state.messagesLoaded, [sessionId]: true },
+            }));
+          } catch (error) {
+            console.error("Failed to load session messages:", error);
+          }
         },
 
         sendMessage: async (sessionId, message) => {
@@ -129,6 +155,11 @@ export const useSessionStore = create<SessionState>()(
             };
             get().addMessage(sessionId, userMessage);
 
+            // Persist user message to database
+            invoke("save_message", { message: userMessage }).catch((err) => {
+              console.error("Failed to persist user message:", err);
+            });
+
             // Auto-rename session if it's the first message and has default name
             if (isFirstMessage && hasDefaultName) {
               const newName = message.trim().slice(0, SESSION_NAME_MAX_LENGTH);
@@ -153,18 +184,37 @@ export const useSessionStore = create<SessionState>()(
           set({ isLoading: true, error: null });
           try {
             await invoke("terminate_session", { sessionId, cleanupWorktree });
-            set((state) => ({
-              sessions: state.sessions.map((s) =>
-                s.id === sessionId
-                  ? { ...s, status: "terminated" as const }
-                  : s,
-              ),
-              activeSessionId:
-                state.activeSessionId === sessionId
-                  ? null
-                  : state.activeSessionId,
-              isLoading: false,
-            }));
+            set((state) => {
+              if (cleanupWorktree) {
+                // Session fully deleted - remove from state entirely
+                const { [sessionId]: _, ...remainingMessages } = state.messages;
+                const { [sessionId]: __, ...remainingLoaded } =
+                  state.messagesLoaded;
+                return {
+                  sessions: state.sessions.filter((s) => s.id !== sessionId),
+                  messages: remainingMessages,
+                  messagesLoaded: remainingLoaded,
+                  activeSessionId:
+                    state.activeSessionId === sessionId
+                      ? null
+                      : state.activeSessionId,
+                  isLoading: false,
+                };
+              }
+              // Session terminated but kept in history
+              return {
+                sessions: state.sessions.map((s) =>
+                  s.id === sessionId
+                    ? { ...s, status: "terminated" as const }
+                    : s,
+                ),
+                activeSessionId:
+                  state.activeSessionId === sessionId
+                    ? null
+                    : state.activeSessionId,
+                isLoading: false,
+              };
+            });
           } catch (error) {
             set({ error: String(error), isLoading: false });
           }
@@ -212,6 +262,18 @@ export const useSessionStore = create<SessionState>()(
                   ...updatedMessages[existingMessageIndex],
                   is_streaming: false,
                 };
+
+                // Persist completed assistant message to database
+                const completedMessage = updatedMessages[existingMessageIndex];
+                invoke("save_message", { message: completedMessage }).catch(
+                  (err) => {
+                    console.error(
+                      "Failed to persist assistant message:",
+                      err,
+                    );
+                  },
+                );
+
                 // Remove session from streaming sessions
                 const newStreamingSessions = new Set(state.streamingSessions);
                 newStreamingSessions.delete(chunk.session_id);
