@@ -6,7 +6,7 @@ mod providers;
 
 use std::sync::Arc;
 
-use managers::{SessionManager, SettingsManager};
+use managers::{SessionManager, SettingsManager, TerminalManager};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::{Emitter, Manager};
 
@@ -83,6 +83,10 @@ pub fn run() {
             let session_manager = SessionManager::new(app.handle().clone(), settings_manager);
             app.manage(session_manager);
 
+            // Initialize terminal manager
+            let terminal_manager = TerminalManager::new(app.handle().clone());
+            app.manage(terminal_manager);
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -99,6 +103,10 @@ pub fn run() {
             commands::get_settings,
             commands::update_settings,
             commands::update_provider_settings,
+            commands::create_terminal,
+            commands::close_terminal,
+            commands::send_terminal_input,
+            commands::resize_terminal,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

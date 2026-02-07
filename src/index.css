@@ -344,3 +344,45 @@ body {
   --color-primary-foreground: hsl(0, 0%, 9%);
   --color-ring: hsl(330.4, 81.2%, 70.4%);
 }
+
+/* Xterm.js Styles */
+.xterm-container {
+  background-color: transparent;
+}
+
+.xterm-container .xterm {
+  height: 100%;
+  padding: 4px;
+}
+
+.xterm-container .xterm-screen {
+  background-color: transparent;
+}
+
+.xterm-container .xterm-viewport {
+  background-color: transparent !important;
+}
+
+/* Ensure xterm canvas is transparent */
+.xterm-container canvas {
+  background-color: transparent !important;
+}
+
+/* Xterm scrollbar styling */
+.xterm-container .xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.xterm-container .xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.xterm-container .xterm-viewport::-webkit-scrollbar-thumb {
+  background: var(--color-muted-foreground);
+  border-radius: 4px;
+}
+
+.xterm-container .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}

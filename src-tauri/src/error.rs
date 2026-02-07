@@ -20,6 +20,9 @@ pub enum AppError {
 
     #[error("Invalid operation: {0}")]
     InvalidOperation(String),
+
+    #[error("Internal error: {0}")]
+    Internal(String),
 }
 
 impl From<git2::Error> for AppError {

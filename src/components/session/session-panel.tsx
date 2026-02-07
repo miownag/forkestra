@@ -1,11 +1,14 @@
-import { useSessionStore } from "@/stores";
+import { useSessionStore, useSelectorTerminalStore } from "@/stores";
 import { ChatWindow } from "@/components/chat/chat-window";
+import { TerminalPanel } from "@/components/terminal/terminal-panel";
+import { ActionToolbar } from "@/components/toolbar/action-toolbar";
 import { VscFolderOpened } from "react-icons/vsc";
 import { LuGitBranch } from "react-icons/lu";
 
 export function SessionPanel() {
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const sessions = useSessionStore((s) => s.sessions);
+  const { position } = useSelectorTerminalStore(["position"]);
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
 
@@ -25,51 +28,74 @@ export function SessionPanel() {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden h-full">
-      {/* Session Header */}
-      <div className="border-b px-4 py-3 flex items-center justify-between bg-muted/20">
-        <div className="flex items-center gap-3">
-          <div>
-            <h2 className="font-medium text-sm">{activeSession.name}</h2>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <LuGitBranch className="h-3 w-3" />
-                {activeSession.branch_name || "-"}
-              </span>
+    <div className="flex-1 flex h-full overflow-hidden">
+      {/* Main Content Area */}
+      <div
+        className="flex flex-col flex-1 min-w-0"
+        style={{
+          flexDirection: position === "right" ? "row" : "column",
+        }}
+      >
+        {/* Chat Area */}
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+          {/* Session Header */}
+          <div className="border-b px-4 py-3 flex items-center justify-between bg-muted/20 shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="min-w-0">
+                <h2 className="font-medium text-sm truncate">{activeSession.name}</h2>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <LuGitBranch className="h-3 w-3" />
+                    {activeSession.branch_name || "-"}
+                  </span>
+                  <span
+                    className="flex items-center gap-1 truncate"
+                    title={activeSession.project_path || "-"}
+                  >
+                    <VscFolderOpened className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{activeSession.project_path.split("/").pop() || "-"}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Action Toolbar */}
+              <ActionToolbar
+                sessionId={activeSession.id}
+                sessionCwd={activeSession.worktree_path}
+              />
+
               <span
-                className="flex items-center gap-1"
-                title={activeSession.project_path || "-"}
+                className={`px-2 py-0.5 rounded text-xs font-medium ${
+                  activeSession.status === "active"
+                    ? "bg-green-500/10 text-green-600"
+                    : activeSession.status === "creating"
+                      ? "bg-yellow-500/10 text-yellow-600"
+                      : "bg-muted text-muted-foreground"
+                }`}
               >
-                <VscFolderOpened className="h-3 w-3" />
-                {activeSession.project_path.split("/").pop() || "-"}
+                {activeSession.status === "active"
+                  ? "Active"
+                  : activeSession.status === "creating"
+                    ? "Creating..."
+                    : activeSession.status}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {activeSession.provider === "claude" ? "Claude Code" : "Kimi Code"}
               </span>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span
-            className={`px-2 py-0.5 rounded text-xs font-medium ${
-              activeSession.status === "active"
-                ? "bg-green-500/10 text-green-600"
-                : activeSession.status === "creating"
-                  ? "bg-yellow-500/10 text-yellow-600"
-                  : "bg-muted text-muted-foreground"
-            }`}
-          >
-            {activeSession.status === "active"
-              ? "Active"
-              : activeSession.status === "creating"
-                ? "Creating..."
-                : activeSession.status}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {activeSession.provider === "claude" ? "Claude Code" : "Kimi Code"}
-          </span>
-        </div>
-      </div>
 
-      {/* Chat Window */}
-      <ChatWindow sessionId={activeSession.id} />
+          {/* Chat Window */}
+          <ChatWindow sessionId={activeSession.id} />
+        </div>
+
+        {/* Terminal Panel */}
+        <TerminalPanel
+          sessionId={activeSession.id}
+          sessionCwd={activeSession.worktree_path}
+        />
+      </div>
     </div>
   );
 }
