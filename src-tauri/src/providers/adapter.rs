@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use async_trait::async_trait;
+use tauri::AppHandle;
 use tokio::sync::mpsc;
 
 use crate::error::AppResult;
@@ -20,6 +21,7 @@ pub trait ProviderAdapter: Send + Sync {
         session_id: &str,
         worktree_path: &Path,
         stream_tx: mpsc::Sender<StreamChunk>,
+        app_handle: AppHandle,
     ) -> AppResult<()>;
 
     /// Send a message to the CLI

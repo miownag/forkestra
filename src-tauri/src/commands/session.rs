@@ -83,3 +83,15 @@ pub async fn rename_session(
         .await
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn send_interaction_response(
+    manager: State<'_, SessionManager>,
+    session_id: String,
+    response: String,
+) -> Result<(), String> {
+    manager
+        .send_interaction_response(&session_id, &response)
+        .await
+        .map_err(|e| e.to_string())
+}

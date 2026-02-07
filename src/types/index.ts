@@ -125,6 +125,12 @@ export interface StreamChunk {
   is_complete: boolean;
 }
 
+export interface InteractionPrompt {
+  session_id: string;
+  prompt_type: string;
+  message: string;
+}
+
 // Settings types
 export type Theme = "light" | "dark" | "system";
 export type FontSize = "small" | "base" | "large";

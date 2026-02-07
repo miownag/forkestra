@@ -86,3 +86,10 @@ pub struct StreamChunk {
     pub content: String,
     pub is_complete: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InteractionPrompt {
+    pub session_id: String,
+    pub prompt_type: String, // "confirm" | "input"
+    pub message: String,
+}

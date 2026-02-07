@@ -102,7 +102,7 @@ export function Sidebar({
               alt="Forkestra"
               className="h-6 w-6 shrink-0 select-none pointer-events-none -mt-0.5"
             />
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
               <h1 className="text-lg font-semibold leading-none whitespace-nowrap select-none cursor-default">
                 Forkestra
               </h1>
@@ -181,10 +181,7 @@ export function Sidebar({
           <Button
             variant="ghost"
             onClick={handleSettingsClick}
-            className={cn(
-              "w-full",
-              location.pathname === "/settings" && "bg-muted cursor-default",
-            )}
+            className="w-full"
             size="sm"
           >
             <VscSettingsGear className="mr-1 h-4 w-4" />

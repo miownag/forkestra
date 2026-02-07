@@ -67,6 +67,7 @@ impl ProviderAdapter for KimiAdapter {
         session_id: &str,
         worktree_path: &Path,
         stream_tx: mpsc::Sender<StreamChunk>,
+        _app_handle: tauri::AppHandle,
     ) -> AppResult<()> {
         let pty_system = native_pty_system();
 
@@ -158,7 +159,7 @@ impl ProviderAdapter for KimiAdapter {
             .ok_or_else(|| AppError::Provider("Session not started".to_string()))?;
 
         let mut writer = writer.lock();
-        writeln!(writer, "{}", message)
+        write!(writer, "{}\r", message)
             .map_err(|e| AppError::Provider(format!("Failed to send message: {}", e)))?;
         writer
             .flush()

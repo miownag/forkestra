@@ -92,6 +92,7 @@ pub fn run() {
             commands::get_session,
             commands::send_message,
             commands::terminate_session,
+            commands::send_interaction_response,
             commands::merge_session,
             commands::list_branches,
             commands::rename_session,

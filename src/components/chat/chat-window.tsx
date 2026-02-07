@@ -2,6 +2,7 @@ import { useRef, useEffect, useMemo } from "react";
 import { useSelectorSessionStore } from "@/stores";
 import { ChatMessage } from "./chat-message";
 import { ChatInput } from "./chat-input";
+import { InteractionPromptPanel } from "./interaction-prompt";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const EMPTY_MESSAGES: never[] = [];
@@ -11,10 +12,21 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({ sessionId }: ChatWindowProps) {
-  const { messages: messagesMap, sendMessage } = useSelectorSessionStore([
+  const {
+    messages: messagesMap,
+    sendMessage,
+    sendInteractionResponse,
+    streamingSessions,
+    interactionPrompts,
+  } = useSelectorSessionStore([
     "messages",
     "sendMessage",
+    "sendInteractionResponse",
+    "streamingSessions",
+    "interactionPrompts",
   ]);
+  const isLoading = streamingSessions.has(sessionId);
+  const hasInteractionPrompt = !!interactionPrompts[sessionId];
   const messages = useMemo(
     () => messagesMap[sessionId] ?? EMPTY_MESSAGES,
     [messagesMap, sessionId],
@@ -26,11 +38,17 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
   }, [messages]);
 
   const handleSend = async (content: string) => {
-    await sendMessage(sessionId, content);
+    if (hasInteractionPrompt) {
+      // If there's an interaction prompt, send the content as interaction response
+      await sendInteractionResponse(sessionId, content);
+    } else {
+      // Normal message send
+      await sendMessage(sessionId, content);
+    }
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden sm:w-3xl md:w-4xl mx-auto gap-4">
       {/* Messages */}
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-4 min-h-full">
@@ -49,8 +67,11 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
         </div>
       </ScrollArea>
 
+      {/* Interaction Prompt */}
+      {hasInteractionPrompt && <InteractionPromptPanel sessionId={sessionId} />}
+
       {/* Input */}
-      <ChatInput onSend={handleSend} />
+      <ChatInput onSend={handleSend} isLoading={isLoading} />
     </div>
   );
 }

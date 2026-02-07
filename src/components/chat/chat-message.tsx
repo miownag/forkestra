@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { ChatMessage as ChatMessageType } from "@/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { AnsiRenderer } from "@/components/ui/ansi-renderer";
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -45,101 +46,106 @@ export function ChatMessage({ message }: ChatMessageProps) {
           isUser ? "bg-primary text-primary-foreground" : "bg-muted",
         )}
       >
-        <div className="prose prose-sm dark:prose-invert max-w-none">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              code({ className, children, ...props }) {
-                const match = /language-(\w+)/.exec(className || "");
-                const isInline = !match;
-                const code = String(children).replace(/\n$/, "");
+        <div
+          className={cn(
+            "max-w-none",
+            !isUser && "prose prose-sm dark:prose-invert",
+          )}
+        >
+          {isUser ? (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                code({ className, children, ...props }) {
+                  const match = /language-(\w+)/.exec(className || "");
+                  const isInline = !match;
+                  const code = String(children).replace(/\n$/, "");
 
-                if (isInline) {
+                  if (isInline) {
+                    return (
+                      <code
+                        className={cn(
+                          "px-1.5 py-0.5 rounded text-xs font-mono",
+                          "bg-primary-foreground/20",
+                        )}
+                        {...props}
+                      >
+                        {children}
+                      </code>
+                    );
+                  }
+
                   return (
-                    <code
+                    <div className="relative group my-3">
+                      <div
+                        className={cn(
+                          "flex items-center justify-between px-3 py-1.5 rounded-t-md text-xs",
+                          "bg-primary-foreground/10",
+                        )}
+                      >
+                        <span className="font-mono opacity-70">
+                          {match?.[1] || "code"}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => copyToClipboard(code)}
+                        >
+                          {copiedCode === code ? (
+                            <VscCheck className="h-3 w-3" />
+                          ) : (
+                            <VscCopy className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
+                      <pre
+                        className={cn(
+                          "p-3 rounded-b-md overflow-x-auto text-xs",
+                          "bg-primary-foreground/10",
+                        )}
+                      >
+                        <code className="font-mono">{code}</code>
+                      </pre>
+                    </div>
+                  );
+                },
+                p({ children }) {
+                  return <p className="mb-2 last:mb-0">{children}</p>;
+                },
+                ul({ children }) {
+                  return <ul className="list-disc pl-4 mb-2">{children}</ul>;
+                },
+                ol({ children }) {
+                  return <ol className="list-decimal pl-4 mb-2">{children}</ol>;
+                },
+                li({ children }) {
+                  return <li className="mb-1">{children}</li>;
+                },
+                a({ href, children }) {
+                  return (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className={cn(
-                        "px-1.5 py-0.5 rounded text-xs font-mono",
-                        isUser ? "bg-primary-foreground/20" : "bg-background",
+                        "underline underline-offset-2",
+                        "text-primary-foreground/90 hover:text-primary-foreground",
                       )}
-                      {...props}
                     >
                       {children}
-                    </code>
+                    </a>
                   );
-                }
-
-                return (
-                  <div className="relative group my-3">
-                    <div
-                      className={cn(
-                        "flex items-center justify-between px-3 py-1.5 rounded-t-md text-xs",
-                        isUser
-                          ? "bg-primary-foreground/10"
-                          : "bg-background/50",
-                      )}
-                    >
-                      <span className="font-mono opacity-70">
-                        {match?.[1] || "code"}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => copyToClipboard(code)}
-                      >
-                        {copiedCode === code ? (
-                          <VscCheck className="h-3 w-3" />
-                        ) : (
-                          <VscCopy className="h-3 w-3" />
-                        )}
-                      </Button>
-                    </div>
-                    <pre
-                      className={cn(
-                        "p-3 rounded-b-md overflow-x-auto text-xs",
-                        isUser
-                          ? "bg-primary-foreground/10"
-                          : "bg-background/50",
-                      )}
-                    >
-                      <code className="font-mono">{code}</code>
-                    </pre>
-                  </div>
-                );
-              },
-              p({ children }) {
-                return <p className="mb-2 last:mb-0">{children}</p>;
-              },
-              ul({ children }) {
-                return <ul className="list-disc pl-4 mb-2">{children}</ul>;
-              },
-              ol({ children }) {
-                return <ol className="list-decimal pl-4 mb-2">{children}</ol>;
-              },
-              li({ children }) {
-                return <li className="mb-1">{children}</li>;
-              },
-              a({ href, children }) {
-                return (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={cn(
-                      "underline underline-offset-2",
-                      isUser
-                        ? "text-primary-foreground/90 hover:text-primary-foreground"
-                        : "text-primary hover:text-primary/80",
-                    )}
-                  >
-                    {children}
-                  </a>
-                );
-              },
-            }}
-          >
-            {message.content}
-          </ReactMarkdown>
+                },
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+          ) : (
+            <div className="text-foreground">
+              <AnsiRenderer content={message.content} />
+            </div>
+          )}
         </div>
 
         {/* Streaming indicator */}

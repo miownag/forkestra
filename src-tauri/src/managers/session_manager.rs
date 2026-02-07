@@ -39,14 +39,6 @@ impl SessionManager {
         let session_id = uuid::Uuid::new_v4().to_string();
         let project_path = PathBuf::from(&request.project_path);
 
-        // Validate project path is a git repository
-        if !WorktreeManager::is_git_repo(&project_path) {
-            return Err(AppError::InvalidOperation(format!(
-                "Path '{}' is not a git repository",
-                request.project_path
-            )));
-        }
-
         // Determine worktree path and branch name based on use_local flag
         let (worktree_path, branch_name) = if request.use_local {
             // Use local mode: no worktree, use project path directly
@@ -54,6 +46,13 @@ impl SessionManager {
                 .unwrap_or_else(|_| "HEAD".to_string());
             (project_path.clone(), branch_name)
         } else {
+            // Validate project path is a git repository before creating worktree
+            if !WorktreeManager::is_git_repo(&project_path) {
+                return Err(AppError::InvalidOperation(format!(
+                    "Path '{}' is not a git repository",
+                    request.project_path
+                )));
+            }
             // Create worktree
             WorktreeManager::create_worktree(
                 &project_path,
@@ -99,15 +98,22 @@ impl SessionManager {
 
         // Forward stream chunks to frontend via Tauri events
         let app_handle = self.app_handle.clone();
+        let session_id_for_log = session_id.clone();
         tokio::spawn(async move {
+            println!("[SessionManager] Starting stream forwarder for session {}", session_id_for_log);
             while let Some(chunk) = rx.recv().await {
-                let _ = app_handle.emit("stream-chunk", &chunk);
+                println!("[SessionManager] Forwarding stream chunk: session={}, message_id={}, is_complete={}", 
+                    chunk.session_id, chunk.message_id, chunk.is_complete);
+                if let Err(e) = app_handle.emit("stream-chunk", &chunk) {
+                    eprintln!("[SessionManager] Failed to emit stream-chunk event: {}", e);
+                }
             }
+            println!("[SessionManager] Stream forwarder ended for session {}", session_id_for_log);
         });
 
         // Start the session
         adapter
-            .start_session(&session_id, &worktree_path, tx)
+            .start_session(&session_id, &worktree_path, tx, self.app_handle.clone())
             .await?;
 
         // Update session status
@@ -212,6 +218,25 @@ impl SessionManager {
         if let Some(entry) = sessions.get_mut(session_id) {
             entry.session.name = new_name.to_string();
             Ok(entry.session.clone())
+        } else {
+            Err(AppError::NotFound(format!(
+                "Session '{}' not found",
+                session_id
+            )))
+        }
+    }
+
+    /// Send interaction response (for prompts like "Press Enter to continue")
+    pub async fn send_interaction_response(&self, session_id: &str, response: &str) -> AppResult<()> {
+        let adapter = {
+            let sessions = self.sessions.read().await;
+            sessions.get(session_id).map(|e| e.adapter.clone())
+        };
+
+        if let Some(adapter) = adapter {
+            let mut adapter = adapter.lock().await;
+            adapter.send_message(response).await?;
+            Ok(())
         } else {
             Err(AppError::NotFound(format!(
                 "Session '{}' not found",

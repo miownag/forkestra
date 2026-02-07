@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import { useShallow } from 'zustand/react/shallow';
+import { useShallow } from "zustand/react/shallow";
 import { devtools, persist } from "zustand/middleware";
-import { pick } from 'es-toolkit';
+import { pick } from "es-toolkit";
 import { invoke } from "@tauri-apps/api/core";
 import type {
   Session,
@@ -10,12 +10,20 @@ import type {
   StreamChunk,
 } from "@/types";
 
+interface InteractionPrompt {
+  sessionId: string;
+  type: "confirm" | "input";
+  message: string;
+}
+
 interface SessionState {
   // State
   sessions: Session[];
   activeSessionId: string | null;
   messages: Record<string, ChatMessage[]>;
   isLoading: boolean;
+  streamingSessions: Set<string>;
+  interactionPrompts: Record<string, InteractionPrompt | null>;
   error: string | null;
 
   // Actions
@@ -23,13 +31,21 @@ interface SessionState {
   createSession: (request: CreateSessionRequest) => Promise<Session>;
   setActiveSession: (sessionId: string | null) => void;
   sendMessage: (sessionId: string, message: string) => Promise<void>;
+  sendInteractionResponse: (
+    sessionId: string,
+    response: string,
+  ) => Promise<void>;
   terminateSession: (
     sessionId: string,
-    cleanupWorktree: boolean
+    cleanupWorktree: boolean,
   ) => Promise<void>;
   renameSession: (sessionId: string, newName: string) => Promise<void>;
   addMessage: (sessionId: string, message: ChatMessage) => void;
   handleStreamChunk: (chunk: StreamChunk) => void;
+  setInteractionPrompt: (
+    sessionId: string,
+    prompt: InteractionPrompt | null,
+  ) => void;
   clearError: () => void;
 }
 
@@ -45,6 +61,8 @@ export const useSessionStore = create<SessionState>()(
         activeSessionId: null,
         messages: {},
         isLoading: false,
+        streamingSessions: new Set(),
+        interactionPrompts: {},
         error: null,
 
         // Actions
@@ -90,6 +108,13 @@ export const useSessionStore = create<SessionState>()(
             const isFirstMessage = sessionMessages.length === 0;
             const hasDefaultName = session?.name === DEFAULT_SESSION_NAME;
 
+            // Add session to streaming sessions
+            set((state) => ({
+              streamingSessions: new Set(state.streamingSessions).add(
+                sessionId,
+              ),
+            }));
+
             // Add user message to local state
             const userMessage: ChatMessage = {
               id: crypto.randomUUID(),
@@ -107,9 +132,11 @@ export const useSessionStore = create<SessionState>()(
               const newName = message.trim().slice(0, SESSION_NAME_MAX_LENGTH);
               if (newName) {
                 // Fire and forget - don't block on rename
-                get().renameSession(sessionId, newName).catch(() => {
-                  // Ignore rename errors
-                });
+                get()
+                  .renameSession(sessionId, newName)
+                  .catch(() => {
+                    // Ignore rename errors
+                  });
               }
             }
 
@@ -128,7 +155,7 @@ export const useSessionStore = create<SessionState>()(
               sessions: state.sessions.map((s) =>
                 s.id === sessionId
                   ? { ...s, status: "terminated" as const }
-                  : s
+                  : s,
               ),
               activeSessionId:
                 state.activeSessionId === sessionId
@@ -150,7 +177,7 @@ export const useSessionStore = create<SessionState>()(
             });
             set((state) => ({
               sessions: state.sessions.map((s) =>
-                s.id === sessionId ? session : s
+                s.id === sessionId ? session : s,
               ),
               isLoading: false,
             }));
@@ -172,7 +199,7 @@ export const useSessionStore = create<SessionState>()(
           set((state) => {
             const sessionMessages = state.messages[chunk.session_id] || [];
             const existingMessageIndex = sessionMessages.findIndex(
-              (m) => m.id === chunk.message_id
+              (m) => m.id === chunk.message_id,
             );
 
             if (chunk.is_complete) {
@@ -183,14 +210,24 @@ export const useSessionStore = create<SessionState>()(
                   ...updatedMessages[existingMessageIndex],
                   is_streaming: false,
                 };
+                // Remove session from streaming sessions
+                const newStreamingSessions = new Set(state.streamingSessions);
+                newStreamingSessions.delete(chunk.session_id);
                 return {
                   messages: {
                     ...state.messages,
                     [chunk.session_id]: updatedMessages,
                   },
+                  streamingSessions: newStreamingSessions,
                 };
               }
-              return state;
+              // Remove session from streaming sessions even if message not found
+              const newStreamingSessions = new Set(state.streamingSessions);
+              newStreamingSessions.delete(chunk.session_id);
+              return {
+                ...state,
+                streamingSessions: newStreamingSessions,
+              };
             }
 
             if (existingMessageIndex >= 0) {
@@ -228,6 +265,29 @@ export const useSessionStore = create<SessionState>()(
           });
         },
 
+        sendInteractionResponse: async (sessionId, response) => {
+          try {
+            await invoke("send_interaction_response", { sessionId, response });
+            // Clear the interaction prompt after sending response
+            set((state) => ({
+              interactionPrompts: {
+                ...state.interactionPrompts,
+                [sessionId]: null,
+              },
+            }));
+          } catch (error) {
+            set({ error: String(error) });
+          }
+        },
+
+        setInteractionPrompt: (sessionId, prompt) => {
+          set((state) => ({
+            interactionPrompts: {
+              ...state.interactionPrompts,
+              [sessionId]: prompt,
+            },
+          }));
+        },
         clearError: () => set({ error: null }),
       }),
       {
@@ -235,13 +295,13 @@ export const useSessionStore = create<SessionState>()(
         partialize: (state) => ({
           activeSessionId: state.activeSessionId,
         }),
-      }
+      },
     ),
-    { name: "SessionStore" }
-  )
+    { name: "SessionStore" },
+  ),
 );
 
-const useSelectorSessionStore = <T extends (keyof (SessionState))[]>(
+const useSelectorSessionStore = <T extends (keyof SessionState)[]>(
   keys: T,
 ): Pick<SessionState, T[number]> =>
   useSessionStore(useShallow((state) => pick(state, keys)));

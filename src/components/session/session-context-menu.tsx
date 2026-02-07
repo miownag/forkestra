@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BsThreeDots } from "react-icons/bs";
-import { VscCopy, VscEdit, VscTrash } from "react-icons/vsc";
+import { VscEdit, VscTrash, VscAdd } from "react-icons/vsc";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -39,6 +39,7 @@ import { Label } from "@/components/ui/label";
 import { useSessionStore } from "@/stores";
 import type { Session } from "@/types";
 import { cn } from "@/lib/utils";
+import { NewSessionDialog } from "./new-session-dialog";
 
 interface SessionItemProps {
   session: Session;
@@ -49,17 +50,22 @@ interface SessionItemProps {
 export function SessionItem({ session, isActive, onClick }: SessionItemProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
+  const [showQuickCreateDialog, setShowQuickCreateDialog] = useState(false);
   const [newName, setNewName] = useState(session.name);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const terminateSession = useSessionStore((s) => s.terminateSession);
   const renameSession = useSessionStore((s) => s.renameSession);
 
-  const worktreeName = session.branch_name;
-
-  const handleCopyWorktreeName = async () => {
-    await navigator.clipboard.writeText(worktreeName);
+  // Prepare default values for quick create
+  const quickCreateDefaults = {
+    provider: session.provider,
+    projectPath: session.project_path,
+    useLocal: session.is_local,
+    baseBranch: session.is_local ? undefined : session.branch_name,
   };
+
+  const worktreeName = session.branch_name;
 
   const handleRename = async () => {
     if (newName.trim() && newName !== session.name) {
@@ -80,18 +86,21 @@ export function SessionItem({ session, isActive, onClick }: SessionItemProps) {
 
   const menuItems = (
     <>
-      <ContextMenuItem onClick={handleCopyWorktreeName}>
-        <VscCopy className="mr-2 h-4 w-4" />
-        Copy worktree name
+      <ContextMenuItem
+        onClick={() => setShowQuickCreateDialog(true)}
+        className="cursor-pointer"
+      >
+        <VscAdd className="mr-2 h-4 w-4" />
+        Quick create
       </ContextMenuItem>
-      <ContextMenuItem onClick={openRenameDialog}>
+      <ContextMenuItem onClick={openRenameDialog} className="cursor-pointer">
         <VscEdit className="mr-2 h-4 w-4" />
         Rename session
       </ContextMenuItem>
       <ContextMenuSeparator />
       <ContextMenuItem
         onClick={() => setShowDeleteDialog(true)}
-        className="text-destructive focus:text-destructive"
+        className="text-destructive focus:text-destructive cursor-pointer"
       >
         <VscTrash className="mr-2 h-4 w-4" />
         Delete session
@@ -102,11 +111,11 @@ export function SessionItem({ session, isActive, onClick }: SessionItemProps) {
   const dropdownMenuItems = (
     <>
       <DropdownMenuItem
-        onClick={handleCopyWorktreeName}
+        onClick={() => setShowQuickCreateDialog(true)}
         className="cursor-pointer"
       >
-        <VscCopy className="mr-2 h-4 w-4" />
-        Copy worktree name
+        <VscAdd className="mr-2 h-4 w-4" />
+        Quick create
       </DropdownMenuItem>
       <DropdownMenuItem onClick={openRenameDialog} className="cursor-pointer">
         <VscEdit className="mr-2 h-4 w-4" />
@@ -218,6 +227,12 @@ export function SessionItem({ session, isActive, onClick }: SessionItemProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <NewSessionDialog
+        open={showQuickCreateDialog}
+        onOpenChange={setShowQuickCreateDialog}
+        defaultValues={quickCreateDefaults}
+      />
     </>
   );
 }

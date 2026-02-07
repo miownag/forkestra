@@ -32,11 +32,18 @@ import { VscFolder } from "react-icons/vsc";
 interface NewSessionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  defaultValues?: {
+    provider?: ProviderType;
+    projectPath?: string;
+    useLocal?: boolean;
+    baseBranch?: string;
+  };
 }
 
 export function NewSessionDialog({
   open,
   onOpenChange,
+  defaultValues,
 }: NewSessionDialogProps) {
   const [name, setName] = useState("");
   const [provider, setProvider] = useState<ProviderType>("claude");
@@ -52,12 +59,16 @@ export function NewSessionDialog({
     "defaultWorkMode",
   ]);
 
-  // Update useLocal when dialog opens based on defaultWorkMode
+  // Update form values when dialog opens
   useEffect(() => {
     if (open) {
-      setUseLocal(defaultWorkMode === "local");
+      // Apply default values if provided, otherwise use settings defaults
+      setProvider(defaultValues?.provider || "claude");
+      setProjectPath(defaultValues?.projectPath || "");
+      setBaseBranch(defaultValues?.baseBranch || "");
+      setUseLocal(defaultValues?.useLocal ?? defaultWorkMode === "local");
     }
-  }, [open, defaultWorkMode]);
+  }, [open, defaultValues, defaultWorkMode]);
 
   const installedProviders = providers.filter((p) => p.installed);
 
@@ -187,9 +198,11 @@ export function NewSessionDialog({
                 <VscFolder className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Must be a git repository
-            </p>
+            {!useLocal && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Must be a git repository
+              </p>
+            )}
           </div>
 
           <div className="flex items-center justify-between">
