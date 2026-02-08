@@ -12,8 +12,9 @@ use crate::models::{
     ClaudeProviderSettings, PendingPermission, ProviderInfo, ProviderType, StreamChunk,
 };
 use crate::providers::acp_helper::{
-    acp_handshake, build_clean_env, build_permission_response, build_prompt_request,
-    spawn_stderr_reader, spawn_stdin_writer, spawn_stdout_reader, PendingRequests,
+    acp_handshake, acp_resume_handshake, build_clean_env, build_permission_response,
+    build_prompt_request, spawn_stderr_reader, spawn_stdin_writer, spawn_stdout_reader,
+    PendingRequests,
 };
 use crate::providers::adapter::ProviderAdapter;
 use crate::providers::detector::ProviderDetector;
@@ -72,39 +73,19 @@ impl ClaudeAdapter {
         *id += 1;
         current
     }
-}
 
-impl Default for ClaudeAdapter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[async_trait]
-impl ProviderAdapter for ClaudeAdapter {
-    fn provider_type(&self) -> ProviderType {
-        ProviderType::Claude
-    }
-
-    fn detect(&self) -> AppResult<ProviderInfo> {
-        Ok(ProviderDetector::detect_provider(
-            &ProviderType::Claude,
-            None,
-        ))
-    }
-
-    async fn start_session(
-        &mut self,
+    /// Spawn the ACP bridge process and set up I/O tasks.
+    /// Returns (child, stdin_tx, pending_requests_clone, pending_permission_clone).
+    fn spawn_acp_process(
+        &self,
         session_id: &str,
         worktree_path: &Path,
         stream_tx: mpsc::Sender<StreamChunk>,
         app_handle: AppHandle,
-    ) -> AppResult<()> {
-        println!(
-            "[ClaudeAdapter] Starting ACP session for {}",
-            session_id
-        );
-
+    ) -> AppResult<(
+        tokio::process::Child,
+        mpsc::Sender<String>,
+    )> {
         // Resolve npx path
         let npx_path = ProviderDetector::find_in_path("npx")
             .ok_or_else(|| {
@@ -132,7 +113,7 @@ impl ProviderAdapter for ClaudeAdapter {
         }
 
         // Spawn the ACP bridge process
-        let mut child = tokio::process::Command::new(&npx_path)
+        let mut child = tokio::process::Command::new(npx_path.as_os_str())
             .args(["@zed-industries/claude-code-acp"])
             .current_dir(worktree_path)
             .stdin(Stdio::piped())
@@ -191,14 +172,53 @@ impl ProviderAdapter for ClaudeAdapter {
             stdout,
             internal_tx,
             app_handle,
-            pending_requests.clone(),
-            pending_permission.clone(),
+            pending_requests,
+            pending_permission,
             session_id.to_string(),
             message_id,
         );
 
+        Ok((child, stdin_tx))
+    }
+}
+
+impl Default for ClaudeAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl ProviderAdapter for ClaudeAdapter {
+    fn provider_type(&self) -> ProviderType {
+        ProviderType::Claude
+    }
+
+    fn detect(&self) -> AppResult<ProviderInfo> {
+        Ok(ProviderDetector::detect_provider(
+            &ProviderType::Claude,
+            None,
+        ))
+    }
+
+    async fn start_session(
+        &mut self,
+        session_id: &str,
+        worktree_path: &Path,
+        stream_tx: mpsc::Sender<StreamChunk>,
+        app_handle: AppHandle,
+    ) -> AppResult<()> {
+        println!(
+            "[ClaudeAdapter] Starting ACP session for {}",
+            session_id
+        );
+
+        let (child, stdin_tx) =
+            self.spawn_acp_process(session_id, worktree_path, stream_tx, app_handle)?;
+
         // Perform ACP handshake
         println!("[ClaudeAdapter] Starting ACP handshake...");
+        let pending_requests = self.pending_requests.clone();
         let acp_session_id =
             acp_handshake(&stdin_tx, &pending_requests, &worktree_path.to_string_lossy()).await?;
 
@@ -215,6 +235,52 @@ impl ProviderAdapter for ClaudeAdapter {
         self.is_active = true;
 
         Ok(())
+    }
+
+    async fn resume_session(
+        &mut self,
+        session_id: &str,
+        acp_session_id: &str,
+        worktree_path: &Path,
+        stream_tx: mpsc::Sender<StreamChunk>,
+        app_handle: AppHandle,
+    ) -> AppResult<()> {
+        println!(
+            "[ClaudeAdapter] Resuming ACP session {} for {}",
+            acp_session_id, session_id
+        );
+
+        let (child, stdin_tx) =
+            self.spawn_acp_process(session_id, worktree_path, stream_tx, app_handle)?;
+
+        // Perform ACP resume handshake
+        println!("[ClaudeAdapter] Starting ACP resume handshake...");
+        let pending_requests = self.pending_requests.clone();
+        let resumed_session_id = acp_resume_handshake(
+            &stdin_tx,
+            &pending_requests,
+            acp_session_id,
+            &worktree_path.to_string_lossy(),
+        )
+        .await?;
+
+        println!(
+            "[ClaudeAdapter] ACP session resumed: {}",
+            resumed_session_id
+        );
+
+        // Store state
+        self.child = Some(child);
+        self.stdin_tx = Some(stdin_tx);
+        self.acp_session_id = Some(resumed_session_id);
+        self.session_id = Some(session_id.to_string());
+        self.is_active = true;
+
+        Ok(())
+    }
+
+    fn acp_session_id(&self) -> Option<&str> {
+        self.acp_session_id.as_deref()
     }
 
     async fn send_message(&mut self, message: &str) -> AppResult<()> {

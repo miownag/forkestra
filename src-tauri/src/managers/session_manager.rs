@@ -38,13 +38,13 @@ impl SessionManager {
         match db.load_sessions() {
             Ok(mut sessions) => {
                 for session in &mut sessions {
-                    // Mark previously-active sessions as terminated (adapters are gone after restart)
+                    // Mark previously-active sessions as paused (adapters are gone after restart, but sessions are resumable)
                     if session.status == SessionStatus::Active
                         || session.status == SessionStatus::Creating
                     {
-                        session.status = SessionStatus::Terminated;
+                        session.status = SessionStatus::Paused;
                         let _ =
-                            db.update_session_status(&session.id, &SessionStatus::Terminated);
+                            db.update_session_status(&session.id, &SessionStatus::Paused);
                     }
                     initial_sessions.insert(
                         session.id.clone(),
@@ -118,6 +118,7 @@ impl SessionManager {
             created_at: Utc::now(),
             project_path: request.project_path,
             is_local: request.use_local,
+            acp_session_id: None,
         };
 
         // Create provider adapter with settings
@@ -162,9 +163,10 @@ impl SessionManager {
             .start_session(&session_id, &worktree_path, tx, self.app_handle.clone())
             .await?;
 
-        // Update session status
+        // Update session status and capture ACP session ID
         let mut session = session;
         session.status = SessionStatus::Active;
+        session.acp_session_id = adapter.acp_session_id().map(|s| s.to_string());
 
         // Store session in memory
         {
@@ -289,6 +291,139 @@ impl SessionManager {
         let project_path = PathBuf::from(&session.project_path);
 
         WorktreeManager::merge_to_branch(&project_path, session_id, target_branch)
+    }
+
+    /// Resume a terminated/paused session by re-establishing the ACP connection
+    pub async fn resume_session(&self, session_id: &str) -> AppResult<Session> {
+        // Get session data and validate it's resumable
+        let session = {
+            let sessions = self.sessions.read().await;
+            let entry = sessions
+                .get(session_id)
+                .ok_or_else(|| AppError::NotFound(format!("Session '{}' not found", session_id)))?;
+
+            if entry.session.status == SessionStatus::Active {
+                return Err(AppError::InvalidOperation(
+                    "Session is already active".to_string(),
+                ));
+            }
+
+            if entry.adapter.is_some() {
+                return Err(AppError::InvalidOperation(
+                    "Session already has an active adapter".to_string(),
+                ));
+            }
+
+            entry.session.clone()
+        };
+
+        let acp_session_id = session.acp_session_id.as_ref().ok_or_else(|| {
+            AppError::InvalidOperation(
+                "Session has no ACP session ID and cannot be resumed".to_string(),
+            )
+        })?;
+
+        let worktree_path = PathBuf::from(&session.worktree_path);
+
+        // Create provider adapter with settings
+        let provider_settings = self.settings_manager.get_provider_settings(&session.provider);
+        let mut adapter: Box<dyn ProviderAdapter> = match &session.provider {
+            ProviderType::Claude => {
+                if let Some(ProviderSettings::Claude(settings)) = provider_settings {
+                    Box::new(ClaudeAdapter::with_settings(&settings))
+                } else {
+                    Box::new(ClaudeAdapter::new())
+                }
+            }
+            ProviderType::Kimi => {
+                if let Some(ProviderSettings::Kimi(settings)) = provider_settings {
+                    Box::new(KimiAdapter::with_settings(&settings))
+                } else {
+                    Box::new(KimiAdapter::new())
+                }
+            }
+        };
+
+        // Create channel for streaming
+        let (tx, mut rx) = mpsc::channel::<StreamChunk>(100);
+
+        // Forward stream chunks to frontend via Tauri events
+        let app_handle = self.app_handle.clone();
+        let session_id_for_log = session_id.to_string();
+        tokio::spawn(async move {
+            println!(
+                "[SessionManager] Starting stream forwarder for resumed session {}",
+                session_id_for_log
+            );
+            while let Some(chunk) = rx.recv().await {
+                println!(
+                    "[SessionManager] Forwarding stream chunk: session={}, message_id={}, is_complete={}",
+                    chunk.session_id, chunk.message_id, chunk.is_complete
+                );
+                if let Err(e) = app_handle.emit("stream-chunk", &chunk) {
+                    eprintln!("[SessionManager] Failed to emit stream-chunk event: {}", e);
+                }
+            }
+            println!(
+                "[SessionManager] Stream forwarder ended for resumed session {}",
+                session_id_for_log
+            );
+        });
+
+        // Resume the session
+        adapter
+            .resume_session(
+                session_id,
+                acp_session_id,
+                &worktree_path,
+                tx,
+                self.app_handle.clone(),
+            )
+            .await?;
+
+        // Get the (possibly updated) ACP session ID from the adapter
+        let new_acp_session_id = adapter.acp_session_id().map(|s| s.to_string());
+
+        // Update session in memory
+        let updated_session = {
+            let mut sessions = self.sessions.write().await;
+            if let Some(entry) = sessions.get_mut(session_id) {
+                entry.session.status = SessionStatus::Active;
+                if let Some(ref acp_id) = new_acp_session_id {
+                    entry.session.acp_session_id = Some(acp_id.clone());
+                }
+                entry.adapter = Some(Arc::new(tokio::sync::Mutex::new(adapter)));
+                entry.session.clone()
+            } else {
+                return Err(AppError::NotFound(format!(
+                    "Session '{}' not found",
+                    session_id
+                )));
+            }
+        };
+
+        // Persist status change to database
+        if let Err(e) = self
+            .db
+            .update_session_status(session_id, &SessionStatus::Active)
+        {
+            eprintln!(
+                "[SessionManager] Failed to update session status in DB: {}",
+                e
+            );
+        }
+
+        // Persist new ACP session ID if it changed
+        if let Some(ref acp_id) = new_acp_session_id {
+            if let Err(e) = self.db.update_session_acp_id(session_id, acp_id) {
+                eprintln!(
+                    "[SessionManager] Failed to update ACP session ID in DB: {}",
+                    e
+                );
+            }
+        }
+
+        Ok(updated_session)
     }
 
     /// Rename a session

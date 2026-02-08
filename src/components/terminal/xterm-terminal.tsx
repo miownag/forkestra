@@ -206,29 +206,22 @@ export function XtermTerminal({
     }
   }, [isActive]);
 
-  // Handle resize
+  // Handle resize - always observe so fit() runs when panel becomes visible again
   useEffect(() => {
-    if (!isActive || !fitAddonRef.current) return;
-
-    const handleResize = () => {
-      fitAddonRef.current?.fit();
-    };
+    if (!containerRef.current || !fitAddonRef.current) return;
 
     const resizeObserver = new ResizeObserver(() => {
-      handleResize();
+      if (containerRef.current?.offsetWidth && containerRef.current?.offsetHeight) {
+        fitAddonRef.current?.fit();
+      }
     });
 
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-
-    // Initial fit
-    handleResize();
+    resizeObserver.observe(containerRef.current);
 
     return () => {
       resizeObserver.disconnect();
     };
-  }, [isActive]);
+  }, []);
 
   // Expose write method via ref
   useEffect(() => {

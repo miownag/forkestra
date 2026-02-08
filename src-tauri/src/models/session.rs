@@ -25,6 +25,8 @@ pub struct Session {
     pub project_path: String,
     #[serde(default)]
     pub is_local: bool,
+    #[serde(default)]
+    pub acp_session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

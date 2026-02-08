@@ -17,6 +17,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             // Build the application menu with Preferences
             let preferences = MenuItemBuilder::with_id("preferences", "Settings...")
@@ -104,6 +105,7 @@ pub fn run() {
             commands::get_session,
             commands::send_message,
             commands::terminate_session,
+            commands::resume_session,
             commands::send_interaction_response,
             commands::merge_session,
             commands::list_branches,

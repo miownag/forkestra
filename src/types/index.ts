@@ -86,6 +86,7 @@ export interface Session {
   created_at: string;
   project_path: string;
   is_local: boolean;
+  acp_session_id?: string | null;
 }
 
 export interface CreateSessionRequest {

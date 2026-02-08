@@ -97,6 +97,17 @@ pub async fn send_interaction_response(
 }
 
 #[tauri::command]
+pub async fn resume_session(
+    manager: State<'_, SessionManager>,
+    session_id: String,
+) -> Result<Session, String> {
+    manager
+        .resume_session(&session_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn get_session_messages(
     manager: State<'_, SessionManager>,
     session_id: String,

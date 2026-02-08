@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use tauri::AppHandle;
 use tokio::sync::mpsc;
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::models::{ProviderInfo, ProviderType, StreamChunk};
 
 #[async_trait]
@@ -23,6 +23,26 @@ pub trait ProviderAdapter: Send + Sync {
         stream_tx: mpsc::Sender<StreamChunk>,
         app_handle: AppHandle,
     ) -> AppResult<()>;
+
+    /// Resume an existing ACP session by its session ID
+    async fn resume_session(
+        &mut self,
+        session_id: &str,
+        acp_session_id: &str,
+        worktree_path: &Path,
+        stream_tx: mpsc::Sender<StreamChunk>,
+        app_handle: AppHandle,
+    ) -> AppResult<()> {
+        let _ = (session_id, acp_session_id, worktree_path, stream_tx, app_handle);
+        Err(AppError::Provider(
+            "This provider does not support session resume".to_string(),
+        ))
+    }
+
+    /// Get the ACP session ID if available
+    fn acp_session_id(&self) -> Option<&str> {
+        None
+    }
 
     /// Send a message to the CLI
     async fn send_message(&mut self, message: &str) -> AppResult<()>;

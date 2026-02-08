@@ -36,7 +36,9 @@ export function ChatInput({
       className="w-full max-w-(--breakpoint-md) mx-auto mb-4"
     >
       <PromptInputTextarea
-        placeholder={disabled ? "Session ended" : "Ask me anything..."}
+        placeholder={
+          disabled ? "Waiting for response..." : "Type your instruction..."
+        }
         disabled={disabled}
       />
 

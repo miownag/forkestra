@@ -23,10 +23,11 @@ export function ActionToolbar({ sessionId, sessionCwd }: ActionToolbarProps) {
     ]);
 
   const handleTerminalClick = async () => {
-    if (isPanelOpen) {
-      togglePanel();
-    } else {
+    if (!isPanelOpen) {
+      // Ensure at least one terminal exists before opening
       await getOrCreateTerminalForSession(sessionId, sessionCwd);
+    } else {
+      togglePanel();
     }
   };
 
@@ -68,7 +69,7 @@ export function ActionToolbar({ sessionId, sessionCwd }: ActionToolbarProps) {
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          <p>浏览器</p>
+          <p>webview</p>
         </TooltipContent>
       </Tooltip>
     </div>

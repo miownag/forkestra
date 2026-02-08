@@ -43,6 +43,7 @@ interface SessionState {
     sessionId: string,
     cleanupWorktree: boolean,
   ) => Promise<void>;
+  resumeSession: (sessionId: string) => Promise<Session>;
   renameSession: (sessionId: string, newName: string) => Promise<void>;
   addMessage: (sessionId: string, message: ChatMessage) => void;
   handleStreamChunk: (chunk: StreamChunk) => void;
@@ -217,6 +218,26 @@ export const useSessionStore = create<SessionState>()(
             });
           } catch (error) {
             set({ error: String(error), isLoading: false });
+          }
+        },
+
+        resumeSession: async (sessionId) => {
+          set({ isLoading: true, error: null });
+          try {
+            const session = await invoke<Session>("resume_session", {
+              sessionId,
+            });
+            set((state) => ({
+              sessions: state.sessions.map((s) =>
+                s.id === sessionId ? session : s,
+              ),
+              activeSessionId: session.id,
+              isLoading: false,
+            }));
+            return session;
+          } catch (error) {
+            set({ error: String(error), isLoading: false });
+            throw error;
           }
         },
 

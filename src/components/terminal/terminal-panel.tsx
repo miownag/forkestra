@@ -64,15 +64,12 @@ export function TerminalPanel({ sessionId, sessionCwd }: TerminalPanelProps) {
     setPosition(position === "bottom" ? "right" : "bottom");
   };
 
-  if (!isPanelOpen) {
-    return null;
-  }
-
   return (
     <div
       className={cn(
         "bg-background border-border flex flex-col",
         position === "right" ? "border-l h-full" : "border-t w-full",
+        !isPanelOpen && "hidden",
       )}
       style={{
         [position === "right" ? "width" : "height"]: panelSize,

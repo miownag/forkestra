@@ -276,6 +276,77 @@ pub async fn acp_handshake(
     cwd: &str,
 ) -> AppResult<String> {
     // Step 1: Initialize with retry
+    acp_initialize(stdin_tx, pending_requests).await?;
+
+    // Step 2: session/new with required cwd and mcpServers
+    let session_request = JsonRpcRequest::new(
+        2,
+        "session/new",
+        serde_json::json!({
+            "cwd": cwd,
+            "mcpServers": []
+        }),
+    );
+    let session_response = send_and_await(stdin_tx, pending_requests, session_request, 30).await?;
+
+    let session_result: SessionNewResult = serde_json::from_value(
+        session_response.result.unwrap_or_default(),
+    )
+    .map_err(|e| AppError::Provider(format!("Failed to parse session/new result: {}", e)))?;
+
+    println!(
+        "[ACP] Session created with ACP session ID: {}",
+        session_result.session_id
+    );
+
+    Ok(session_result.session_id)
+}
+
+/// Perform the ACP handshake for resuming: initialize (with retry) + unstable_resumeSession
+pub async fn acp_resume_handshake(
+    stdin_tx: &mpsc::Sender<String>,
+    pending_requests: &PendingRequests,
+    acp_session_id: &str,
+    cwd: &str,
+) -> AppResult<String> {
+    // Step 1: Initialize with retry
+    acp_initialize(stdin_tx, pending_requests).await?;
+
+    // Step 2: unstable_resumeSession
+    let resume_request = JsonRpcRequest::new(
+        2,
+        "unstable_resumeSession",
+        serde_json::json!({
+            "sessionId": acp_session_id,
+            "cwd": cwd,
+            "mcpServers": []
+        }),
+    );
+    let resume_response = send_and_await(stdin_tx, pending_requests, resume_request, 30).await?;
+
+    let session_result: SessionNewResult = serde_json::from_value(
+        resume_response.result.unwrap_or_default(),
+    )
+    .map_err(|e| {
+        AppError::Provider(format!(
+            "Failed to parse unstable_resumeSession result: {}",
+            e
+        ))
+    })?;
+
+    println!(
+        "[ACP] Session resumed with ACP session ID: {}",
+        session_result.session_id
+    );
+
+    Ok(session_result.session_id)
+}
+
+/// Shared ACP initialize step with retry
+async fn acp_initialize(
+    stdin_tx: &mpsc::Sender<String>,
+    pending_requests: &PendingRequests,
+) -> AppResult<()> {
     let init_params = InitializeParams {
         protocol_version: 1,
         client_capabilities: ClientCapabilities {
@@ -316,28 +387,7 @@ pub async fn acp_handshake(
         )));
     }
 
-    // Step 2: session/new with required cwd and mcpServers
-    let session_request = JsonRpcRequest::new(
-        2,
-        "session/new",
-        serde_json::json!({
-            "cwd": cwd,
-            "mcpServers": []
-        }),
-    );
-    let session_response = send_and_await(stdin_tx, pending_requests, session_request, 30).await?;
-
-    let session_result: SessionNewResult = serde_json::from_value(
-        session_response.result.unwrap_or_default(),
-    )
-    .map_err(|e| AppError::Provider(format!("Failed to parse session/new result: {}", e)))?;
-
-    println!(
-        "[ACP] Session created with ACP session ID: {}",
-        session_result.session_id
-    );
-
-    Ok(session_result.session_id)
+    Ok(())
 }
 
 /// Build a session/prompt JSON-RPC request

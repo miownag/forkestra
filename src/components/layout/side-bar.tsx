@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { VscSettingsGear } from "react-icons/vsc";
 import { IoCreateOutline } from "react-icons/io5";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,10 @@ import {
   useSelectorSessionStore,
 } from "@/stores";
 import { NewSessionDialog } from "@/components/session/new-session-dialog";
-import { SessionItem } from "@/components/session/session-context-menu";
+import {
+  SessionItem,
+  type SessionItemRef,
+} from "@/components/session/session-context-menu";
 import { cn } from "@/lib/utils";
 import { useStreamEvents } from "@/hooks/use-stream-events";
 import { useRouter, useLocation } from "@tanstack/react-router";
@@ -64,6 +67,69 @@ export function Sidebar({
       s.status === "error" ||
       s.status === "paused",
   );
+
+  // Refs for session items to trigger actions via keyboard
+  const sessionItemRefs = useRef<Map<string, SessionItemRef>>(new Map());
+
+  const setSessionItemRef = useCallback(
+    (sessionId: string, ref: SessionItemRef | null) => {
+      if (ref) {
+        sessionItemRefs.current.set(sessionId, ref);
+      } else {
+        sessionItemRefs.current.delete(sessionId);
+      }
+    },
+    [],
+  );
+
+  // Register keyboard shortcuts for active session actions (window-level)
+  // Cmd+N to open new session dialog
+  useEffect(() => {
+    const handleNewSession = (e: KeyboardEvent) => {
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        !e.altKey &&
+        e.key.toLowerCase() === "n"
+      ) {
+        e.preventDefault();
+        setShowNewSession(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleNewSession);
+    return () => window.removeEventListener("keydown", handleNewSession);
+  }, []);
+
+  // Register keyboard shortcuts for active session actions (window-level)
+  useEffect(() => {
+    if (!activeSessionId || sidebarCollapsed) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMod = e.metaKey || e.ctrlKey;
+      if (!isMod || !e.altKey) return;
+
+      const sessionItemRef = sessionItemRefs.current.get(activeSessionId);
+      if (!sessionItemRef) return;
+
+      switch (e.key.toLowerCase()) {
+        case "n":
+          e.preventDefault();
+          sessionItemRef.openQuickCreate();
+          break;
+        case "r":
+          e.preventDefault();
+          sessionItemRef.openRename();
+          break;
+        case "backspace":
+          e.preventDefault();
+          sessionItemRef.openDelete();
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeSessionId, sidebarCollapsed]);
 
   const handleSettingsClick = () => {
     if (location.pathname !== "/settings") {
@@ -179,6 +245,7 @@ export function Sidebar({
               activeSessions.map((session) => (
                 <SessionItem
                   key={session.id}
+                  ref={(ref) => setSessionItemRef(session.id, ref)}
                   session={session}
                   isActive={activeSessionId === session.id}
                   onClick={() => setActiveSession(session.id)}
@@ -195,6 +262,7 @@ export function Sidebar({
               {historySessions.map((session) => (
                 <SessionItem
                   key={session.id}
+                  ref={(ref) => setSessionItemRef(session.id, ref)}
                   session={session}
                   isActive={activeSessionId === session.id}
                   onClick={() => setActiveSession(session.id)}

@@ -40,9 +40,37 @@ impl Database {
         conn.execute_batch(include_str!("schema.sql"))
             .map_err(|e| AppError::Database(format!("Failed to initialize schema: {}", e)))?;
 
+        // Run migrations for existing databases
+        Self::migrate(&conn)?;
+
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
         })
+    }
+
+    /// Run database migrations for schema changes on existing databases
+    fn migrate(conn: &Connection) -> AppResult<()> {
+        let has_acp_col: bool = conn
+            .prepare("PRAGMA table_info(sessions)")
+            .and_then(|mut stmt| {
+                let cols: Vec<String> = stmt
+                    .query_map([], |row| row.get::<_, String>(1))
+                    .unwrap()
+                    .filter_map(|r| r.ok())
+                    .collect();
+                Ok(cols.contains(&"acp_session_id".to_string()))
+            })
+            .unwrap_or(false);
+
+        if !has_acp_col {
+            conn.execute_batch("ALTER TABLE sessions ADD COLUMN acp_session_id TEXT")
+                .map_err(|e| {
+                    AppError::Database(format!("Failed to add acp_session_id column: {}", e))
+                })?;
+            println!("[Database] Migrated: added acp_session_id column to sessions");
+        }
+
+        Ok(())
     }
 
     // ── Session operations ──
@@ -55,8 +83,8 @@ impl Database {
         conn.execute(
             "INSERT OR REPLACE INTO sessions
              (id, name, provider, status, worktree_path, branch_name,
-              project_path, is_local, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+              project_path, is_local, created_at, acp_session_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 session.id,
                 session.name,
@@ -67,6 +95,7 @@ impl Database {
                 session.project_path,
                 session.is_local as i32,
                 session.created_at.to_rfc3339(),
+                session.acp_session_id,
             ],
         )
         .map_err(|e| AppError::Database(format!("Failed to save session: {}", e)))?;
@@ -103,6 +132,25 @@ impl Database {
         Ok(())
     }
 
+    pub fn update_session_acp_id(
+        &self,
+        session_id: &str,
+        acp_session_id: &str,
+    ) -> AppResult<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Database(format!("Database lock poisoned: {}", e)))?;
+        conn.execute(
+            "UPDATE sessions SET acp_session_id = ?1 WHERE id = ?2",
+            params![acp_session_id, session_id],
+        )
+        .map_err(|e| {
+            AppError::Database(format!("Failed to update session acp_session_id: {}", e))
+        })?;
+        Ok(())
+    }
+
     pub fn load_sessions(&self) -> AppResult<Vec<Session>> {
         let conn = self
             .conn
@@ -111,7 +159,8 @@ impl Database {
         let mut stmt = conn
             .prepare(
                 "SELECT id, name, provider, status, worktree_path,
-                        branch_name, project_path, is_local, created_at
+                        branch_name, project_path, is_local, created_at,
+                        acp_session_id
                  FROM sessions ORDER BY created_at DESC",
             )
             .map_err(|e| AppError::Database(format!("Failed to prepare query: {}", e)))?;
@@ -134,6 +183,7 @@ impl Database {
                     created_at: chrono::DateTime::parse_from_rfc3339(&created_at_str)
                         .unwrap_or_else(|_| chrono::Utc::now().into())
                         .with_timezone(&chrono::Utc),
+                    acp_session_id: row.get(9)?,
                 })
             })
             .map_err(|e| AppError::Database(format!("Failed to query sessions: {}", e)))?;
