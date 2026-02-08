@@ -1,6 +1,5 @@
 import { useState, forwardRef, useImperativeHandle } from "react";
 import { VscEdit, VscTrash, VscAdd } from "react-icons/vsc";
-import { LuGitBranch, LuMonitor } from "react-icons/lu";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -34,6 +33,7 @@ import { useSessionStore } from "@/stores";
 import type { Session } from "@/types";
 import { cn } from "@/lib/utils";
 import { NewSessionDialog } from "./new-session-dialog";
+import PROVIDER_ICONS_MAP from "@/constants/icons";
 
 export interface SessionItemRef {
   openQuickCreate: () => void;
@@ -57,6 +57,8 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
 
     const terminateSession = useSessionStore((s) => s.terminateSession);
     const renameSession = useSessionStore((s) => s.renameSession);
+
+    const ProviderIcon = PROVIDER_ICONS_MAP[session.provider];
 
     // Prepare default values for quick create
     const quickCreateDefaults = {
@@ -132,22 +134,17 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
               )}
             >
               <div className="flex-1 min-w-0">
-                <div className="font-medium truncate pr-6 text-xs flex items-center gap-1.5">
-                  {session.is_local ? (
-                    <LuMonitor className="h-3 w-3 text-muted-foreground shrink-0" />
-                  ) : (
-                    <LuGitBranch className="h-3 w-3 text-primary shrink-0" />
-                  )}
-                  {session.name}
-                </div>
                 <div
                   className={cn(
-                    "text-[11px] truncate",
-                    "text-muted-foreground",
+                    "font-medium truncate pr-6 text-xs flex items-center gap-1.5",
+                    session.is_local ? "text-local" : "text-worktree",
                   )}
                 >
-                  {`${session.provider.slice(0, 1).toUpperCase()}${session.provider.slice(1)}`}{" "}
-                  • {worktreeName}
+                  <ProviderIcon.Color size={12} />
+                  {session.name}
+                </div>
+                <div className="text-[0.7rem] truncate text-muted-foreground pl-4.5">
+                  {worktreeName}
                 </div>
               </div>
             </div>

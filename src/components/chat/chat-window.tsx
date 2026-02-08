@@ -1,10 +1,13 @@
-import { useRef, useEffect, useMemo, useState } from "react";
+import { useRef, useEffect, useMemo } from "react";
 import { useSelectorSessionStore } from "@/stores";
 import { ChatMessage } from "./chat-message";
 import { ChatInput } from "./chat-input";
 import { InteractionPromptPanel } from "./interaction-prompt";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import PROVIDER_ICONS_MAP from "@/constants/icons";
+import { ProviderType } from "@/types";
+import { VscLoading } from "react-icons/vsc";
 
 const EMPTY_MESSAGES: never[] = [];
 
@@ -19,7 +22,9 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
     sendMessage,
     sendInteractionResponse,
     resumeSession,
+    setSessionModel,
     streamingSessions,
+    resumingSessions,
     interactionPrompts,
   } = useSelectorSessionStore([
     "messages",
@@ -27,7 +32,9 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
     "sendMessage",
     "sendInteractionResponse",
     "resumeSession",
+    "setSessionModel",
     "streamingSessions",
+    "resumingSessions",
     "interactionPrompts",
   ]);
   const isLoading = streamingSessions.has(sessionId);
@@ -38,12 +45,14 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
     session?.status === "error" ||
     session?.status === "paused";
   const canResume = isTerminated && !!session?.acp_session_id;
-  const [isResuming, setIsResuming] = useState(false);
+  const isResuming = resumingSessions.has(sessionId);
   const messages = useMemo(
     () => messagesMap[sessionId] ?? EMPTY_MESSAGES,
     [messagesMap, sessionId],
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const ProviderIcon = PROVIDER_ICONS_MAP[session?.provider as ProviderType];
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -60,13 +69,10 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
   };
 
   const handleResume = async () => {
-    setIsResuming(true);
     try {
       await resumeSession(sessionId);
     } catch (error) {
       console.error("Failed to resume session:", error);
-    } finally {
-      setIsResuming(false);
     }
   };
 
@@ -76,8 +82,13 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-4 min-h-full">
           {messages.length === 0 ? (
-            <div className="flex items-center justify-center h-64 text-muted-foreground">
-              <p className="text-sm">
+            <div className="flex flex-col items-center justify-center text-muted-foreground h-128">
+              <ProviderIcon.Combine
+                size={48}
+                type="color"
+                className="flex items-center justify-center"
+              />
+              <p className="text-sm mt-4">
                 Send a message to start the conversation...
               </p>
             </div>
@@ -95,10 +106,8 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
 
       {/* Resume Banner */}
       {canResume && !isResuming && (
-        <div className="flex items-center justify-center gap-3 px-4 py-3 mx-4 rounded-lg border border-border bg-muted/50">
-          <p className="text-sm text-muted-foreground">
-            Session paused
-          </p>
+        <div className="flex items-center justify-center mx-auto gap-3 px-4 py-3 rounded-lg border border-border bg-muted/50">
+          <p className="text-sm text-muted-foreground">Session paused</p>
           <Button size="sm" variant="default" onClick={handleResume}>
             Resume
           </Button>
@@ -107,10 +116,9 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
 
       {/* Resuming state */}
       {isResuming && (
-        <div className="flex items-center justify-center gap-2 px-4 py-3 mx-4 rounded-lg border border-border bg-muted/50">
-          <p className="text-sm text-muted-foreground">
-            Resuming session...
-          </p>
+        <div className="flex items-center justify-center mx-auto gap-2 px-4 py-3 rounded-lg border border-border bg-muted/50">
+          <VscLoading className="animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Resuming session...</p>
         </div>
       )}
 
@@ -119,6 +127,8 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
         onSend={handleSend}
         isLoading={isLoading}
         disabled={isTerminated || isResuming}
+        session={session}
+        onModelChange={(modelId) => setSessionModel(sessionId, modelId)}
       />
     </div>
   );

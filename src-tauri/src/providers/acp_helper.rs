@@ -9,9 +9,9 @@ use tokio::sync::{mpsc, oneshot, Mutex};
 use crate::error::{AppError, AppResult};
 use crate::models::{
     ClientCapabilities, ContentBlock, FileSystemCapabilities, InitializeParams, InteractionPrompt,
-    JsonRpcRequest, JsonRpcResponse, PendingPermission, SessionNewResult, SessionPromptParams,
-    SessionRequestPermissionParams, SessionUpdate, SessionUpdateParams, StreamChunk,
-    StreamChunkType, ToolCallInfo,
+    JsonRpcRequest, JsonRpcResponse, ModelInfo, PendingPermission, ProviderType, SessionNewResult,
+    SessionPromptParams, SessionRequestPermissionParams, SessionResumeResult, SessionUpdate,
+    SessionUpdateParams, StreamChunk, StreamChunkType, ToolCallInfo,
 };
 
 /// Shared state for ACP request-response correlation
@@ -191,7 +191,13 @@ pub fn spawn_stdout_reader(
             }
         }
 
-        // EOF reached - send completion signal
+        // EOF reached - clear pending requests so callers fail immediately instead of waiting for timeout
+        {
+            let mut pending = pending_requests.lock().await;
+            pending.clear();
+        }
+
+        // Send completion signal
         println!("[ACP] Stdout reader EOF for session {}", session_id);
         let _ = stream_tx
             .send(StreamChunk {
@@ -207,13 +213,28 @@ pub fn spawn_stdout_reader(
 }
 
 /// Spawn a stderr reader task for logging
-pub fn spawn_stderr_reader(stderr: tokio::process::ChildStderr, provider_name: String) {
+/// Also monitors for fatal CLI errors and clears pending requests so callers fail immediately.
+pub fn spawn_stderr_reader(
+    stderr: tokio::process::ChildStderr,
+    provider_name: String,
+    pending_requests: PendingRequests,
+) {
     tokio::spawn(async move {
         let reader = BufReader::new(stderr);
         let mut lines = reader.lines();
 
         while let Ok(Some(line)) = lines.next_line().await {
             println!("[ACP:{}:stderr] {}", provider_name, line);
+
+            // Detect fatal CLI exit and clear pending requests immediately
+            if line.contains("CLI exited with code") {
+                println!(
+                    "[ACP:{}] Fatal CLI error detected, clearing pending requests",
+                    provider_name
+                );
+                let mut pending = pending_requests.lock().await;
+                pending.clear();
+            }
         }
     });
 }
@@ -255,7 +276,7 @@ pub async fn send_and_await(
             }
         }
         Ok(Err(_)) => Err(AppError::Provider(
-            "Response channel closed unexpectedly".to_string(),
+            "ACP process exited unexpectedly. Check if the CLI is properly configured and the session is still valid.".to_string(),
         )),
         Err(_) => {
             // Clean up the pending request
@@ -269,12 +290,19 @@ pub async fn send_and_await(
     }
 }
 
+/// Result of an ACP handshake, including available models
+pub struct AcpHandshakeResult {
+    pub session_id: String,
+    pub models: Vec<ModelInfo>,
+    pub current_model_id: Option<String>,
+}
+
 /// Perform the ACP handshake: initialize (with retry) + session/new
 pub async fn acp_handshake(
     stdin_tx: &mpsc::Sender<String>,
     pending_requests: &PendingRequests,
     cwd: &str,
-) -> AppResult<String> {
+) -> AppResult<AcpHandshakeResult> {
     // Step 1: Initialize with retry
     acp_initialize(stdin_tx, pending_requests).await?;
 
@@ -299,47 +327,78 @@ pub async fn acp_handshake(
         session_result.session_id
     );
 
-    Ok(session_result.session_id)
+    let current_model_id = session_result.models.current_model_id;
+    let models = session_result
+        .models
+        .available_models
+        .into_iter()
+        .map(|m| ModelInfo {
+            model_id: m.model_id,
+            display_name: m.name,
+            description: m.description,
+        })
+        .collect();
+
+    Ok(AcpHandshakeResult {
+        session_id: session_result.session_id,
+        models,
+        current_model_id,
+    })
 }
 
-/// Perform the ACP handshake for resuming: initialize (with retry) + unstable_resumeSession
+/// Perform the ACP handshake for resuming: initialize (with retry) + session/resume
 pub async fn acp_resume_handshake(
     stdin_tx: &mpsc::Sender<String>,
     pending_requests: &PendingRequests,
     acp_session_id: &str,
     cwd: &str,
-) -> AppResult<String> {
+    _provider_type: &ProviderType,
+) -> AppResult<AcpHandshakeResult> {
     // Step 1: Initialize with retry
     acp_initialize(stdin_tx, pending_requests).await?;
 
-    // Step 2: unstable_resumeSession
-    let resume_request = JsonRpcRequest::new(
-        2,
-        "unstable_resumeSession",
-        serde_json::json!({
-            "sessionId": acp_session_id,
-            "cwd": cwd,
-            "mcpServers": []
-        }),
-    );
+    // Step 2: session/resume with sessionId, cwd, mcpServers
+    let params = serde_json::json!({
+        "sessionId": acp_session_id,
+        "cwd": cwd,
+        "mcpServers": []
+    });
+
+    let resume_request = JsonRpcRequest::new(2, "session/resume", params);
     let resume_response = send_and_await(stdin_tx, pending_requests, resume_request, 30).await?;
 
-    let session_result: SessionNewResult = serde_json::from_value(
+    let resume_result: SessionResumeResult = serde_json::from_value(
         resume_response.result.unwrap_or_default(),
     )
     .map_err(|e| {
         AppError::Provider(format!(
-            "Failed to parse unstable_resumeSession result: {}",
+            "Failed to parse session/resume result: {}",
             e
         ))
     })?;
 
     println!(
         "[ACP] Session resumed with ACP session ID: {}",
-        session_result.session_id
+        acp_session_id
     );
 
-    Ok(session_result.session_id)
+    let current_model_id = resume_result.models.current_model_id;
+    let models = resume_result
+        .models
+        .available_models
+        .into_iter()
+        .map(|m| ModelInfo {
+            model_id: m.model_id,
+            display_name: m.name,
+            description: m.description,
+        })
+        .collect();
+
+    Ok(AcpHandshakeResult {
+        session_id: acp_session_id.to_string(),
+        models,
+        current_model_id,
+    })
 }
 
 /// Shared ACP initialize step with retry
@@ -423,6 +482,32 @@ pub fn build_permission_response(jsonrpc_id: u64, granted: bool) -> String {
         }
     });
     serde_json::to_string(&response).unwrap_or_default()
+}
+
+/// Set the model for a session using the session/set_model JSON-RPC method
+pub async fn set_session_model(
+    stdin_tx: &mpsc::Sender<String>,
+    pending_requests: &PendingRequests,
+    session_id: &str,
+    model_id: &str,
+) -> AppResult<()> {
+    let request = JsonRpcRequest::new(
+        3,
+        "session/set_model",
+        serde_json::json!({
+            "sessionId": session_id,
+            "modelId": model_id
+        }),
+    );
+
+    send_and_await(stdin_tx, pending_requests, request, 30).await?;
+
+    println!(
+        "[ACP] Session model set to: {} for session {}",
+        model_id, session_id
+    );
+
+    Ok(())
 }
 
 /// Handle a session/update notification by routing to the appropriate StreamChunk

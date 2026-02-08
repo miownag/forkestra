@@ -130,3 +130,15 @@ pub async fn save_message(
         .map_err(|e| format!("Task join error: {}", e))?;
     result.map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn set_session_model(
+    manager: State<'_, SessionManager>,
+    session_id: String,
+    model_id: String,
+) -> Result<Session, String> {
+    manager
+        .set_session_model(&session_id, model_id)
+        .await
+        .map_err(|e| e.to_string())
+}

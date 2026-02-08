@@ -112,6 +112,7 @@ pub fn run() {
             commands::rename_session,
             commands::get_session_messages,
             commands::save_message,
+            commands::set_session_model,
             commands::get_settings,
             commands::update_settings,
             commands::update_provider_settings,

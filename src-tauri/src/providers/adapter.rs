@@ -5,7 +5,7 @@ use tauri::AppHandle;
 use tokio::sync::mpsc;
 
 use crate::error::{AppError, AppResult};
-use crate::models::{ProviderInfo, ProviderType, StreamChunk};
+use crate::models::{ModelInfo, ProviderInfo, ProviderType, StreamChunk};
 
 #[async_trait]
 pub trait ProviderAdapter: Send + Sync {
@@ -44,8 +44,21 @@ pub trait ProviderAdapter: Send + Sync {
         None
     }
 
+    /// Get available models reported by the ACP provider
+    fn available_models(&self) -> Vec<ModelInfo> {
+        vec![]
+    }
+
+    /// Get the current model ID if available
+    fn current_model_id(&self) -> Option<&str> {
+        None
+    }
+
     /// Send a message to the CLI
     async fn send_message(&mut self, message: &str) -> AppResult<()>;
+
+    /// Set the model for the current session
+    async fn set_model(&mut self, model_id: &str) -> AppResult<()>;
 
     /// Check if the session is active
     fn is_active(&self) -> bool;

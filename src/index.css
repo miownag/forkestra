@@ -25,6 +25,9 @@
   --color-border: hsl(0, 0%, 80%);
   --color-input: hsl(0, 0%, 80%);
   --color-ring: hsl(0, 0%, 3.9%);
+
+  --color-local: hsl(199, 85%, 21%);
+  --color-worktree: hsl(140, 85%, 18%);
   --radius-lg: 0.5rem;
   --radius-md: calc(var(--radius-lg) - 2px);
   --radius-sm: calc(var(--radius-lg) - 4px);
@@ -50,6 +53,9 @@
   --color-border: hsl(0, 0%, 14.9%);
   --color-input: hsl(0, 0%, 14.9%);
   --color-ring: hsl(0, 0%, 83.1%);
+
+  --color-local: hsl(199, 35%, 65%);
+  --color-worktree: hsl(139, 29%, 68%);
 }
 
 * {

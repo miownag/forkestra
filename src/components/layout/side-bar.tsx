@@ -24,7 +24,7 @@ import type { Session } from "@/types";
 import { useStreamEvents } from "@/hooks/use-stream-events";
 import { useRouter, useLocation } from "@tanstack/react-router";
 import { PiSidebar } from "react-icons/pi";
-import { VscChevronDown, VscChevronRight } from "react-icons/vsc";
+import { FaCaretRight, FaCaretDown } from "react-icons/fa";
 
 export function Sidebar() {
   useStreamEvents();
@@ -241,7 +241,7 @@ export function Sidebar() {
                   <Button className="w-full select-none" size="sm" disabled>
                     <IoCreateOutline className="-mt-0.5" />
                     New Session
-                    <span className="ml-auto text-xs text-muted-foreground select-none">
+                    <span className="ml-auto text-xs opacity-75 select-none">
                       ⌘ N
                     </span>
                   </Button>
@@ -259,7 +259,7 @@ export function Sidebar() {
             >
               <IoCreateOutline className="-mt-0.5" />
               New Session
-              <span className="ml-auto text-xs text-muted-foreground/75 select-none">
+              <span className="ml-auto text-xs opacity-75 select-none">
                 ⌘ N
               </span>
             </Button>
@@ -286,9 +286,9 @@ export function Sidebar() {
                     onClick={() => toggleGroup(projectPath)}
                   >
                     {isCollapsed ? (
-                      <VscChevronRight className="mr-1 h-3 w-3 shrink-0" />
+                      <FaCaretRight className="mr-1 h-3 w-3 shrink-0" />
                     ) : (
-                      <VscChevronDown className="mr-1 h-3 w-3 shrink-0" />
+                      <FaCaretDown className="mr-1 h-3 w-3 shrink-0" />
                     )}
                     <span className="truncate" title={projectPath}>
                       {projectName}

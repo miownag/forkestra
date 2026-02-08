@@ -76,6 +76,13 @@ export type SessionStatus =
   | "terminated"
   | "error";
 
+// Model types
+export interface ModelInfo {
+  model_id: string;
+  display_name: string;
+  description?: string;
+}
+
 export interface Session {
   id: string;
   name: string;
@@ -87,6 +94,8 @@ export interface Session {
   project_path: string;
   is_local: boolean;
   acp_session_id?: string | null;
+  model?: string | null;
+  available_models: ModelInfo[];
 }
 
 export interface CreateSessionRequest {

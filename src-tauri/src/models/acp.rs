@@ -68,8 +68,35 @@ pub struct FileSystemCapabilities {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AcpModelInfo {
+    pub model_id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionModelState {
+    #[serde(default)]
+    pub available_models: Vec<AcpModelInfo>,
+    #[serde(default)]
+    pub current_model_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SessionNewResult {
     pub session_id: String,
+    #[serde(default)]
+    pub models: SessionModelState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionResumeResult {
+    #[serde(default)]
+    pub models: SessionModelState,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

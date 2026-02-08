@@ -1,6 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { VscClose } from "react-icons/vsc";
-import { LuGitBranch, LuMonitor } from "react-icons/lu";
 import { useSelectorSessionStore, useSelectorSettingsStore } from "@/stores";
 import {
   ContextMenu,
@@ -13,6 +12,24 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SidebarToggleButton, ThemeToggleButton } from "./title-bar-controls";
 import { cn } from "@/lib/utils";
 import type { Session } from "@/types";
+import PROVIDER_ICONS_MAP from "@/constants/icons";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
 
 export function SessionTabBar() {
   const { sidebarCollapsed, isFullscreen } = useSelectorSettingsStore([
@@ -26,6 +43,7 @@ export function SessionTabBar() {
     openTab,
     closeTab,
     closeOtherTabs,
+    reorderTab,
   } = useSelectorSessionStore([
     "sessions",
     "activeSessionId",
@@ -33,6 +51,7 @@ export function SessionTabBar() {
     "openTab",
     "closeTab",
     "closeOtherTabs",
+    "reorderTab",
   ]);
 
   // Cmd+W to close active tab
@@ -55,6 +74,39 @@ export function SessionTabBar() {
     }
   };
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+  );
+
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [draggingWidth, setDraggingWidth] = useState(0);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setDraggingId(String(event.active.id));
+    const el = document.querySelector(
+      `[data-tab-id="${event.active.id}"]`,
+    ) as HTMLElement | null;
+    if (el) {
+      setDraggingWidth(el.getBoundingClientRect().width);
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setDraggingId(null);
+    if (over && active.id !== over.id) {
+      const oldIndex = openTabIds.indexOf(String(active.id));
+      const newIndex = openTabIds.indexOf(String(over.id));
+      reorderTab(oldIndex, newIndex);
+    }
+  };
+
+  const draggingSession = draggingId
+    ? sessions.find((s) => s.id === draggingId)
+    : null;
+
   return (
     <div
       data-tauri-drag-region
@@ -72,25 +124,43 @@ export function SessionTabBar() {
         onValueChange={(value) => openTab(value)}
         className="flex-1 min-w-0 px-1"
       >
-        <TabsList
-          data-tauri-drag-region
-          className="h-8 w-full justify-start bg-transparent p-0 gap-0.5"
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          modifiers={[restrictToHorizontalAxis]}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
         >
-          {openTabIds.map((tabId) => {
-            const session = sessions.find((s) => s.id === tabId);
-            if (!session) return null;
-            return (
-              <TabItem
-                key={tabId}
-                session={session}
-                isActive={tabId === activeSessionId}
-                onClose={() => closeTab(tabId)}
-                onCloseOthers={() => closeOtherTabs(tabId)}
-                onCloseAll={handleCloseAll}
-              />
-            );
-          })}
-        </TabsList>
+          <SortableContext
+            items={openTabIds}
+            strategy={horizontalListSortingStrategy}
+          >
+            <TabsList
+              data-tauri-drag-region
+              className="h-8 w-full justify-start bg-transparent p-0 gap-0.5"
+            >
+              {openTabIds.map((tabId) => {
+                const session = sessions.find((s) => s.id === tabId);
+                if (!session) return null;
+                return (
+                  <SortableTabItem
+                    key={tabId}
+                    session={session}
+                    isActive={tabId === activeSessionId}
+                    onClose={() => closeTab(tabId)}
+                    onCloseOthers={() => closeOtherTabs(tabId)}
+                    onCloseAll={handleCloseAll}
+                  />
+                );
+              })}
+            </TabsList>
+          </SortableContext>
+          <DragOverlay dropAnimation={null}>
+            {draggingSession ? (
+              <TabOverlay session={draggingSession} width={draggingWidth} />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       </Tabs>
 
       {/* Right: theme toggle */}
@@ -99,7 +169,7 @@ export function SessionTabBar() {
   );
 }
 
-interface TabItemProps {
+interface SortableTabItemProps {
   session: Session;
   isActive: boolean;
   onClose: () => void;
@@ -107,41 +177,53 @@ interface TabItemProps {
   onCloseAll: () => void;
 }
 
-function TabItem({
+function SortableTabItem({
   session,
   isActive,
   onClose,
   onCloseOthers,
   onCloseAll,
-}: TabItemProps) {
+}: SortableTabItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: session.id });
+
+  const style = {
+    transform: CSS.Transform.toString(
+      transform ? { ...transform, scaleX: 1, scaleY: 1 } : null,
+    ),
+    transition,
+  };
+
+  const ProviderIcon = PROVIDER_ICONS_MAP[session.provider];
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <TabsTrigger
+          ref={setNodeRef}
+          style={style}
+          data-tab-id={session.id}
+          {...attributes}
+          {...listeners}
           value={session.id}
           className={cn(
-            "group/tab flex-1 h-8 px-3 pr-1.5 text-xs gap-1.5 max-w-[180px]",
+            "group/tab h-8 px-3 pr-1.5 text-xs gap-1.5 flex-1 basis-0 max-w-[180px]",
             "cursor-pointer select-none rounded-md rounded-b-none border border-b-0 border-border/30!",
+            isDragging && "opacity-40",
             isActive
-              ? "bg-linear-to-b from-primary/20 to-primary/2 text-foreground font-semibold border-border!"
-              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              ? "bg-linear-to-b from-primary/20 to-primary/2 font-semibold border-border!"
+              : "hover:bg-muted/50",
+            session.is_local ? "text-local/75" : "text-worktree/75",
+            isActive && (session.is_local ? "text-local" : "text-worktree"),
           )}
         >
-          {session.is_local ? (
-            <LuMonitor
-              className={cn(
-                "h-3.5 w-3.5 shrink-0",
-                isActive ? "text-muted-foreground" : "text-muted-foreground/30",
-              )}
-            />
-          ) : (
-            <LuGitBranch
-              className={cn(
-                "h-3.5 w-3.5 shrink-0",
-                isActive ? "text-primary" : "text-primary/30",
-              )}
-            />
-          )}
+          <ProviderIcon.Color size={14} />
           <span className="truncate">{session.name}</span>
           {session.status === "creating" && (
             <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 shrink-0" />
@@ -179,5 +261,23 @@ function TabItem({
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
+  );
+}
+
+function TabOverlay({ session, width }: { session: Session; width: number }) {
+  const ProviderIcon = PROVIDER_ICONS_MAP[session.provider];
+  return (
+    <div
+      style={{ width }}
+      className={cn(
+        "inline-flex items-center h-8 px-3 pr-1.5 text-xs gap-1.5",
+        "select-none rounded-md rounded-b-none border border-b-0 border-border!",
+        "bg-linear-to-b from-primary/20 to-primary/2 font-semibold shadow-lg",
+        session.is_local ? "text-local" : "text-worktree",
+      )}
+    >
+      <ProviderIcon.Color size={14} />
+      <span className="truncate">{session.name}</span>
+    </div>
   );
 }

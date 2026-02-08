@@ -9,12 +9,12 @@ use tokio::sync::{mpsc, Mutex};
 
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    KimiProviderSettings, PendingPermission, ProviderInfo, ProviderType, StreamChunk,
+    KimiProviderSettings, ModelInfo, PendingPermission, ProviderInfo, ProviderType, StreamChunk,
 };
 use crate::providers::acp_helper::{
     acp_handshake, acp_resume_handshake, build_clean_env, build_permission_response,
-    build_prompt_request, spawn_stderr_reader, spawn_stdin_writer, spawn_stdout_reader,
-    PendingRequests,
+    build_prompt_request, set_session_model, spawn_stderr_reader, spawn_stdin_writer,
+    spawn_stdout_reader, PendingRequests,
 };
 use crate::providers::adapter::ProviderAdapter;
 use crate::providers::detector::ProviderDetector;
@@ -29,6 +29,8 @@ pub struct KimiAdapter {
     pending_permission: Arc<Mutex<Option<PendingPermission>>>,
     is_active: bool,
     cli_path: String,
+    available_models: Vec<ModelInfo>,
+    current_model_id: Option<String>,
 }
 
 impl KimiAdapter {
@@ -43,6 +45,8 @@ impl KimiAdapter {
             pending_permission: Arc::new(Mutex::new(None)),
             is_active: false,
             cli_path: "kimi".to_string(),
+            available_models: vec![],
+            current_model_id: None,
         }
     }
 
@@ -60,6 +64,8 @@ impl KimiAdapter {
                 .custom_cli_path
                 .clone()
                 .unwrap_or_else(|| "kimi".to_string()),
+            available_models: vec![],
+            current_model_id: None,
         }
     }
 
@@ -117,7 +123,7 @@ impl KimiAdapter {
 
         // Spawn tasks
         spawn_stdin_writer(stdin, stdin_rx);
-        spawn_stderr_reader(stderr, "kimi".to_string());
+        spawn_stderr_reader(stderr, "kimi".to_string(), self.pending_requests.clone());
 
         let message_id = uuid::Uuid::new_v4().to_string();
         let pending_requests = self.pending_requests.clone();
@@ -183,19 +189,21 @@ impl ProviderAdapter for KimiAdapter {
         // Perform ACP handshake
         println!("[KimiAdapter] Starting ACP handshake...");
         let pending_requests = self.pending_requests.clone();
-        let acp_session_id =
+        let handshake =
             acp_handshake(&stdin_tx, &pending_requests, &worktree_path.to_string_lossy()).await?;
 
         println!(
             "[KimiAdapter] ACP session established: {}",
-            acp_session_id
+            handshake.session_id
         );
 
         // Store state
         self.child = Some(child);
         self.stdin_tx = Some(stdin_tx);
-        self.acp_session_id = Some(acp_session_id);
+        self.acp_session_id = Some(handshake.session_id);
         self.session_id = Some(session_id.to_string());
+        self.available_models = handshake.models;
+        self.current_model_id = handshake.current_model_id;
         self.is_active = true;
 
         Ok(())
@@ -220,24 +228,27 @@ impl ProviderAdapter for KimiAdapter {
         // Perform ACP resume handshake
         println!("[KimiAdapter] Starting ACP resume handshake...");
         let pending_requests = self.pending_requests.clone();
-        let resumed_session_id = acp_resume_handshake(
+        let handshake = acp_resume_handshake(
             &stdin_tx,
             &pending_requests,
             acp_session_id,
             &worktree_path.to_string_lossy(),
+            &ProviderType::Kimi,
         )
         .await?;
 
         println!(
             "[KimiAdapter] ACP session resumed: {}",
-            resumed_session_id
+            handshake.session_id
         );
 
         // Store state
         self.child = Some(child);
         self.stdin_tx = Some(stdin_tx);
-        self.acp_session_id = Some(resumed_session_id);
+        self.acp_session_id = Some(handshake.session_id);
         self.session_id = Some(session_id.to_string());
+        self.available_models = handshake.models;
+        self.current_model_id = handshake.current_model_id;
         self.is_active = true;
 
         Ok(())
@@ -245,6 +256,14 @@ impl ProviderAdapter for KimiAdapter {
 
     fn acp_session_id(&self) -> Option<&str> {
         self.acp_session_id.as_deref()
+    }
+
+    fn available_models(&self) -> Vec<ModelInfo> {
+        self.available_models.clone()
+    }
+
+    fn current_model_id(&self) -> Option<&str> {
+        self.current_model_id.as_deref()
     }
 
     async fn send_message(&mut self, message: &str) -> AppResult<()> {
@@ -302,6 +321,22 @@ impl ProviderAdapter for KimiAdapter {
         Ok(())
     }
 
+    async fn set_model(&mut self, model_id: &str) -> AppResult<()> {
+        let stdin_tx = self
+            .stdin_tx
+            .as_ref()
+            .ok_or_else(|| AppError::Provider("Session not started".to_string()))?;
+
+        let acp_session_id = self
+            .acp_session_id
+            .as_ref()
+            .ok_or_else(|| AppError::Provider("ACP session not established".to_string()))?;
+
+        set_session_model(stdin_tx, &self.pending_requests, acp_session_id, model_id).await?;
+
+        Ok(())
+    }
+
     fn is_active(&self) -> bool {
         self.is_active
     }
@@ -318,6 +353,8 @@ impl ProviderAdapter for KimiAdapter {
         self.is_active = false;
         self.acp_session_id = None;
         self.session_id = None;
+        self.available_models.clear();
+        self.current_model_id = None;
 
         {
             let mut pending = self.pending_requests.lock().await;

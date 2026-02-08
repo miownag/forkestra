@@ -5,7 +5,8 @@ use tauri::{AppHandle, Manager};
 
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    ChatMessage, MessageContentType, MessageRole, ProviderType, Session, SessionStatus, ToolUseInfo,
+    ChatMessage, MessageContentType, MessageRole, ProviderType, Session, SessionStatus,
+    ToolUseInfo,
 };
 
 pub struct Database {
@@ -70,6 +71,44 @@ impl Database {
             println!("[Database] Migrated: added acp_session_id column to sessions");
         }
 
+        // Migration for model column
+        let has_model_col: bool = conn
+            .prepare("PRAGMA table_info(sessions)")
+            .and_then(|mut stmt| {
+                let cols: Vec<String> = stmt
+                    .query_map([], |row| row.get::<_, String>(1))
+                    .unwrap()
+                    .filter_map(|r| r.ok())
+                    .collect();
+                Ok(cols.contains(&"model".to_string()))
+            })
+            .unwrap_or(false);
+
+        if !has_model_col {
+            conn.execute_batch("ALTER TABLE sessions ADD COLUMN model TEXT")
+                .map_err(|e| {
+                    AppError::Database(format!("Failed to add model column: {}", e))
+                })?;
+            println!("[Database] Migrated: added model column to sessions");
+        }
+
+        // Migrate old enum-style model values to model_id strings
+        let old_to_new: &[(&str, &str)] = &[
+            ("claude_haiku", "claude-haiku-4-20250514"),
+            ("claude_sonnet", "claude-sonnet-4-20250514"),
+            ("claude_opus", "claude-opus-4-20250514"),
+            ("kimi_moonshot", "moonshot-v1-128k"),
+        ];
+        for (old_val, new_val) in old_to_new {
+            conn.execute(
+                "UPDATE sessions SET model = ?1 WHERE model = ?2",
+                params![new_val, old_val],
+            )
+            .map_err(|e| {
+                AppError::Database(format!("Failed to migrate model values: {}", e))
+            })?;
+        }
+
         Ok(())
     }
 
@@ -83,8 +122,8 @@ impl Database {
         conn.execute(
             "INSERT OR REPLACE INTO sessions
              (id, name, provider, status, worktree_path, branch_name,
-              project_path, is_local, created_at, acp_session_id)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+              project_path, is_local, created_at, acp_session_id, model)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 session.id,
                 session.name,
@@ -96,6 +135,7 @@ impl Database {
                 session.is_local as i32,
                 session.created_at.to_rfc3339(),
                 session.acp_session_id,
+                session.model.as_deref(),
             ],
         )
         .map_err(|e| AppError::Database(format!("Failed to save session: {}", e)))?;
@@ -151,6 +191,25 @@ impl Database {
         Ok(())
     }
 
+    pub fn update_session_model(
+        &self,
+        session_id: &str,
+        model_id: &str,
+    ) -> AppResult<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Database(format!("Database lock poisoned: {}", e)))?;
+        conn.execute(
+            "UPDATE sessions SET model = ?1 WHERE id = ?2",
+            params![model_id, session_id],
+        )
+        .map_err(|e| {
+            AppError::Database(format!("Failed to update session model: {}", e))
+        })?;
+        Ok(())
+    }
+
     pub fn load_sessions(&self) -> AppResult<Vec<Session>> {
         let conn = self
             .conn
@@ -160,7 +219,7 @@ impl Database {
             .prepare(
                 "SELECT id, name, provider, status, worktree_path,
                         branch_name, project_path, is_local, created_at,
-                        acp_session_id
+                        acp_session_id, model
                  FROM sessions ORDER BY created_at DESC",
             )
             .map_err(|e| AppError::Database(format!("Failed to prepare query: {}", e)))?;
@@ -170,6 +229,7 @@ impl Database {
                 let provider_str: String = row.get(2)?;
                 let status_str: String = row.get(3)?;
                 let created_at_str: String = row.get(8)?;
+                let model_str: Option<String> = row.get(10)?;
 
                 Ok(Session {
                     id: row.get(0)?,
@@ -184,6 +244,8 @@ impl Database {
                         .unwrap_or_else(|_| chrono::Utc::now().into())
                         .with_timezone(&chrono::Utc),
                     acp_session_id: row.get(9)?,
+                    model: model_str,
+                    available_models: vec![],
                 })
             })
             .map_err(|e| AppError::Database(format!("Failed to query sessions: {}", e)))?;

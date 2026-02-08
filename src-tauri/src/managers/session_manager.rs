@@ -11,7 +11,8 @@ use crate::error::{AppError, AppResult};
 use crate::managers::settings_manager::SettingsManager;
 use crate::managers::worktree_manager::WorktreeManager;
 use crate::models::{
-    CreateSessionRequest, ProviderSettings, ProviderType, Session, SessionStatus, StreamChunk,
+    CreateSessionRequest, ProviderSettings, ProviderType, Session, SessionStatus,
+    StreamChunk,
 };
 use crate::providers::{ClaudeAdapter, KimiAdapter, ProviderAdapter};
 
@@ -119,6 +120,8 @@ impl SessionManager {
             project_path: request.project_path,
             is_local: request.use_local,
             acp_session_id: None,
+            model: None,
+            available_models: vec![],
         };
 
         // Create provider adapter with settings
@@ -163,10 +166,12 @@ impl SessionManager {
             .start_session(&session_id, &worktree_path, tx, self.app_handle.clone())
             .await?;
 
-        // Update session status and capture ACP session ID
+        // Update session status, capture ACP session ID and models
         let mut session = session;
         session.status = SessionStatus::Active;
         session.acp_session_id = adapter.acp_session_id().map(|s| s.to_string());
+        session.available_models = adapter.available_models();
+        session.model = adapter.current_model_id().map(|s| s.to_string());
 
         // Store session in memory
         {
@@ -264,8 +269,10 @@ impl SessionManager {
             if cleanup_worktree && !session.is_local {
                 let project_path = PathBuf::from(&session.project_path);
                 WorktreeManager::remove_worktree(&project_path, session_id)?;
+            }
 
-                // Also remove from DB and memory entirely
+            // Remove from DB and memory entirely when cleanup is requested
+            if cleanup_worktree {
                 if let Err(e) = self.db.delete_session(session_id) {
                     eprintln!(
                         "[SessionManager] Failed to delete session from DB: {}",
@@ -381,8 +388,10 @@ impl SessionManager {
             )
             .await?;
 
-        // Get the (possibly updated) ACP session ID from the adapter
+        // Get the (possibly updated) ACP session ID and models from the adapter
         let new_acp_session_id = adapter.acp_session_id().map(|s| s.to_string());
+        let new_available_models = adapter.available_models();
+        let new_current_model_id = adapter.current_model_id().map(|s| s.to_string());
 
         // Update session in memory
         let updated_session = {
@@ -391,6 +400,10 @@ impl SessionManager {
                 entry.session.status = SessionStatus::Active;
                 if let Some(ref acp_id) = new_acp_session_id {
                     entry.session.acp_session_id = Some(acp_id.clone());
+                }
+                entry.session.available_models = new_available_models;
+                if entry.session.model.is_none() {
+                    entry.session.model = new_current_model_id;
                 }
                 entry.adapter = Some(Arc::new(tokio::sync::Mutex::new(adapter)));
                 entry.session.clone()
@@ -469,6 +482,61 @@ impl SessionManager {
                 "Session '{}' not found or not active",
                 session_id
             )))
+        }
+    }
+
+    /// Set the model for an active session
+    pub async fn set_session_model(&self, session_id: &str, model_id: String) -> AppResult<Session> {
+        // Validate model is available for this session
+        {
+            let sessions = self.sessions.read().await;
+            let entry = sessions.get(session_id).ok_or_else(|| {
+                AppError::NotFound(format!("Session '{}' not found", session_id))
+            })?;
+
+            if !entry.session.available_models.is_empty()
+                && !entry.session.available_models.iter().any(|m| m.model_id == model_id)
+            {
+                return Err(AppError::InvalidOperation(format!(
+                    "Model '{}' is not available for this session",
+                    model_id
+                )));
+            }
+        }
+
+        // Get adapter and call set_model
+        let adapter = {
+            let sessions = self.sessions.read().await;
+            sessions.get(session_id).and_then(|e| e.adapter.clone())
+        };
+
+        if let Some(adapter) = adapter {
+            let mut adapter = adapter.lock().await;
+            adapter.set_model(&model_id).await?;
+        } else {
+            return Err(AppError::InvalidOperation(
+                "Session is not active".to_string(),
+            ));
+        }
+
+        // Update session in memory and database
+        {
+            let mut sessions = self.sessions.write().await;
+            if let Some(entry) = sessions.get_mut(session_id) {
+                entry.session.model = Some(model_id.clone());
+
+                // Persist model change to database
+                if let Err(e) = self.db.update_session_model(session_id, &model_id) {
+                    eprintln!(
+                        "[SessionManager] Failed to update session model in DB: {}",
+                        e
+                    );
+                }
+
+                Ok(entry.session.clone())
+            } else {
+                Err(AppError::NotFound(format!("Session '{}' not found", session_id)))
+            }
         }
     }
 }

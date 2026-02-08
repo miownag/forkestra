@@ -27,6 +27,7 @@ interface SessionState {
   messagesLoaded: Record<string, boolean>;
   isLoading: boolean;
   streamingSessions: Set<string>;
+  resumingSessions: Set<string>;
   interactionPrompts: Record<string, InteractionPrompt | null>;
   error: string | null;
 
@@ -37,6 +38,7 @@ interface SessionState {
   openTab: (sessionId: string) => void;
   closeTab: (sessionId: string) => void;
   closeOtherTabs: (sessionId: string) => void;
+  reorderTab: (oldIndex: number, newIndex: number) => void;
   loadSessionMessages: (sessionId: string) => Promise<void>;
   sendMessage: (sessionId: string, message: string) => Promise<void>;
   sendInteractionResponse: (
@@ -49,6 +51,7 @@ interface SessionState {
   ) => Promise<void>;
   resumeSession: (sessionId: string) => Promise<Session>;
   renameSession: (sessionId: string, newName: string) => Promise<void>;
+  setSessionModel: (sessionId: string, modelId: string) => Promise<void>;
   addMessage: (sessionId: string, message: ChatMessage) => void;
   handleStreamChunk: (chunk: StreamChunk) => void;
   setInteractionPrompt: (
@@ -73,6 +76,7 @@ export const useSessionStore = create<SessionState>()(
         messagesLoaded: {},
         isLoading: false,
         streamingSessions: new Set(),
+        resumingSessions: new Set(),
         interactionPrompts: {},
         error: null,
 
@@ -177,6 +181,15 @@ export const useSessionStore = create<SessionState>()(
         closeOtherTabs: (sessionId) => {
           set({ openTabIds: [sessionId], activeSessionId: sessionId });
           get().loadSessionMessages(sessionId);
+        },
+
+        reorderTab: (oldIndex, newIndex) => {
+          set((state) => {
+            const newTabIds = [...state.openTabIds];
+            const [removed] = newTabIds.splice(oldIndex, 1);
+            newTabIds.splice(newIndex, 0, removed);
+            return { openTabIds: newTabIds };
+          });
         },
 
         loadSessionMessages: async (sessionId) => {
@@ -296,24 +309,38 @@ export const useSessionStore = create<SessionState>()(
         },
 
         resumeSession: async (sessionId) => {
-          set({ isLoading: true, error: null });
+          set((state) => ({
+            resumingSessions: new Set(state.resumingSessions).add(sessionId),
+            error: null,
+          }));
           try {
             const session = await invoke<Session>("resume_session", {
               sessionId,
             });
-            set((state) => ({
-              sessions: state.sessions.map((s) =>
-                s.id === sessionId ? session : s,
-              ),
-              activeSessionId: session.id,
-              openTabIds: state.openTabIds.includes(session.id)
-                ? state.openTabIds
-                : [...state.openTabIds, session.id],
-              isLoading: false,
-            }));
+            set((state) => {
+              const newResumingSessions = new Set(state.resumingSessions);
+              newResumingSessions.delete(sessionId);
+              return {
+                sessions: state.sessions.map((s) =>
+                  s.id === sessionId ? session : s,
+                ),
+                activeSessionId: session.id,
+                openTabIds: state.openTabIds.includes(session.id)
+                  ? state.openTabIds
+                  : [...state.openTabIds, session.id],
+                resumingSessions: newResumingSessions,
+              };
+            });
             return session;
           } catch (error) {
-            set({ error: String(error), isLoading: false });
+            set((state) => {
+              const newResumingSessions = new Set(state.resumingSessions);
+              newResumingSessions.delete(sessionId);
+              return {
+                error: String(error),
+                resumingSessions: newResumingSessions,
+              };
+            });
             throw error;
           }
         },
@@ -333,6 +360,26 @@ export const useSessionStore = create<SessionState>()(
             }));
           } catch (error) {
             set({ error: String(error), isLoading: false });
+          }
+        },
+
+        setSessionModel: async (sessionId, modelId) => {
+          try {
+            const session = await invoke<Session>("set_session_model", {
+              sessionId,
+              modelId,
+            });
+            console.log(
+              "[SessionStorage] Session model set:",
+              session
+            );
+            set((state) => ({
+              sessions: state.sessions.map((s) =>
+                s.id === sessionId ? session : s,
+              ),
+            }));
+          } catch (error) {
+            set({ error: String(error) });
           }
         },
 
