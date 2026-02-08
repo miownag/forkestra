@@ -44,11 +44,12 @@ export interface SessionItemRef {
 interface SessionItemProps {
   session: Session;
   isActive: boolean;
+  isSessionActive: boolean;
   onClick: () => void;
 }
 
 export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
-  ({ session, isActive, onClick }, ref) => {
+  ({ session, isActive, isSessionActive, onClick }, ref) => {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showRenameDialog, setShowRenameDialog] = useState(false);
     const [showQuickCreateDialog, setShowQuickCreateDialog] = useState(false);
@@ -119,27 +120,31 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
     );
 
     return (
-      <>
+      <div className="px-2 mb-1">
         <ContextMenu>
           <ContextMenuTrigger asChild>
             <div
               onClick={onClick}
               className={cn(
-                "flex items-center gap-2 w-full text-left p-2 rounded-md mb-1 transition-colors group relative cursor-default",
+                "flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-md group relative cursor-default",
                 isActive ? "bg-muted text-foreground" : "hover:bg-muted",
+                !isSessionActive && "opacity-50",
               )}
             >
               <div className="flex-1 min-w-0">
-                <div className="font-medium truncate pr-6 text-sm flex items-center gap-1.5">
+                <div className="font-medium truncate pr-6 text-xs flex items-center gap-1.5">
                   {session.is_local ? (
-                    <LuMonitor className="h-3 w-3 text-muted-foreground" />
+                    <LuMonitor className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
                   ) : (
-                    <LuGitBranch className="h-3 w-3 text-muted-foreground" />
+                    <LuGitBranch className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
                   )}
                   {session.name}
                 </div>
                 <div
-                  className={cn("text-xs truncate", "text-muted-foreground")}
+                  className={cn(
+                    "text-[11px] truncate",
+                    "text-muted-foreground",
+                  )}
                 >
                   {`${session.provider.slice(0, 1).toUpperCase()}${session.provider.slice(1)}`}{" "}
                   • {worktreeName}
@@ -212,7 +217,7 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
           onOpenChange={setShowQuickCreateDialog}
           defaultValues={quickCreateDefaults}
         />
-      </>
+      </div>
     );
   },
 );

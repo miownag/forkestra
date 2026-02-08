@@ -20,36 +20,33 @@ import {
   type SessionItemRef,
 } from "@/components/session/session-context-menu";
 import { cn } from "@/lib/utils";
+import type { Session } from "@/types";
 import { useStreamEvents } from "@/hooks/use-stream-events";
 import { useRouter, useLocation } from "@tanstack/react-router";
 import { PiSidebar } from "react-icons/pi";
+import { VscChevronDown, VscChevronRight } from "react-icons/vsc";
 
-interface SidebarProps {
-  sidebarCollapsed: boolean;
-  setSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
-}
-
-export function Sidebar({
-  sidebarCollapsed,
-  setSidebarCollapsed,
-}: SidebarProps) {
+export function Sidebar() {
   useStreamEvents();
 
   const [showNewSession, setShowNewSession] = useState(false);
   const router = useRouter();
   const location = useLocation();
-  const { sessions, activeSessionId, setActiveSession, fetchSessions } =
+  const { sessions, activeSessionId, openTab, fetchSessions } =
     useSelectorSessionStore([
       "sessions",
       "activeSessionId",
-      "setActiveSession",
+      "openTab",
       "fetchSessions",
     ]);
   const { providers } = useSelectorProviderStore(["providers"]);
-  const { resolvedTheme, isFullscreen } = useSelectorSettingsStore([
-    "resolvedTheme",
-    "isFullscreen",
-  ]);
+  const { resolvedTheme, isFullscreen, sidebarCollapsed, toggleSidebar } =
+    useSelectorSettingsStore([
+      "resolvedTheme",
+      "isFullscreen",
+      "sidebarCollapsed",
+      "toggleSidebar",
+    ]);
 
   const installedProviders = providers.filter((p) => p.installed);
 
@@ -58,15 +55,50 @@ export function Sidebar({
     fetchSessions();
   }, [fetchSessions]);
 
-  const activeSessions = sessions.filter(
-    (s) => s.status === "active" || s.status === "creating",
+  // Group sessions by project path
+  const sessionsByProject = sessions.reduce<Record<string, Session[]>>(
+    (acc, session) => {
+      const key = session.project_path;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(session);
+      return acc;
+    },
+    {},
   );
-  const historySessions = sessions.filter(
-    (s) =>
-      s.status === "terminated" ||
-      s.status === "error" ||
-      s.status === "paused",
+
+  // Sort sessions within each group by created_at descending
+  for (const key of Object.keys(sessionsByProject)) {
+    sessionsByProject[key].sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+  }
+
+  // Sort project groups by most recent session created_at descending
+  const sortedProjectPaths = Object.keys(sessionsByProject).sort((a, b) => {
+    const aLatest = new Date(sessionsByProject[a][0].created_at).getTime();
+    const bLatest = new Date(sessionsByProject[b][0].created_at).getTime();
+    return bLatest - aLatest;
+  });
+
+  const isSessionActive = (s: Session) =>
+    s.status === "active" || s.status === "creating";
+
+  // Collapsible state for project groups
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    new Set(),
   );
+  const toggleGroup = useCallback((projectPath: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(projectPath)) {
+        next.delete(projectPath);
+      } else {
+        next.add(projectPath);
+      }
+      return next;
+    });
+  }, []);
 
   // Refs for session items to trigger actions via keyboard
   const sessionItemRefs = useRef<Map<string, SessionItemRef>>(new Map());
@@ -139,8 +171,6 @@ export function Sidebar({
     }
   };
 
-  const toggleSidebar = () => setSidebarCollapsed((prev) => !prev);
-
   return (
     <div
       className={cn(
@@ -152,8 +182,8 @@ export function Sidebar({
         <div
           data-tauri-drag-region
           className={cn(
-            "shrink-0 h-13 z-50 flex items-center pr-4 justify-end",
-            isFullscreen ? "pl-4" : "pl-24",
+            "shrink-0 h-11 z-50 flex items-center pr-4 justify-end",
+            "pl-24",
           )}
         >
           <Button
@@ -231,44 +261,46 @@ export function Sidebar({
 
         <Separator />
 
-        {/* Sessions List */}
+        {/* Sessions List - Grouped by Project Path */}
         <ScrollArea className="flex-1">
-          <div className="p-2">
-            <div className="text-xs font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider whitespace-nowrap mb-1">
-              Sessions ({activeSessions.length})
-            </div>
-            {activeSessions.length === 0 ? (
-              <p className="text-xs text-muted-foreground px-2 py-4 text-center whitespace-nowrap">
-                No active sessions
-              </p>
-            ) : (
-              activeSessions.map((session) => (
-                <SessionItem
-                  key={session.id}
-                  ref={(ref) => setSessionItemRef(session.id, ref)}
-                  session={session}
-                  isActive={activeSessionId === session.id}
-                  onClick={() => setActiveSession(session.id)}
-                />
-              ))
-            )}
-          </div>
-          {/* History Sessions */}
-          {historySessions.length > 0 && (
-            <div className="p-2 pt-0">
-              <div className="text-xs font-medium text-muted-foreground px-2 py-1.5 uppercase tracking-wider whitespace-nowrap mb-1">
-                History ({historySessions.length})
-              </div>
-              {historySessions.map((session) => (
-                <SessionItem
-                  key={session.id}
-                  ref={(ref) => setSessionItemRef(session.id, ref)}
-                  session={session}
-                  isActive={activeSessionId === session.id}
-                  onClick={() => setActiveSession(session.id)}
-                />
-              ))}
-            </div>
+          {sessions.length === 0 ? (
+            <p className="text-xs text-muted-foreground px-4 py-4 text-center whitespace-nowrap">
+              No sessions
+            </p>
+          ) : (
+            sortedProjectPaths.map((projectPath) => {
+              const projectSessions = sessionsByProject[projectPath];
+              const projectName = projectPath.split("/").pop() || projectPath;
+              const isCollapsed = collapsedGroups.has(projectPath);
+              return (
+                <div key={projectPath} className="pt-2">
+                  <div
+                    className="flex items-center text-xs font-medium text-muted-foreground px-2 py-1 tracking-wider whitespace-nowrap mb-1 cursor-pointer select-none hover:text-foreground transition-colors"
+                    onClick={() => toggleGroup(projectPath)}
+                  >
+                    {isCollapsed ? (
+                      <VscChevronRight className="mr-1 h-3 w-3 shrink-0" />
+                    ) : (
+                      <VscChevronDown className="mr-1 h-3 w-3 shrink-0" />
+                    )}
+                    <span className="truncate" title={projectPath}>
+                      {projectName}
+                    </span>
+                  </div>
+                  {!isCollapsed &&
+                    projectSessions.map((session) => (
+                      <SessionItem
+                        key={session.id}
+                        ref={(ref) => setSessionItemRef(session.id, ref)}
+                        session={session}
+                        isActive={activeSessionId === session.id}
+                        isSessionActive={isSessionActive(session)}
+                        onClick={() => openTab(session.id)}
+                      />
+                    ))}
+                </div>
+              );
+            })
           )}
         </ScrollArea>
 

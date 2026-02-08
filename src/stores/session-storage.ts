@@ -22,6 +22,7 @@ interface SessionState {
   // State
   sessions: Session[];
   activeSessionId: string | null;
+  openTabIds: string[];
   messages: Record<string, ChatMessage[]>;
   messagesLoaded: Record<string, boolean>;
   isLoading: boolean;
@@ -33,6 +34,9 @@ interface SessionState {
   fetchSessions: () => Promise<void>;
   createSession: (request: CreateSessionRequest) => Promise<Session>;
   setActiveSession: (sessionId: string | null) => void;
+  openTab: (sessionId: string) => void;
+  closeTab: (sessionId: string) => void;
+  closeOtherTabs: (sessionId: string) => void;
   loadSessionMessages: (sessionId: string) => Promise<void>;
   sendMessage: (sessionId: string, message: string) => Promise<void>;
   sendInteractionResponse: (
@@ -64,6 +68,7 @@ export const useSessionStore = create<SessionState>()(
         // Initial state
         sessions: [],
         activeSessionId: null,
+        openTabIds: [],
         messages: {},
         messagesLoaded: {},
         isLoading: false,
@@ -76,7 +81,25 @@ export const useSessionStore = create<SessionState>()(
           set({ isLoading: true, error: null });
           try {
             const sessions = await invoke<Session[]>("list_sessions");
-            set({ sessions, isLoading: false });
+            // Reconcile openTabIds: remove tabs for sessions that no longer exist or are not active/creating
+            const activeSessionIds = new Set(
+              sessions
+                .filter((s) => s.status === "active" || s.status === "creating")
+                .map((s) => s.id),
+            );
+            const reconciledTabIds = get().openTabIds.filter((id) =>
+              activeSessionIds.has(id),
+            );
+            const activeId = get().activeSessionId;
+            set({
+              sessions,
+              openTabIds: reconciledTabIds,
+              activeSessionId:
+                activeId && reconciledTabIds.includes(activeId)
+                  ? activeId
+                  : reconciledTabIds[0] ?? null,
+              isLoading: false,
+            });
           } catch (error) {
             set({ error: String(error), isLoading: false });
           }
@@ -91,6 +114,7 @@ export const useSessionStore = create<SessionState>()(
             set((state) => ({
               sessions: [...state.sessions, session],
               activeSessionId: session.id,
+              openTabIds: [...state.openTabIds, session.id],
               messages: { ...state.messages, [session.id]: [] },
               messagesLoaded: { ...state.messagesLoaded, [session.id]: true },
               isLoading: false,
@@ -108,6 +132,51 @@ export const useSessionStore = create<SessionState>()(
           if (sessionId) {
             get().loadSessionMessages(sessionId);
           }
+        },
+
+        openTab: (sessionId) => {
+          const state = get();
+          if (state.openTabIds.includes(sessionId)) {
+            // Tab already open, just switch to it
+            set({ activeSessionId: sessionId });
+          } else {
+            // Open new tab and switch to it
+            set({
+              openTabIds: [...state.openTabIds, sessionId],
+              activeSessionId: sessionId,
+            });
+          }
+          // Lazy-load messages
+          get().loadSessionMessages(sessionId);
+        },
+
+        closeTab: (sessionId) => {
+          const state = get();
+          const idx = state.openTabIds.indexOf(sessionId);
+          if (idx === -1) return;
+
+          const newTabIds = state.openTabIds.filter((id) => id !== sessionId);
+          let newActiveId = state.activeSessionId;
+
+          if (state.activeSessionId === sessionId) {
+            // Activate the tab to the left, or the last one, or null
+            if (newTabIds.length > 0) {
+              const newIdx = Math.min(idx, newTabIds.length - 1);
+              newActiveId = newTabIds[newIdx];
+            } else {
+              newActiveId = null;
+            }
+          }
+
+          set({ openTabIds: newTabIds, activeSessionId: newActiveId });
+          if (newActiveId) {
+            get().loadSessionMessages(newActiveId);
+          }
+        },
+
+        closeOtherTabs: (sessionId) => {
+          set({ openTabIds: [sessionId], activeSessionId: sessionId });
+          get().loadSessionMessages(sessionId);
         },
 
         loadSessionMessages: async (sessionId) => {
@@ -186,6 +255,15 @@ export const useSessionStore = create<SessionState>()(
           try {
             await invoke("terminate_session", { sessionId, cleanupWorktree });
             set((state) => {
+              const newTabIds = state.openTabIds.filter((id) => id !== sessionId);
+              const needNewActive = state.activeSessionId === sessionId;
+              const newActiveId = needNewActive
+                ? (newTabIds.length > 0 ? newTabIds[Math.min(
+                    state.openTabIds.indexOf(sessionId),
+                    newTabIds.length - 1,
+                  )] : null)
+                : state.activeSessionId;
+
               if (cleanupWorktree) {
                 // Session fully deleted - remove from state entirely
                 const { [sessionId]: _, ...remainingMessages } = state.messages;
@@ -195,10 +273,8 @@ export const useSessionStore = create<SessionState>()(
                   sessions: state.sessions.filter((s) => s.id !== sessionId),
                   messages: remainingMessages,
                   messagesLoaded: remainingLoaded,
-                  activeSessionId:
-                    state.activeSessionId === sessionId
-                      ? null
-                      : state.activeSessionId,
+                  openTabIds: newTabIds,
+                  activeSessionId: newActiveId,
                   isLoading: false,
                 };
               }
@@ -209,10 +285,8 @@ export const useSessionStore = create<SessionState>()(
                     ? { ...s, status: "terminated" as const }
                     : s,
                 ),
-                activeSessionId:
-                  state.activeSessionId === sessionId
-                    ? null
-                    : state.activeSessionId,
+                openTabIds: newTabIds,
+                activeSessionId: newActiveId,
                 isLoading: false,
               };
             });
@@ -232,6 +306,9 @@ export const useSessionStore = create<SessionState>()(
                 s.id === sessionId ? session : s,
               ),
               activeSessionId: session.id,
+              openTabIds: state.openTabIds.includes(session.id)
+                ? state.openTabIds
+                : [...state.openTabIds, session.id],
               isLoading: false,
             }));
             return session;
@@ -379,6 +456,7 @@ export const useSessionStore = create<SessionState>()(
         name: "forkestra-sessions",
         partialize: (state) => ({
           activeSessionId: state.activeSessionId,
+          openTabIds: state.openTabIds,
         }),
       },
     ),

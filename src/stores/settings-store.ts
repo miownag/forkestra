@@ -15,6 +15,7 @@ interface SettingsState {
 
   // Window
   isFullscreen: boolean;
+  sidebarCollapsed: boolean;
 
   // Appearance
   fontSize: FontSize;
@@ -30,6 +31,8 @@ interface SettingsState {
   setTheme: (theme: Theme) => void;
   setSystemTheme: (theme: ResolvedTheme) => void;
   setIsFullscreen: (isFullscreen: boolean) => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  toggleSidebar: () => void;
   setFontSize: (fontSize: FontSize) => void;
   setAccentColor: (accentColor: AccentColor) => void;
   setDefaultProvider: (provider: string | null) => void;
@@ -52,6 +55,7 @@ export const useSettingsStore = create<SettingsState>()(
           systemTheme: "light",
           resolvedTheme: "light",
           isFullscreen: false,
+          sidebarCollapsed: false,
           fontSize: "base",
           accentColor: "default",
 
@@ -71,6 +75,8 @@ export const useSettingsStore = create<SettingsState>()(
               resolvedTheme: resolveTheme(get().theme, systemTheme),
             }),
           setIsFullscreen: (isFullscreen) => set({ isFullscreen }),
+          setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+          toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
           setFontSize: (fontSize) => set({ fontSize }),
           setAccentColor: (accentColor) => set({ accentColor }),
           setDefaultProvider: (provider) => set({ defaultProvider: provider }),

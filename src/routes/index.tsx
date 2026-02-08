@@ -1,4 +1,5 @@
 import { SessionPanel } from "@/components/session/session-panel";
+import { SessionTabBar } from "@/components/layout/session-tab-bar";
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
@@ -6,5 +7,12 @@ export const Route = createFileRoute("/")({
 });
 
 function RouteComponent() {
-  return <SessionPanel />;
+  return (
+    <>
+      <SessionTabBar />
+      <div className="flex-1 overflow-y-auto">
+        <SessionPanel />
+      </div>
+    </>
+  );
 }

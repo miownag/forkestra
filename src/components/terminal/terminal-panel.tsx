@@ -96,7 +96,7 @@ export function TerminalPanel({ sessionId, sessionCwd }: TerminalPanelProps) {
                     }}
                     className={cn(
                       "h-full pr-1 text-xs data-[state=active]:text-foreground flex items-center gap-1.5 max-w-[120px]",
-                      "transition-colors hover:bg-muted",
+                      "transition-colors hover:bg-muted data-[state=active]:bg-transparent!",
                       "border-b-2 border-b-transparent! data-[state=active]:border-b-primary! rounded-none cursor-pointer",
                     )}
                   >

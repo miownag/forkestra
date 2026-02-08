@@ -22,6 +22,11 @@ import { ACCENT_COLOR_OPTIONS } from "@/constants/theme";
 import { Separator } from "@/components/ui/separator";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { homeDir } from "@tauri-apps/api/path";
+import { cn } from "@/lib/utils";
+import {
+  SidebarToggleButton,
+  ThemeToggleButton,
+} from "@/components/layout/title-bar-controls";
 
 export const Route = createFileRoute("/settings/")({
   component: RouteComponent,
@@ -40,6 +45,8 @@ function RouteComponent() {
     accentColor,
     defaultProjectPath,
     defaultWorkMode,
+    sidebarCollapsed,
+    isFullscreen,
     setTheme,
     setFontSize,
     setAccentColor,
@@ -51,6 +58,8 @@ function RouteComponent() {
     "accentColor",
     "defaultProjectPath",
     "defaultWorkMode",
+    "sidebarCollapsed",
+    "isFullscreen",
     "setTheme",
     "setFontSize",
     "setAccentColor",
@@ -82,216 +91,236 @@ function RouteComponent() {
   };
 
   return (
-    <div className="space-y-8 sm:w-2xl md:w-3xl mx-auto py-12">
-      <Button variant="ghost" onClick={() => router.history.back()}>
-        <VscArrowLeft />
-        Back
-      </Button>
+    <>
+      <div
+        data-tauri-drag-region
+        className={cn(
+          "shrink-0 h-13 z-50 flex items-center pr-4 justify-between w-full bg-muted/20",
+          isFullscreen ? "pl-4" : "pl-2",
+        )}
+      >
+        {sidebarCollapsed ? <SidebarToggleButton /> : <div />}
+        <ThemeToggleButton />
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        <div className="space-y-8 sm:w-2xl md:w-3xl mx-auto py-12">
+          <Button variant="ghost" onClick={() => router.history.back()}>
+            <VscArrowLeft />
+            Back
+          </Button>
 
-      {/* General Section */}
-      <div>
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold">General</h3>
-          <p className="text-sm text-muted-foreground">
-            Configure general application settings
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          {/* Default Project Path */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">
-                Default Project Path
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Default directory when selecting a project folder
+          {/* General Section */}
+          <div>
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold">General</h3>
+              <p className="text-sm text-muted-foreground">
+                Configure general application settings
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Input
-                value={defaultProjectPath || ""}
-                onChange={(e) => setDefaultProjectPath(e.target.value || null)}
-                placeholder="System user directory"
-                className="w-60 text-sm"
-              />
+
+            <div className="space-y-4">
+              {/* Default Project Path */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-medium">
+                    Default Project Path
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Default directory when selecting a project folder
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={defaultProjectPath || ""}
+                    onChange={(e) =>
+                      setDefaultProjectPath(e.target.value || null)
+                    }
+                    placeholder="System user directory"
+                    className="w-60 text-sm"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleSelectDefaultPath}
+                  >
+                    <VscFolder className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Default Work Mode */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-medium">
+                    Preferred Work Mode
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Default mode when creating new sessions
+                  </p>
+                </div>
+                <Select
+                  value={defaultWorkMode}
+                  onValueChange={(value) =>
+                    setDefaultWorkMode(value as DefaultWorkMode)
+                  }
+                >
+                  <SelectTrigger className="w-45">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="worktree">Worktree</SelectItem>
+                    <SelectItem value="local">Local</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Appearance Section */}
+          <div>
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold">Appearance</h3>
+              <p className="text-sm text-muted-foreground">
+                Customize the look and feel of the application
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Theme Setting */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-medium">Theme</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Select your preferred color theme
+                  </p>
+                </div>
+                <Select
+                  value={theme}
+                  onValueChange={(value) => setTheme(value as Theme)}
+                >
+                  <SelectTrigger className="w-45">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="light">Light</SelectItem>
+                    <SelectItem value="dark">Dark</SelectItem>
+                    <SelectItem value="system">Follow System</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Font Size Setting */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-medium">Font Size</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Adjust the interface font size
+                  </p>
+                </div>
+                <Select
+                  value={fontSize}
+                  onValueChange={(value) => setFontSize(value as FontSize)}
+                >
+                  <SelectTrigger className="w-45">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="small">Small</SelectItem>
+                    <SelectItem value="base">Base (Default)</SelectItem>
+                    <SelectItem value="large">Large</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Accent Color Setting */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-medium">Accent Color</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Choose your preferred accent color theme
+                  </p>
+                </div>
+                <Select
+                  value={accentColor}
+                  onValueChange={(value) =>
+                    setAccentColor(value as AccentColor)
+                  }
+                >
+                  <SelectTrigger className="w-45">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACCENT_COLOR_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-3 h-3 rounded-full border border-border"
+                            style={{
+                              backgroundColor: option.color,
+                              borderColor:
+                                option.value === "default"
+                                  ? "hsl(0, 0%, 89.8%)"
+                                  : option.color,
+                            }}
+                          />
+                          <span>{option.label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Providers Section */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold">AI Providers</h3>
+                <p className="text-sm text-muted-foreground">
+                  Configure your AI coding assistants
+                </p>
+              </div>
               <Button
                 variant="outline"
-                size="icon"
-                onClick={handleSelectDefaultPath}
+                size="sm"
+                onClick={detectProviders}
+                disabled={isDetecting}
               >
-                <VscFolder className="h-4 w-4" />
+                <VscRefresh
+                  className={`h-4 w-4 mr-2 ${isDetecting ? "animate-spin" : ""}`}
+                />
+                Refresh
               </Button>
             </div>
-          </div>
 
-          {/* Default Work Mode */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">Preferred Work Mode</Label>
-              <p className="text-xs text-muted-foreground">
-                Default mode when creating new sessions
-              </p>
+            <div className="space-y-4">
+              {providers.map((provider) => (
+                <ProviderSettingsCard
+                  key={provider.provider_type}
+                  provider={provider}
+                />
+              ))}
             </div>
-            <Select
-              value={defaultWorkMode}
-              onValueChange={(value) =>
-                setDefaultWorkMode(value as DefaultWorkMode)
-              }
-            >
-              <SelectTrigger className="w-45">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="worktree">Worktree</SelectItem>
-                <SelectItem value="local">Local</SelectItem>
-              </SelectContent>
-            </Select>
+
+            {providers.every((p) => !p.installed) && (
+              <p className="text-xs text-muted-foreground mt-4 p-3 bg-yellow-500/10 rounded-lg">
+                No AI CLI tools detected. Install Claude Code or Kimi Code to
+                get started:
+                <br />
+                <code className="text-xs mt-1 block">
+                  npm install -g @anthropic-ai/claude-code
+                </code>
+              </p>
+            )}
           </div>
         </div>
       </div>
-
-      <Separator />
-
-      {/* Appearance Section */}
-      <div>
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold">Appearance</h3>
-          <p className="text-sm text-muted-foreground">
-            Customize the look and feel of the application
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          {/* Theme Setting */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">Theme</Label>
-              <p className="text-xs text-muted-foreground">
-                Select your preferred color theme
-              </p>
-            </div>
-            <Select
-              value={theme}
-              onValueChange={(value) => setTheme(value as Theme)}
-            >
-              <SelectTrigger className="w-45">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="light">Light</SelectItem>
-                <SelectItem value="dark">Dark</SelectItem>
-                <SelectItem value="system">Follow System</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Font Size Setting */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">Font Size</Label>
-              <p className="text-xs text-muted-foreground">
-                Adjust the interface font size
-              </p>
-            </div>
-            <Select
-              value={fontSize}
-              onValueChange={(value) => setFontSize(value as FontSize)}
-            >
-              <SelectTrigger className="w-45">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="small">Small</SelectItem>
-                <SelectItem value="base">Base (Default)</SelectItem>
-                <SelectItem value="large">Large</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Accent Color Setting */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">Accent Color</Label>
-              <p className="text-xs text-muted-foreground">
-                Choose your preferred accent color theme
-              </p>
-            </div>
-            <Select
-              value={accentColor}
-              onValueChange={(value) => setAccentColor(value as AccentColor)}
-            >
-              <SelectTrigger className="w-45">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ACCENT_COLOR_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="w-3 h-3 rounded-full border border-border"
-                        style={{
-                          backgroundColor: option.color,
-                          borderColor:
-                            option.value === "default"
-                              ? "hsl(0, 0%, 89.8%)"
-                              : option.color,
-                        }}
-                      />
-                      <span>{option.label}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Providers Section */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-semibold">AI Providers</h3>
-            <p className="text-sm text-muted-foreground">
-              Configure your AI coding assistants
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={detectProviders}
-            disabled={isDetecting}
-          >
-            <VscRefresh
-              className={`h-4 w-4 mr-2 ${isDetecting ? "animate-spin" : ""}`}
-            />
-            Refresh
-          </Button>
-        </div>
-
-        <div className="space-y-4">
-          {providers.map((provider) => (
-            <ProviderSettingsCard
-              key={provider.provider_type}
-              provider={provider}
-            />
-          ))}
-        </div>
-
-        {providers.every((p) => !p.installed) && (
-          <p className="text-xs text-muted-foreground mt-4 p-3 bg-yellow-500/10 rounded-lg">
-            No AI CLI tools detected. Install Claude Code or Kimi Code to get
-            started:
-            <br />
-            <code className="text-xs mt-1 block">
-              npm install -g @anthropic-ai/claude-code
-            </code>
-          </p>
-        )}
-      </div>
-    </div>
+    </>
   );
 }

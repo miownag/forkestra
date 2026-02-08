@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Outlet, createRootRoute, useNavigate } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
 import {
   useSelectorProviderStore,
   useSelectorSessionStore,
@@ -8,9 +7,6 @@ import {
 } from "@/stores";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sidebar } from "@/components/layout/side-bar";
-import { PiSidebar } from "react-icons/pi";
-import { CgSun, CgMoon } from "react-icons/cg";
-import { cn } from "@/lib/utils";
 import { listen } from "@tauri-apps/api/event";
 
 export const Route = createRootRoute({
@@ -18,17 +14,13 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { fetchSessions } = useSelectorSessionStore(["fetchSessions"]);
   const { detectProviders } = useSelectorProviderStore(["detectProviders"]);
-  const { resolvedTheme, setTheme, isFullscreen, fontSize, accentColor } =
-    useSelectorSettingsStore([
-      "resolvedTheme",
-      "setTheme",
-      "isFullscreen",
-      "fontSize",
-      "accentColor",
-    ]);
+  const { resolvedTheme, fontSize, accentColor } = useSelectorSettingsStore([
+    "resolvedTheme",
+    "fontSize",
+    "accentColor",
+  ]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -79,46 +71,9 @@ function RootComponent() {
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex h-screen bg-background">
-        <Sidebar
-          sidebarCollapsed={sidebarCollapsed}
-          setSidebarCollapsed={setSidebarCollapsed}
-        />
+        <Sidebar />
         <main className="flex-1 flex flex-col h-full">
-          <div
-            data-tauri-drag-region
-            className={cn(
-              "shrink-0 h-13 z-50 flex items-center pr-4 justify-between w-full",
-              isFullscreen ? "pl-4" : "pl-24",
-            )}
-          >
-            {sidebarCollapsed ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-5"
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              >
-                <PiSidebar />
-              </Button>
-            ) : (
-              <div />
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-4 rounded-full cursor-default",
-              )}
-              onClick={() =>
-                setTheme(resolvedTheme === "light" ? "dark" : "light")
-              }
-            >
-              {resolvedTheme === "light" ? <CgSun /> : <CgMoon />}
-            </Button>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            <Outlet />
-          </div>
+          <Outlet />
         </main>
       </div>
     </TooltipProvider>
