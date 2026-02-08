@@ -17,13 +17,14 @@ import { AiOutlineClear } from "react-icons/ai";
 interface TerminalPanelProps {
   sessionId: string;
   sessionCwd: string;
+  isVisible?: boolean;
 }
 
-export function TerminalPanel({ sessionId, sessionCwd }: TerminalPanelProps) {
+export function TerminalPanel({ sessionId, sessionCwd, isVisible = true }: TerminalPanelProps) {
   const {
     terminals,
     activeTerminalId,
-    isPanelOpen,
+    panelOpenSessions,
     position,
     panelSize,
     togglePanel,
@@ -35,7 +36,7 @@ export function TerminalPanel({ sessionId, sessionCwd }: TerminalPanelProps) {
   } = useSelectorTerminalStore([
     "terminals",
     "activeTerminalId",
-    "isPanelOpen",
+    "panelOpenSessions",
     "position",
     "panelSize",
     "togglePanel",
@@ -47,6 +48,7 @@ export function TerminalPanel({ sessionId, sessionCwd }: TerminalPanelProps) {
   ]);
 
   const sessionTerminals = terminals.filter((t) => t.sessionId === sessionId);
+  const panelOpen = panelOpenSessions[sessionId] ?? false;
 
   const handleCreateTerminal = async () => {
     await createTerminal(sessionId, sessionCwd);
@@ -69,7 +71,7 @@ export function TerminalPanel({ sessionId, sessionCwd }: TerminalPanelProps) {
       className={cn(
         "bg-background border-border flex flex-col",
         position === "right" ? "border-l h-full" : "border-t w-full",
-        !isPanelOpen && "hidden",
+        (!panelOpen || !isVisible) && "hidden",
       )}
       style={{
         [position === "right" ? "width" : "height"]: panelSize,
@@ -148,8 +150,8 @@ export function TerminalPanel({ sessionId, sessionCwd }: TerminalPanelProps) {
             variant="ghost"
             size="icon"
             className="h-6 w-6 text-muted-foreground hover:text-foreground"
-            onClick={togglePanel}
-            title={isPanelOpen ? "close" : "open"}
+            onClick={() => togglePanel(sessionId)}
+            title={panelOpen ? "close" : "open"}
           >
             <VscChevronDown className="h-3.5 w-3.5" />
           </Button>

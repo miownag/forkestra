@@ -26,7 +26,7 @@ interface TerminalState {
   // State
   terminals: TerminalInstance[];
   activeTerminalId: string | null;
-  isPanelOpen: boolean;
+  panelOpenSessions: Record<string, boolean>; // per-session panel open state
   position: TerminalPosition;
   panelSize: number; // width when right, height when bottom
   outputs: Record<string, string>;
@@ -37,9 +37,9 @@ interface TerminalState {
   setActiveTerminal: (terminalId: string | null) => void;
   sendInput: (terminalId: string, input: string) => Promise<void>;
   resizeTerminal: (terminalId: string, cols: number, rows: number) => Promise<void>;
-  togglePanel: () => void;
-  openPanel: () => void;
-  closePanel: () => void;
+  togglePanel: (sessionId: string) => void;
+  openPanel: (sessionId: string) => void;
+  closePanel: (sessionId: string) => void;
   setPosition: (position: TerminalPosition) => void;
   setPanelSize: (size: number) => void;
   appendOutput: (terminalId: string, data: string) => void;
@@ -61,7 +61,7 @@ export const useTerminalStore = create<TerminalState>()(
         // Initial state
         terminals: [],
         activeTerminalId: null,
-        isPanelOpen: false,
+        panelOpenSessions: {},
         position: "bottom",
         panelSize: DEFAULT_PANEL_SIZE.bottom,
         outputs: {},
@@ -91,7 +91,7 @@ export const useTerminalStore = create<TerminalState>()(
             set((state) => ({
               terminals: [...state.terminals, newTerminal],
               activeTerminalId: terminalId,
-              isPanelOpen: true,
+              panelOpenSessions: { ...state.panelOpenSessions, [sessionId]: true },
               outputs: { ...state.outputs, [terminalId]: "" },
             }));
 
@@ -110,6 +110,7 @@ export const useTerminalStore = create<TerminalState>()(
           }
 
           set((state) => {
+            const closedTerminal = state.terminals.find((t) => t.id === terminalId);
             const newTerminals = state.terminals.filter((t) => t.id !== terminalId);
             const newOutputs = { ...state.outputs };
             delete newOutputs[terminalId];
@@ -120,13 +121,19 @@ export const useTerminalStore = create<TerminalState>()(
               newActiveId = newTerminals.length > 0 ? newTerminals[newTerminals.length - 1].id : null;
             }
 
-            // If no terminals left, close the panel
-            const newIsPanelOpen = newTerminals.length > 0 ? state.isPanelOpen : false;
+            // If no terminals left for this session, close the panel for that session
+            const newPanelOpenSessions = { ...state.panelOpenSessions };
+            if (closedTerminal) {
+              const sessionHasTerminals = newTerminals.some((t) => t.sessionId === closedTerminal.sessionId);
+              if (!sessionHasTerminals) {
+                newPanelOpenSessions[closedTerminal.sessionId] = false;
+              }
+            }
 
             return {
               terminals: newTerminals,
               activeTerminalId: newActiveId,
-              isPanelOpen: newIsPanelOpen,
+              panelOpenSessions: newPanelOpenSessions,
               outputs: newOutputs,
             };
           });
@@ -164,16 +171,25 @@ export const useTerminalStore = create<TerminalState>()(
           }
         },
 
-        togglePanel: () => {
-          set((state) => ({ isPanelOpen: !state.isPanelOpen }));
+        togglePanel: (sessionId: string) => {
+          set((state) => ({
+            panelOpenSessions: {
+              ...state.panelOpenSessions,
+              [sessionId]: !(state.panelOpenSessions[sessionId] ?? false),
+            },
+          }));
         },
 
-        openPanel: () => {
-          set({ isPanelOpen: true });
+        openPanel: (sessionId: string) => {
+          set((state) => ({
+            panelOpenSessions: { ...state.panelOpenSessions, [sessionId]: true },
+          }));
         },
 
-        closePanel: () => {
-          set({ isPanelOpen: false });
+        closePanel: (sessionId: string) => {
+          set((state) => ({
+            panelOpenSessions: { ...state.panelOpenSessions, [sessionId]: false },
+          }));
         },
 
         setPosition: (position: TerminalPosition) => {
@@ -218,7 +234,10 @@ export const useTerminalStore = create<TerminalState>()(
           );
 
           if (existingTerminal) {
-            set({ activeTerminalId: existingTerminal.id, isPanelOpen: true });
+            set((state) => ({
+              activeTerminalId: existingTerminal.id,
+              panelOpenSessions: { ...state.panelOpenSessions, [sessionId]: true },
+            }));
             return existingTerminal.id;
           }
 

@@ -1,9 +1,4 @@
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { VscTerminal } from "react-icons/vsc";
 import { TbBrandSafari } from "react-icons/tb";
 import { cn } from "@/lib/utils";
@@ -15,63 +10,53 @@ interface ActionToolbarProps {
 }
 
 export function ActionToolbar({ sessionId, sessionCwd }: ActionToolbarProps) {
-  const { isPanelOpen, togglePanel, getOrCreateTerminalForSession } =
+  const { panelOpenSessions, togglePanel, getOrCreateTerminalForSession } =
     useSelectorTerminalStore([
-      "isPanelOpen",
+      "panelOpenSessions",
       "togglePanel",
       "getOrCreateTerminalForSession",
     ]);
 
+  const panelOpen = panelOpenSessions[sessionId] ?? false;
+
   const handleTerminalClick = async () => {
-    if (!isPanelOpen) {
+    if (!panelOpen) {
       // Ensure at least one terminal exists before opening
       await getOrCreateTerminalForSession(sessionId, sessionCwd);
     } else {
-      togglePanel();
+      togglePanel(sessionId);
     }
   };
 
   return (
     <div className="flex items-center gap-1">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "w-8 h-8 shrink-0 [&_svg]:size-4 rounded-md",
-              isPanelOpen
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-            onClick={handleTerminalClick}
-          >
-            <VscTerminal />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>terminal</p>
-        </TooltipContent>
-      </Tooltip>
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn(
+          "w-8 h-8 shrink-0 [&_svg]:size-4 rounded-md",
+          panelOpen
+            ? "bg-accent text-accent-foreground"
+            : "text-muted-foreground hover:text-foreground",
+        )}
+        onClick={handleTerminalClick}
+        title="terminal"
+      >
+        <VscTerminal />
+      </Button>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-4 rounded-md hover:text-foreground"
-            onClick={() => {
-              // TODO: Implement browser/webview
-              console.log("Browser clicked");
-            }}
-          >
-            <TbBrandSafari />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>webview</p>
-        </TooltipContent>
-      </Tooltip>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-4 rounded-md hover:text-foreground"
+        onClick={() => {
+          // TODO: Implement browser/webview
+          console.log("Browser clicked");
+        }}
+        title="webview"
+      >
+        <TbBrandSafari />
+      </Button>
     </div>
   );
 }

@@ -121,7 +121,8 @@ export function Sidebar() {
       if (
         (e.metaKey || e.ctrlKey) &&
         !e.altKey &&
-        e.key.toLowerCase() === "n"
+        e.key.toLowerCase() === "n" &&
+        installedProviders.length === 0
       ) {
         e.preventDefault();
         setShowNewSession(true);
@@ -174,7 +175,7 @@ export function Sidebar() {
   return (
     <div
       className={cn(
-        "h-full flex flex-col border-r bg-muted/30",
+        "h-full flex flex-col border-r bg-muted/30 shrink-0",
         sidebarCollapsed ? "w-0 overflow-hidden" : "w-64",
       )}
     >
@@ -238,8 +239,11 @@ export function Sidebar() {
               <TooltipTrigger asChild>
                 <div className="w-full cursor-not-allowed">
                   <Button className="w-full select-none" size="sm" disabled>
-                    <IoCreateOutline className="-mt-0.5 mr-0.5" />
+                    <IoCreateOutline className="-mt-0.5" />
                     New Session
+                    <span className="ml-auto text-xs text-muted-foreground select-none">
+                      ⌘ N
+                    </span>
                   </Button>
                 </div>
               </TooltipTrigger>
@@ -253,8 +257,11 @@ export function Sidebar() {
               className="w-full select-none"
               size="sm"
             >
-              <IoCreateOutline className="-mt-0.5 mr-0.5" />
+              <IoCreateOutline className="-mt-0.5" />
               New Session
+              <span className="ml-auto text-xs text-muted-foreground/75 select-none">
+                ⌘ N
+              </span>
             </Button>
           )}
         </div>

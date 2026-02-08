@@ -90,11 +90,15 @@ export function SessionPanel() {
           <ChatWindow sessionId={activeSession.id} />
         </div>
 
-        {/* Terminal Panel */}
-        <TerminalPanel
-          sessionId={activeSession.id}
-          sessionCwd={activeSession.worktree_path}
-        />
+        {/* Terminal Panel - render for all sessions to preserve xterm buffers */}
+        {sessions.map((session) => (
+          <TerminalPanel
+            key={session.id}
+            sessionId={session.id}
+            sessionCwd={session.worktree_path}
+            isVisible={session.id === activeSessionId}
+          />
+        ))}
       </div>
     </div>
   );

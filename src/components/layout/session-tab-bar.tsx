@@ -128,9 +128,19 @@ function TabItem({
           )}
         >
           {session.is_local ? (
-            <LuMonitor className="h-3 w-3 shrink-0 opacity-60" />
+            <LuMonitor
+              className={cn(
+                "h-3.5 w-3.5 shrink-0",
+                isActive ? "text-muted-foreground" : "text-muted-foreground/30",
+              )}
+            />
           ) : (
-            <LuGitBranch className="h-3 w-3 shrink-0 opacity-60" />
+            <LuGitBranch
+              className={cn(
+                "h-3.5 w-3.5 shrink-0",
+                isActive ? "text-primary" : "text-primary/30",
+              )}
+            />
           )}
           <span className="truncate">{session.name}</span>
           {session.status === "creating" && (

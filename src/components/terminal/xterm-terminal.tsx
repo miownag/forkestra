@@ -152,9 +152,15 @@ export function XtermTerminal({
       () => terminal.clear(),
     );
 
-    // Initial fit
+    // Initial fit - only if container is visible (has dimensions)
     requestAnimationFrame(() => {
-      fitAddon.fit();
+      if (containerRef.current?.offsetWidth && containerRef.current?.offsetHeight) {
+        try {
+          fitAddon.fit();
+        } catch {
+          // Terminal may not be visible yet, ResizeObserver will handle it later
+        }
+      }
     });
 
     return () => {
@@ -199,10 +205,20 @@ export function XtermTerminal({
     };
   }, []);
 
-  // Focus when active
+  // Focus and re-fit when becoming active
   useEffect(() => {
     if (isActive && terminalRef.current) {
       terminalRef.current.focus();
+      // Re-fit after becoming visible, since dimensions may have changed
+      requestAnimationFrame(() => {
+        if (containerRef.current?.offsetWidth && containerRef.current?.offsetHeight) {
+          try {
+            fitAddonRef.current?.fit();
+          } catch {
+            // ignore
+          }
+        }
+      });
     }
   }, [isActive]);
 
@@ -212,7 +228,11 @@ export function XtermTerminal({
 
     const resizeObserver = new ResizeObserver(() => {
       if (containerRef.current?.offsetWidth && containerRef.current?.offsetHeight) {
-        fitAddonRef.current?.fit();
+        try {
+          fitAddonRef.current?.fit();
+        } catch {
+          // ignore - terminal renderer may not be ready
+        }
       }
     });
 

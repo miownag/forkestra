@@ -134,9 +134,9 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate pr-6 text-xs flex items-center gap-1.5">
                   {session.is_local ? (
-                    <LuMonitor className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
+                    <LuMonitor className="h-3 w-3 text-muted-foreground shrink-0" />
                   ) : (
-                    <LuGitBranch className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
+                    <LuGitBranch className="h-3 w-3 text-primary shrink-0" />
                   )}
                   {session.name}
                 </div>
