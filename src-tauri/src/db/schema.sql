@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS messages (
     content TEXT NOT NULL,
     content_type TEXT NOT NULL DEFAULT 'text',
     tool_use TEXT,
+    tool_calls TEXT,
     timestamp TEXT NOT NULL,
     is_streaming INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE

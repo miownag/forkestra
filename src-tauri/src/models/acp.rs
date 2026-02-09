@@ -151,10 +151,12 @@ pub enum SessionUpdate {
     ToolCall {
         #[serde(rename = "toolCallId")]
         tool_call_id: String,
-        status: ToolCallStatus,
-        title: String,
         #[serde(default)]
-        content: Option<String>,
+        status: Option<ToolCallStatus>,
+        #[serde(default)]
+        title: Option<String>,
+        #[serde(default)]
+        content: Option<serde_json::Value>,
         #[serde(default)]
         locations: Option<serde_json::Value>,
         #[serde(default)]
@@ -163,6 +165,10 @@ pub enum SessionUpdate {
         server_name: Option<String>,
         #[serde(default, rename = "toolName")]
         tool_name: Option<String>,
+        #[serde(default, rename = "rawInput")]
+        raw_input: Option<serde_json::Value>,
+        #[serde(default, rename = "_meta")]
+        meta: Option<serde_json::Value>,
     },
     #[serde(rename = "tool_call_update")]
     ToolCallUpdate {
@@ -189,6 +195,7 @@ pub enum SessionUpdate {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolCallStatus {
+    Pending,
     Running,
     InProgress,
     Completed,

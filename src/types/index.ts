@@ -117,6 +117,10 @@ export interface ToolUseInfo {
   is_error: boolean;
 }
 
+export type MessagePart =
+  | { type: "text"; content: string }
+  | { type: "tool_call"; tool_call: ToolCallInfo };
+
 export interface ChatMessage {
   id: string;
   session_id: string;
@@ -124,6 +128,8 @@ export interface ChatMessage {
   content: string;
   content_type: MessageContentType;
   tool_use?: ToolUseInfo;
+  tool_calls?: ToolCallInfo[];
+  parts?: MessagePart[];
   timestamp: string;
   is_streaming: boolean;
 }
@@ -137,6 +143,7 @@ export interface ToolCallInfo {
   status: string;
   title: string;
   content: string | null;
+  raw_input?: Record<string, unknown>;
 }
 
 export interface StreamChunk {

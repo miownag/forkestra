@@ -10,8 +10,8 @@ use crate::error::{AppError, AppResult};
 use crate::models::{
     ClientCapabilities, ContentBlock, FileSystemCapabilities, InitializeParams, InteractionPrompt,
     JsonRpcRequest, JsonRpcResponse, ModelInfo, PendingPermission, ProviderType, SessionNewResult,
-    SessionPromptParams, SessionRequestPermissionParams, SessionResumeResult, SessionUpdate,
-    SessionUpdateParams, StreamChunk, StreamChunkType, ToolCallInfo,
+    SessionPromptParams, SessionRequestPermissionParams, SessionResumeResult,
+    StreamChunk, StreamChunkType, ToolCallInfo,
 };
 
 /// Shared state for ACP request-response correlation
@@ -119,24 +119,15 @@ pub fn spawn_stdout_reader(
                 match method {
                     "session/update" => {
                         if let Some(params) = json_value.get("params") {
-                            match serde_json::from_value::<SessionUpdateParams>(params.clone()) {
-                                Ok(update_params) => {
-                                    let msg_id = current_message_id.lock().await.clone();
-                                    handle_session_update(
-                                        &update_params.update,
-                                        &session_id,
-                                        &msg_id,
-                                        &stream_tx,
-                                    )
-                                    .await;
-                                }
-                                Err(e) => {
-                                    println!(
-                                        "[ACP] Failed to deserialize session/update params: {}. Raw: {}",
-                                        e,
-                                        &params.to_string()[..params.to_string().len().min(300)]
-                                    );
-                                }
+                            if let Some(update) = params.get("update") {
+                                let msg_id = current_message_id.lock().await.clone();
+                                handle_session_update_raw(
+                                    update,
+                                    &session_id,
+                                    &msg_id,
+                                    &stream_tx,
+                                )
+                                .await;
                             }
                         }
                     }
@@ -513,21 +504,34 @@ pub async fn set_session_model(
     Ok(())
 }
 
-/// Handle a session/update notification by routing to the appropriate StreamChunk
-async fn handle_session_update(
-    update: &SessionUpdate,
+/// Handle a session/update notification by parsing the raw JSON `update` object directly.
+/// This avoids serde internally-tagged enum issues where optional fields may fail to deserialize.
+async fn handle_session_update_raw(
+    update: &serde_json::Value,
     session_id: &str,
     message_id: &str,
     stream_tx: &mpsc::Sender<StreamChunk>,
 ) {
-    match update {
-        SessionUpdate::AgentMessageChunk { content } => {
-            if let ContentBlock::Text { text } = content {
+    let update_type = match update.get("sessionUpdate").and_then(|v| v.as_str()) {
+        Some(t) => t,
+        None => {
+            println!("[ACP] session/update missing sessionUpdate field");
+            return;
+        }
+    };
+
+    match update_type {
+        "agent_message_chunk" => {
+            if let Some(text) = update
+                .get("content")
+                .and_then(|c| c.get("text"))
+                .and_then(|t| t.as_str())
+            {
                 let _ = stream_tx
                     .send(StreamChunk {
                         session_id: session_id.to_string(),
                         message_id: message_id.to_string(),
-                        content: text.clone(),
+                        content: text.to_string(),
                         is_complete: false,
                         chunk_type: Some(StreamChunkType::Text),
                         tool_call: None,
@@ -535,13 +539,17 @@ async fn handle_session_update(
                     .await;
             }
         }
-        SessionUpdate::AgentThoughtChunk { content } => {
-            if let ContentBlock::Text { text } = content {
+        "agent_thought_chunk" => {
+            if let Some(text) = update
+                .get("content")
+                .and_then(|c| c.get("text"))
+                .and_then(|t| t.as_str())
+            {
                 let _ = stream_tx
                     .send(StreamChunk {
                         session_id: session_id.to_string(),
                         message_id: message_id.to_string(),
-                        content: text.clone(),
+                        content: text.to_string(),
                         is_complete: false,
                         chunk_type: Some(StreamChunkType::Thinking),
                         tool_call: None,
@@ -549,58 +557,165 @@ async fn handle_session_update(
                     .await;
             }
         }
-        SessionUpdate::ToolCall {
-            tool_call_id,
-            status,
-            title,
-            content,
-            tool_name,
-            ..
-        } => {
-            let status_str = match status {
-                crate::models::ToolCallStatus::Running
-                | crate::models::ToolCallStatus::InProgress => "running",
-                crate::models::ToolCallStatus::Completed => "completed",
-                crate::models::ToolCallStatus::Error
-                | crate::models::ToolCallStatus::Failed => "error",
+        "tool_call" => {
+            let tool_call_id = update
+                .get("toolCallId")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            let meta = update.get("_meta");
+            let claude_code = meta.and_then(|m| m.get("claudeCode"));
+            let tool_response = claude_code.and_then(|cc| cc.get("toolResponse"));
+            let has_tool_response = tool_response.is_some();
+
+            // Determine status
+            let status_str = match update.get("status").and_then(|v| v.as_str()) {
+                Some("pending") | Some("running") | Some("in_progress") => "running",
+                Some("completed") => "completed",
+                Some("error") | Some("failed") => "error",
+                _ if has_tool_response => "completed",
+                _ => "running",
             };
 
-            let display_content = content
-                .as_ref()
-                .map(|c| format!("\n{}: {}\n", title, c))
-                .unwrap_or_else(|| format!("\n{}\n", title));
+            let title_str = update
+                .get("title")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            // Resolve tool name: prefer _meta.claudeCode.toolName, then top-level toolName
+            let resolved_tool_name = claude_code
+                .and_then(|cc| cc.get("toolName"))
+                .and_then(|v| v.as_str())
+                .or_else(|| update.get("toolName").and_then(|v| v.as_str()))
+                .map(|s| s.to_string());
+
+            // Extract content from toolResponse or from content field
+            let content_str = if has_tool_response {
+                tool_response.and_then(|tr| {
+                    if let Some(file) = tr.get("file") {
+                        file.get("content")
+                            .and_then(|c| c.as_str())
+                            .map(|s| s.to_string())
+                    } else {
+                        tr.get("text")
+                            .and_then(|t| t.as_str())
+                            .map(|s| s.to_string())
+                    }
+                })
+            } else {
+                update.get("content").and_then(|v| {
+                    if let Some(s) = v.as_str() {
+                        Some(s.to_string())
+                    } else if v.is_array() {
+                        v.as_array().and_then(|arr| {
+                            let texts: Vec<String> = arr
+                                .iter()
+                                .filter_map(|item| {
+                                    item.get("text")
+                                        .and_then(|t| t.as_str())
+                                        .map(|s| s.to_string())
+                                })
+                                .collect();
+                            if texts.is_empty() {
+                                None
+                            } else {
+                                Some(texts.join("\n"))
+                            }
+                        })
+                    } else {
+                        None
+                    }
+                })
+            };
+
+            // Extract rawInput for tool call parameters
+            let raw_input = update.get("rawInput").cloned();
 
             let _ = stream_tx
                 .send(StreamChunk {
                     session_id: session_id.to_string(),
                     message_id: message_id.to_string(),
-                    content: display_content,
+                    content: String::new(),
                     is_complete: false,
                     chunk_type: Some(StreamChunkType::ToolCall),
                     tool_call: Some(ToolCallInfo {
-                        tool_call_id: tool_call_id.clone(),
-                        tool_name: tool_name.clone(),
+                        tool_call_id,
+                        tool_name: resolved_tool_name,
                         status: status_str.to_string(),
-                        title: title.clone(),
-                        content: content.clone(),
+                        title: title_str,
+                        content: content_str,
+                        raw_input,
                     }),
                 })
                 .await;
         }
-        SessionUpdate::ToolCallUpdate { .. } => {
-            // Tool call updates are handled by the tool_call variant above
-            // via status transitions. Log for debugging.
-            println!("[ACP] Received tool_call_update (handled via tool_call status)");
+        "tool_call_update" => {
+            // Tool call status update - also parse manually
+            let tool_call_id = update
+                .get("toolCallId")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            let status_str = match update.get("status").and_then(|v| v.as_str()) {
+                Some("pending") | Some("running") | Some("in_progress") => "running",
+                Some("completed") => "completed",
+                Some("error") | Some("failed") => "error",
+                _ => "running",
+            };
+
+            let content_str = update.get("content").and_then(|v| {
+                if let Some(s) = v.as_str() {
+                    Some(s.to_string())
+                } else if v.is_array() {
+                    v.as_array().and_then(|arr| {
+                        let texts: Vec<String> = arr
+                            .iter()
+                            .filter_map(|item| {
+                                item.get("text")
+                                    .and_then(|t| t.as_str())
+                                    .map(|s| s.to_string())
+                            })
+                            .collect();
+                        if texts.is_empty() {
+                            None
+                        } else {
+                            Some(texts.join("\n"))
+                        }
+                    })
+                } else {
+                    None
+                }
+            });
+
+            let _ = stream_tx
+                .send(StreamChunk {
+                    session_id: session_id.to_string(),
+                    message_id: message_id.to_string(),
+                    content: String::new(),
+                    is_complete: false,
+                    chunk_type: Some(StreamChunkType::ToolCall),
+                    tool_call: Some(ToolCallInfo {
+                        tool_call_id,
+                        tool_name: None,
+                        status: status_str.to_string(),
+                        title: String::new(),
+                        content: content_str,
+                        raw_input: None,
+                    }),
+                })
+                .await;
         }
-        SessionUpdate::AvailableCommandsUpdate { .. } => {
-            // Informational only, no action needed
+        "available_commands_update" => {
             println!("[ACP] Received available_commands_update");
         }
-        SessionUpdate::ModeUpdate { .. } => {
+        "mode_update" => {
             println!("[ACP] Received mode_update");
         }
-        SessionUpdate::Unknown => {
-            println!("[ACP] Received unknown session update type");
+        _ => {
+            println!("[ACP] Received unknown session update type: {}", update_type);
         }
     }
 }

@@ -6,7 +6,7 @@ use tauri::{AppHandle, Manager};
 use crate::error::{AppError, AppResult};
 use crate::models::{
     ChatMessage, MessageContentType, MessageRole, ProviderType, Session, SessionStatus,
-    ToolUseInfo,
+    ToolCallInfo, ToolUseInfo,
 };
 
 pub struct Database {
@@ -107,6 +107,27 @@ impl Database {
             .map_err(|e| {
                 AppError::Database(format!("Failed to migrate model values: {}", e))
             })?;
+        }
+
+        // Migration for tool_calls column in messages
+        let has_tool_calls_col: bool = conn
+            .prepare("PRAGMA table_info(messages)")
+            .and_then(|mut stmt| {
+                let cols: Vec<String> = stmt
+                    .query_map([], |row| row.get::<_, String>(1))
+                    .unwrap()
+                    .filter_map(|r| r.ok())
+                    .collect();
+                Ok(cols.contains(&"tool_calls".to_string()))
+            })
+            .unwrap_or(false);
+
+        if !has_tool_calls_col {
+            conn.execute_batch("ALTER TABLE messages ADD COLUMN tool_calls TEXT")
+                .map_err(|e| {
+                    AppError::Database(format!("Failed to add tool_calls column: {}", e))
+                })?;
+            println!("[Database] Migrated: added tool_calls column to messages");
         }
 
         Ok(())
@@ -283,11 +304,16 @@ impl Database {
             .as_ref()
             .map(|tu| serde_json::to_string(tu).unwrap_or_default());
 
+        let tool_calls_json = message
+            .tool_calls
+            .as_ref()
+            .map(|tc| serde_json::to_string(tc).unwrap_or_default());
+
         conn.execute(
             "INSERT OR REPLACE INTO messages
              (id, session_id, role, content, content_type, tool_use,
-              timestamp, is_streaming)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+              tool_calls, timestamp, is_streaming)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 message.id,
                 message.session_id,
@@ -295,6 +321,7 @@ impl Database {
                 message.content,
                 content_type_to_str(&message.content_type),
                 tool_use_json,
+                tool_calls_json,
                 message.timestamp.to_rfc3339(),
                 message.is_streaming as i32,
             ],
@@ -311,7 +338,7 @@ impl Database {
         let mut stmt = conn
             .prepare(
                 "SELECT id, session_id, role, content, content_type,
-                        tool_use, timestamp, is_streaming
+                        tool_use, tool_calls, timestamp, is_streaming
                  FROM messages
                  WHERE session_id = ?1
                  ORDER BY timestamp ASC",
@@ -323,10 +350,13 @@ impl Database {
                 let role_str: String = row.get(2)?;
                 let content_type_str: String = row.get(4)?;
                 let tool_use_str: Option<String> = row.get(5)?;
-                let timestamp_str: String = row.get(6)?;
+                let tool_calls_str: Option<String> = row.get(6)?;
+                let timestamp_str: String = row.get(7)?;
 
                 let tool_use: Option<ToolUseInfo> =
                     tool_use_str.and_then(|s| serde_json::from_str(&s).ok());
+                let tool_calls: Option<Vec<ToolCallInfo>> =
+                    tool_calls_str.and_then(|s| serde_json::from_str(&s).ok());
 
                 Ok(ChatMessage {
                     id: row.get(0)?,
@@ -335,10 +365,11 @@ impl Database {
                     content: row.get(3)?,
                     content_type: str_to_content_type(&content_type_str),
                     tool_use,
+                    tool_calls,
                     timestamp: chrono::DateTime::parse_from_rfc3339(&timestamp_str)
                         .unwrap_or_else(|_| chrono::Utc::now().into())
                         .with_timezone(&chrono::Utc),
-                    is_streaming: row.get::<_, i32>(7)? != 0,
+                    is_streaming: row.get::<_, i32>(8)? != 0,
                 })
             })
             .map_err(|e| AppError::Database(format!("Failed to query messages: {}", e)))?;

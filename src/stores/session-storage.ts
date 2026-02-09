@@ -8,6 +8,7 @@ import type {
   CreateSessionRequest,
   ChatMessage,
   StreamChunk,
+  MessagePart,
 } from "@/types";
 
 interface InteractionPrompt {
@@ -571,14 +572,86 @@ export const useSessionStore = create<SessionState>()(
               };
             }
 
+            const isToolCall =
+              chunk.chunk_type === "tool_call" && chunk.tool_call;
+
             if (existingMessageIndex >= 0) {
-              // Update existing streaming message
               const updatedMessages = [...sessionMessages];
-              updatedMessages[existingMessageIndex] = {
-                ...updatedMessages[existingMessageIndex],
-                content:
-                  updatedMessages[existingMessageIndex].content + chunk.content,
-              };
+              const existing = updatedMessages[existingMessageIndex];
+              const parts = [...(existing.parts || [])];
+
+              if (isToolCall) {
+                // Update or add tool call in tool_calls (for persistence)
+                const toolCalls = [...(existing.tool_calls || [])];
+                const existingToolIndex = toolCalls.findIndex(
+                  (tc) => tc.tool_call_id === chunk.tool_call!.tool_call_id,
+                );
+                // Filter out null/undefined/empty-string values so they don't
+                // overwrite existing data (e.g. tool_name, title from the initial event)
+                const incoming = chunk.tool_call!;
+                const nonNullIncoming = Object.fromEntries(
+                  Object.entries(incoming).filter(
+                    ([, v]) => v != null && v !== "",
+                  ),
+                );
+                const mergedToolCall =
+                  existingToolIndex >= 0
+                    ? {
+                        ...toolCalls[existingToolIndex],
+                        ...nonNullIncoming,
+                      }
+                    : incoming;
+                if (existingToolIndex >= 0) {
+                  toolCalls[existingToolIndex] = mergedToolCall;
+                } else {
+                  toolCalls.push(mergedToolCall);
+                }
+
+                // Update or add in parts array
+                const existingPartIndex = parts.findIndex(
+                  (p) =>
+                    p.type === "tool_call" &&
+                    p.tool_call.tool_call_id ===
+                      chunk.tool_call!.tool_call_id,
+                );
+                if (existingPartIndex >= 0) {
+                  parts[existingPartIndex] = {
+                    type: "tool_call",
+                    tool_call: mergedToolCall,
+                  };
+                } else {
+                  parts.push({
+                    type: "tool_call",
+                    tool_call: mergedToolCall,
+                  });
+                }
+
+                updatedMessages[existingMessageIndex] = {
+                  ...existing,
+                  tool_calls: toolCalls,
+                  parts,
+                };
+              } else {
+                // Append text content
+                const lastPart = parts[parts.length - 1];
+                if (lastPart && lastPart.type === "text") {
+                  // Append to existing text part
+                  parts[parts.length - 1] = {
+                    type: "text",
+                    content: lastPart.content + chunk.content,
+                  };
+                } else {
+                  // New text part after a tool call
+                  parts.push({ type: "text", content: chunk.content });
+                }
+
+                updatedMessages[existingMessageIndex] = {
+                  ...existing,
+                  content: existing.content + chunk.content,
+                  parts,
+                };
+              }
+
               return {
                 messages: {
                   ...state.messages,
@@ -587,12 +660,18 @@ export const useSessionStore = create<SessionState>()(
               };
             } else {
               // Create new streaming message
+              const firstPart: MessagePart = isToolCall
+                ? { type: "tool_call", tool_call: chunk.tool_call! }
+                : { type: "text", content: chunk.content };
+
               const newMessage: ChatMessage = {
                 id: chunk.message_id,
                 session_id: chunk.session_id,
                 role: "assistant",
-                content: chunk.content,
+                content: isToolCall ? "" : chunk.content,
                 content_type: "text",
+                tool_calls: isToolCall ? [chunk.tool_call!] : undefined,
+                parts: [firstPart],
                 timestamp: new Date().toISOString(),
                 is_streaming: true,
               };

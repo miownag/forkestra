@@ -34,6 +34,8 @@ pub struct ChatMessage {
     pub content: String,
     pub content_type: MessageContentType,
     pub tool_use: Option<ToolUseInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<ToolCallInfo>>,
     pub timestamp: DateTime<Utc>,
     pub is_streaming: bool,
 }
@@ -47,6 +49,7 @@ impl ChatMessage {
             content: content.to_string(),
             content_type: MessageContentType::Text,
             tool_use: None,
+            tool_calls: None,
             timestamp: Utc::now(),
             is_streaming: false,
         }
@@ -60,6 +63,7 @@ impl ChatMessage {
             content: content.to_string(),
             content_type: MessageContentType::Text,
             tool_use: None,
+            tool_calls: None,
             timestamp: Utc::now(),
             is_streaming: false,
         }
@@ -73,6 +77,7 @@ impl ChatMessage {
             content: String::new(),
             content_type: MessageContentType::Text,
             tool_use: None,
+            tool_calls: None,
             timestamp: Utc::now(),
             is_streaming: true,
         }
@@ -106,6 +111,8 @@ pub struct ToolCallInfo {
     pub status: String,
     pub title: String,
     pub content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub raw_input: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

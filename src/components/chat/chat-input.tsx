@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { LuArrowUp, LuSquare, LuCheck } from "react-icons/lu";
 import { GrAttachment } from "react-icons/gr";
 import { useState } from "react";
-import { ModelTag } from "@lobehub/icons";
 import type { Session } from "@/types";
 
 export function ChatInput({

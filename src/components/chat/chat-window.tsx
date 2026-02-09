@@ -44,7 +44,8 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
   const isLoading = streamingSessions.has(sessionId);
   const hasInteractionPrompt = !!interactionPrompts[sessionId];
   const session = sessions.find((s) => s.id === sessionId);
-  const isCreating = session?.status === "creating" || creatingSessions.has(sessionId);
+  const isCreating =
+    session?.status === "creating" || creatingSessions.has(sessionId);
   const isTerminated =
     session?.status === "terminated" ||
     session?.status === "error" ||
@@ -58,7 +59,6 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
     [messagesMap, sessionId],
   );
 
-  console.log("messages", messagesMap);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const ProviderIcon = session?.provider
@@ -122,7 +122,7 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
       {/* Creating state */}
       {isCreating && !hasCreateError && (
         <div className="flex items-center justify-center mx-auto gap-2 px-4 py-3 rounded-lg border border-border bg-muted/50">
-          <Loader variant="classic" className="text-foreground" />
+          <Loader variant="classic" className="text-foreground" size="sm" />
           <p className="text-sm text-muted-foreground">Creating session...</p>
         </div>
       )}
