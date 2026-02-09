@@ -28,6 +28,8 @@ interface SessionState {
   isLoading: boolean;
   streamingSessions: Set<string>;
   resumingSessions: Set<string>;
+  creatingSessions: Set<string>; // Track sessions currently being created
+  messageQueue: Record<string, string[]>; // Queue messages for creating sessions
   interactionPrompts: Record<string, InteractionPrompt | null>;
   error: string | null;
 
@@ -77,6 +79,8 @@ export const useSessionStore = create<SessionState>()(
         isLoading: false,
         streamingSessions: new Set(),
         resumingSessions: new Set(),
+        creatingSessions: new Set(),
+        messageQueue: {},
         interactionPrompts: {},
         error: null,
 
@@ -110,22 +114,103 @@ export const useSessionStore = create<SessionState>()(
         },
 
         createSession: async (request) => {
-          set({ isLoading: true, error: null });
+          // Generate temporary ID for optimistic session
+          const tempId = crypto.randomUUID();
+          const tempName = request.name || DEFAULT_SESSION_NAME;
+
+          // Optimistic session object
+          const optimisticSession: Session = {
+            id: tempId,
+            name: tempName,
+            provider: request.provider,
+            status: "creating",
+            worktree_path: "",
+            branch_name: "",
+            created_at: new Date().toISOString(),
+            project_path: request.project_path,
+            is_local: request.use_local ?? false,
+            acp_session_id: null,
+            model: null,
+            available_models: [],
+          };
+
+          // Optimistically add session to state
+          set((state) => ({
+            sessions: [...state.sessions, optimisticSession],
+            activeSessionId: tempId,
+            openTabIds: [...state.openTabIds, tempId],
+            messages: { ...state.messages, [tempId]: [] },
+            messagesLoaded: { ...state.messagesLoaded, [tempId]: true },
+            creatingSessions: new Set(state.creatingSessions).add(tempId),
+            messageQueue: { ...state.messageQueue, [tempId]: [] },
+            error: null,
+          }));
+
           try {
+            // Create session in backend
             const session = await invoke<Session>("create_session", {
               request,
             });
-            set((state) => ({
-              sessions: [...state.sessions, session],
-              activeSessionId: session.id,
-              openTabIds: [...state.openTabIds, session.id],
-              messages: { ...state.messages, [session.id]: [] },
-              messagesLoaded: { ...state.messagesLoaded, [session.id]: true },
-              isLoading: false,
-            }));
+
+            // Replace optimistic session with real one
+            set((state) => {
+              const newCreatingSessions = new Set(state.creatingSessions);
+              newCreatingSessions.delete(tempId);
+
+              // Get queued messages before removing them from state
+              const queuedMessages = state.messageQueue[tempId] || [];
+              const { [tempId]: _, ...remainingQueue } = state.messageQueue;
+
+              // Process queued messages after state update
+              setTimeout(() => {
+                for (const message of queuedMessages) {
+                  get().sendMessage(session.id, message).catch((err) => {
+                    console.error("Failed to send queued message:", err);
+                  });
+                }
+              }, 0);
+
+              return {
+                sessions: state.sessions.map((s) =>
+                  s.id === tempId ? session : s,
+                ),
+                activeSessionId: session.id,
+                openTabIds: state.openTabIds.map((id) =>
+                  id === tempId ? session.id : id,
+                ),
+                messages: {
+                  ...state.messages,
+                  [session.id]: state.messages[tempId] || [],
+                },
+                messagesLoaded: {
+                  ...state.messagesLoaded,
+                  [session.id]: true,
+                },
+                creatingSessions: newCreatingSessions,
+                messageQueue: remainingQueue,
+                error: null,
+              };
+            });
+
             return session;
           } catch (error) {
-            set({ error: String(error), isLoading: false });
+            // Remove optimistic session on error
+            set((state) => {
+              const newCreatingSessions = new Set(state.creatingSessions);
+              newCreatingSessions.delete(tempId);
+
+              const { [tempId]: _, ...remainingMessageQueue } = state.messageQueue;
+
+              return {
+                sessions: state.sessions.filter((s) => s.id !== tempId),
+                openTabIds: state.openTabIds.filter((id) => id !== tempId),
+                activeSessionId:
+                  state.activeSessionId === tempId ? null : state.activeSessionId,
+                creatingSessions: newCreatingSessions,
+                messageQueue: remainingMessageQueue,
+                error: String(error),
+              };
+            });
             throw error;
           }
         },
@@ -212,9 +297,36 @@ export const useSessionStore = create<SessionState>()(
 
         sendMessage: async (sessionId, message) => {
           try {
-            // Check if this is the first message and session has default name
+            // Check if session is still being created
             const state = get();
             const session = state.sessions.find((s) => s.id === sessionId);
+
+            // If session is still creating, queue the message optimistically
+            if (session?.status === "creating") {
+              set((state) => ({
+                messageQueue: {
+                  ...state.messageQueue,
+                  [sessionId]: [...(state.messageQueue[sessionId] || []), message],
+                },
+              }));
+
+              // Add user message to local state for immediate feedback
+              const userMessage: ChatMessage = {
+                id: crypto.randomUUID(),
+                session_id: sessionId,
+                role: "user",
+                content: message,
+                content_type: "text",
+                timestamp: new Date().toISOString(),
+                is_streaming: false,
+              };
+              get().addMessage(sessionId, userMessage);
+
+              // Don't send to backend until session is created
+              return;
+            }
+
+            // Check if this is the first message and session has default name
             const sessionMessages = state.messages[sessionId] || [];
             const isFirstMessage = sessionMessages.length === 0;
             const hasDefaultName = session?.name === DEFAULT_SESSION_NAME;
@@ -282,22 +394,42 @@ export const useSessionStore = create<SessionState>()(
                 const { [sessionId]: _, ...remainingMessages } = state.messages;
                 const { [sessionId]: __, ...remainingLoaded } =
                   state.messagesLoaded;
+                const { [sessionId]: ___, ...remainingQueue } =
+                  state.messageQueue;
+
+                // Also remove from creatingSessions and streamingSessions if present
+                const newCreatingSessions = new Set(state.creatingSessions);
+                newCreatingSessions.delete(sessionId);
+
+                const newStreamingSessions = new Set(state.streamingSessions);
+                newStreamingSessions.delete(sessionId);
+
                 return {
                   sessions: state.sessions.filter((s) => s.id !== sessionId),
                   messages: remainingMessages,
                   messagesLoaded: remainingLoaded,
+                  messageQueue: remainingQueue,
+                  creatingSessions: newCreatingSessions,
+                  streamingSessions: newStreamingSessions,
                   openTabIds: newTabIds,
                   activeSessionId: newActiveId,
                   isLoading: false,
                 };
               }
               // Session terminated but kept in history
+              const newCreatingSessions = new Set(state.creatingSessions);
+              newCreatingSessions.delete(sessionId);
+
+              const { [sessionId]: _, ...remainingQueue } = state.messageQueue;
+
               return {
                 sessions: state.sessions.map((s) =>
                   s.id === sessionId
                     ? { ...s, status: "terminated" as const }
                     : s,
                 ),
+                messageQueue: remainingQueue,
+                creatingSessions: newCreatingSessions,
                 openTabIds: newTabIds,
                 activeSessionId: newActiveId,
                 isLoading: false,

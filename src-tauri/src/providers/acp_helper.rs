@@ -49,7 +49,7 @@ pub fn spawn_stdout_reader(
     pending_requests: PendingRequests,
     pending_permission: Arc<Mutex<Option<PendingPermission>>>,
     session_id: String,
-    message_id: String,
+    current_message_id: Arc<Mutex<String>>,
 ) {
     tokio::spawn(async move {
         let reader = BufReader::new(stdout);
@@ -95,10 +95,11 @@ pub fn spawn_stdout_reader(
                             )
                         {
                             if prompt_result.stop_reason == "end_turn" {
+                                let msg_id = current_message_id.lock().await.clone();
                                 let _ = stream_tx
                                     .send(StreamChunk {
                                         session_id: session_id.clone(),
-                                        message_id: message_id.clone(),
+                                        message_id: msg_id,
                                         content: String::new(),
                                         is_complete: true,
                                         chunk_type: None,
@@ -120,10 +121,11 @@ pub fn spawn_stdout_reader(
                         if let Some(params) = json_value.get("params") {
                             match serde_json::from_value::<SessionUpdateParams>(params.clone()) {
                                 Ok(update_params) => {
+                                    let msg_id = current_message_id.lock().await.clone();
                                     handle_session_update(
                                         &update_params.update,
                                         &session_id,
-                                        &message_id,
+                                        &msg_id,
                                         &stream_tx,
                                     )
                                     .await;
@@ -199,10 +201,11 @@ pub fn spawn_stdout_reader(
 
         // Send completion signal
         println!("[ACP] Stdout reader EOF for session {}", session_id);
+        let msg_id = current_message_id.lock().await.clone();
         let _ = stream_tx
             .send(StreamChunk {
                 session_id: session_id.clone(),
-                message_id: message_id.clone(),
+                message_id: msg_id,
                 content: String::new(),
                 is_complete: true,
                 chunk_type: None,

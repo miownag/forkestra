@@ -1,4 +1,4 @@
-import { useSessionStore, useSelectorTerminalStore } from "@/stores";
+import { useSelectorTerminalStore, useSelectorSessionStore } from "@/stores";
 import { ChatWindow } from "@/components/chat/chat-window";
 import { TerminalPanel } from "@/components/terminal/terminal-panel";
 import { ActionToolbar } from "@/components/toolbar/action-toolbar";
@@ -6,11 +6,19 @@ import { VscFolderOpened } from "react-icons/vsc";
 import { LuGitBranch } from "react-icons/lu";
 
 export function SessionPanel() {
-  const activeSessionId = useSessionStore((s) => s.activeSessionId);
-  const sessions = useSessionStore((s) => s.sessions);
   const { position } = useSelectorTerminalStore(["position"]);
+  const { sessions, activeSessionId, creatingSessions } =
+    useSelectorSessionStore([
+      "sessions",
+      "activeSessionId",
+      "creatingSessions",
+    ]);
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
+  const isCreating =
+    activeSessionId &&
+    (activeSession?.status === "creating" ||
+      creatingSessions.has(activeSessionId));
 
   if (!activeSession) {
     return (
@@ -42,7 +50,9 @@ export function SessionPanel() {
           <div className="border-b px-4 py-3 flex items-center justify-between bg-muted/20 shrink-0">
             <div className="flex items-center gap-3 min-w-0">
               <div className="min-w-0">
-                <h2 className="font-medium text-sm truncate">{activeSession.name}</h2>
+                <h2 className="font-medium text-sm truncate">
+                  {activeSession.name}
+                </h2>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <LuGitBranch className="h-3 w-3" />
@@ -53,7 +63,9 @@ export function SessionPanel() {
                     title={activeSession.project_path || "-"}
                   >
                     <VscFolderOpened className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{activeSession.project_path.split("/").pop() || "-"}</span>
+                    <span className="truncate">
+                      {activeSession.project_path.split("/").pop() || "-"}
+                    </span>
                   </span>
                 </div>
               </div>
@@ -69,19 +81,21 @@ export function SessionPanel() {
                 className={`px-2 py-0.5 rounded text-xs font-medium ${
                   activeSession.status === "active"
                     ? "bg-green-500/10 text-green-600"
-                    : activeSession.status === "creating"
+                    : isCreating
                       ? "bg-yellow-500/10 text-yellow-600"
                       : "bg-muted text-muted-foreground"
                 }`}
               >
                 {activeSession.status === "active"
                   ? "Active"
-                  : activeSession.status === "creating"
+                  : isCreating
                     ? "Creating..."
                     : activeSession.status}
               </span>
               <span className="text-xs text-muted-foreground">
-                {activeSession.provider === "claude" ? "Claude Code" : "Kimi Code"}
+                {activeSession.provider === "claude"
+                  ? "Claude Code"
+                  : "Kimi Code"}
               </span>
             </div>
           </div>

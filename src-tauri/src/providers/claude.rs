@@ -27,6 +27,7 @@ pub struct ClaudeAdapter {
     next_request_id: Arc<Mutex<u64>>,
     pending_requests: PendingRequests,
     pending_permission: Arc<Mutex<Option<PendingPermission>>>,
+    current_message_id: Arc<Mutex<String>>,
     is_active: bool,
     cli_path: String,
     disable_login_prompt: bool,
@@ -44,6 +45,7 @@ impl ClaudeAdapter {
             next_request_id: Arc::new(Mutex::new(10)), // Start at 10 to avoid colliding with handshake IDs
             pending_requests: Arc::new(Mutex::new(HashMap::new())),
             pending_permission: Arc::new(Mutex::new(None)),
+            current_message_id: Arc::new(Mutex::new(uuid::Uuid::new_v4().to_string())),
             is_active: false,
             cli_path: "claude".to_string(),
             disable_login_prompt: false,
@@ -61,6 +63,7 @@ impl ClaudeAdapter {
             next_request_id: Arc::new(Mutex::new(10)),
             pending_requests: Arc::new(Mutex::new(HashMap::new())),
             pending_permission: Arc::new(Mutex::new(None)),
+            current_message_id: Arc::new(Mutex::new(uuid::Uuid::new_v4().to_string())),
             is_active: false,
             cli_path: settings
                 .custom_cli_path
@@ -155,7 +158,7 @@ impl ClaudeAdapter {
         spawn_stdin_writer(stdin, stdin_rx);
         spawn_stderr_reader(stderr, "claude".to_string(), self.pending_requests.clone());
 
-        let message_id = uuid::Uuid::new_v4().to_string();
+        let current_message_id = self.current_message_id.clone();
         let pending_requests = self.pending_requests.clone();
         let pending_permission = self.pending_permission.clone();
 
@@ -181,7 +184,7 @@ impl ClaudeAdapter {
             pending_requests,
             pending_permission,
             session_id.to_string(),
-            message_id,
+            current_message_id,
         );
 
         Ok((child, stdin_tx))
@@ -329,6 +332,12 @@ impl ProviderAdapter for ClaudeAdapter {
             })?;
 
             return Ok(());
+        }
+
+        // Generate a new message_id for this prompt's response
+        {
+            let mut msg_id = self.current_message_id.lock().await;
+            *msg_id = uuid::Uuid::new_v4().to_string();
         }
 
         // Normal message: send as session/prompt

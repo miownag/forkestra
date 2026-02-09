@@ -68,16 +68,8 @@ export function ChatInput({
         <Popover open={modelPopoverOpen} onOpenChange={setModelPopoverOpen}>
           <PopoverTrigger asChild>
             {currentModel ? (
-              <button className="text-xs p-1.5 rounded-md cursor-pointer">
-                <ModelTag
-                  model={currentModel.model_id}
-                  className="size-4 fill-current bg-transparent! hover:bg-secondary-foreground/10!"
-                  type="color"
-                />
-              </button>
-            ) : session?.model ? (
-              <button className="text-xs p-1.5 rounded-md cursor-pointer text-muted-foreground">
-                {session.model}
+              <button className="text-xs p-1.5 rounded-md cursor-pointer text-muted-foreground hover:bg-secondary-foreground/10!">
+                {currentModel.display_name}
               </button>
             ) : (
               <span />
