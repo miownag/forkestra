@@ -269,13 +269,14 @@ export function Sidebar() {
         <Separator />
 
         {/* Sessions List - Grouped by Project Path */}
-        <ScrollArea className="flex-1">
-          {sessions.length === 0 ? (
-            <p className="text-xs text-muted-foreground px-4 py-4 text-center whitespace-nowrap">
-              No sessions
-            </p>
-          ) : (
-            sortedProjectPaths.map((projectPath) => {
+
+        {sessions.length === 0 ? (
+          <div className="flex-1 flex justify-center items-center">
+            <span className="text-xs text-muted-foreground">No sessions</span>
+          </div>
+        ) : (
+          <ScrollArea className="flex-1">
+            {sortedProjectPaths.map((projectPath) => {
               const projectSessions = sessionsByProject[projectPath];
               const projectName = projectPath.split("/").pop() || projectPath;
               const isCollapsed = collapsedGroups.has(projectPath);
@@ -307,9 +308,9 @@ export function Sidebar() {
                     ))}
                 </div>
               );
-            })
-          )}
-        </ScrollArea>
+            })}
+          </ScrollArea>
+        )}
 
         {/* Settings */}
         <div className="flex p-2">

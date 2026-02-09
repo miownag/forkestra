@@ -28,6 +28,7 @@ import { Switch } from "@/components/ui/switch";
 import { BranchSearchSelect } from "./branch-search-select";
 import type { ProviderType } from "@/types";
 import { VscFolder } from "react-icons/vsc";
+import PROVIDER_ICONS_MAP from "@/constants/icons";
 
 interface NewSessionDialogProps {
   open: boolean;
@@ -50,7 +51,6 @@ export function NewSessionDialog({
   const [projectPath, setProjectPath] = useState("");
   const [baseBranch, setBaseBranch] = useState("");
   const [useLocal, setUseLocal] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { createSession } = useSelectorSessionStore(["createSession"]);
   const { providers } = useSelectorProviderStore(["providers"]);
@@ -92,8 +92,18 @@ export function NewSessionDialog({
   const handleCreate = async () => {
     if (!projectPath || !provider) return;
 
-    setIsCreating(true);
     setError(null);
+
+    // Close dialog immediately
+    onOpenChange(false);
+
+    // Reset form
+    setName("");
+    setProjectPath("");
+    setBaseBranch("");
+    setUseLocal(false);
+
+    // Create session in background - errors will be shown in the session
     try {
       await createSession({
         name: name.trim() || "New Session",
@@ -102,24 +112,14 @@ export function NewSessionDialog({
         base_branch: useLocal ? undefined : baseBranch || undefined,
         use_local: useLocal,
       });
-      onOpenChange(false);
-      // Reset form
-      setName("");
-      setProjectPath("");
-      setBaseBranch("");
-      setUseLocal(false);
     } catch (err) {
-      setError(String(err));
-    } finally {
-      setIsCreating(false);
+      console.error("Failed to create session:", err);
     }
   };
 
   const handleClose = () => {
-    if (!isCreating) {
-      onOpenChange(false);
-      setError(null);
-    }
+    onOpenChange(false);
+    setError(null);
   };
 
   return (
@@ -171,11 +171,18 @@ export function NewSessionDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {installedProviders.map((p) => (
-                  <SelectItem key={p.provider_type} value={p.provider_type}>
-                    {p.name}
-                  </SelectItem>
-                ))}
+                {installedProviders.map((p) => {
+                  const Icon = PROVIDER_ICONS_MAP[p.provider_type];
+                  return (
+                    <SelectItem key={p.provider_type} value={p.provider_type}>
+                      <Icon.Combine
+                        className="flex items-center gap-1"
+                        size={18}
+                        type="color"
+                      />
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
@@ -238,11 +245,11 @@ export function NewSessionDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={isCreating}>
+          <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
-          <Button onClick={handleCreate} disabled={isCreating || !projectPath}>
-            {isCreating ? "Creating..." : "Create Session"}
+          <Button onClick={handleCreate} disabled={!projectPath}>
+            Create Session
           </Button>
         </DialogFooter>
       </DialogContent>

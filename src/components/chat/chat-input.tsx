@@ -34,7 +34,7 @@ export function ChatInput({
 
   const availableModels = session?.available_models ?? [];
   const currentModel = availableModels.find(
-    (m) => m.model_id === session?.model
+    (m) => m.model_id === session?.model,
   );
 
   const handleOnSubmit = async () => {
@@ -84,7 +84,7 @@ export function ChatInput({
             )}
           </PopoverTrigger>
           <PopoverContent
-            className="w-52 p-1"
+            className="w-lg p-1"
             align="start"
             side="top"
             sideOffset={8}
@@ -93,12 +93,17 @@ export function ChatInput({
               <button
                 key={m.model_id}
                 type="button"
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent cursor-pointer"
+                className="w-full flex justify-between items-center rounded-md px-2 py-1.5 hover:bg-accent cursor-pointer"
                 onClick={() => handleModelSelect(m.model_id)}
               >
-                <span className="text-xs flex-1 text-left">
-                  {m.display_name}
-                </span>
+                <div className="flex flex-col justify-between">
+                  <span className="text-xs flex-1 text-left">
+                    {m.display_name}
+                  </span>
+                  <p className="text-xs text-muted-foreground">
+                    {m.description}
+                  </p>
+                </div>
                 {session?.model === m.model_id && (
                   <LuCheck className="size-4 text-primary" />
                 )}

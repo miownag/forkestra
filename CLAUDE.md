@@ -8,8 +8,7 @@
 **规则**：
 
 1. kebab-case文件名
-2. 如果遇到不知道的context，请优先使用Context7 MCP而不是Web Search去搜索
-   1. IMPORTANT: ACP相关可以查询Agent Client Protocol和Claude Code ACP这两个库
+2. 如果遇到不知道的context，请优先使用Context7 MCP而不是Web Search去搜索，查询Context7时应该查询这两个库，ACP相关可以查询Agent Client Protocol和Claude Code ACP这两个库
 
 ### 核心目标
 

@@ -12,6 +12,7 @@ import type {
 import { isClaudeSettings } from "@/types";
 import { VscFolder, VscCheck, VscClose } from "react-icons/vsc";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import PROVIDER_ICONS_MAP from "@/constants/icons";
 
 interface ProviderSettingsCardProps {
   provider: ProviderInfo;
@@ -64,13 +65,22 @@ export function ProviderSettingsCard({ provider }: ProviderSettingsCardProps) {
     setIsDirty(true);
   };
 
+  const ProviderIcon = PROVIDER_ICONS_MAP[provider.provider_type];
+
   return (
     <div className="p-4 rounded-lg border bg-card">
       {/* Provider Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h4 className="font-medium">{provider.name}</h4>
-          <p className="text-xs text-muted-foreground truncate max-w-[300px]">
+          <ProviderIcon.Combine
+            size={20}
+            className="flex items-center gap-1 mb-1"
+            type="color"
+          />
+          <p
+            className="text-xs text-muted-foreground truncate max-w-75"
+            title={provider.cli_path || ""}
+          >
             {provider.cli_path || `${provider.cli_command} (not found)`}
           </p>
         </div>

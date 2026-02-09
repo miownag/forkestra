@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import PROVIDER_ICONS_MAP from "@/constants/icons";
 import { ProviderType } from "@/types";
 import { VscLoading } from "react-icons/vsc";
+import { Loader } from "@/components/prompt-kit/loader";
 
 const EMPTY_MESSAGES: never[] = [];
 
@@ -50,9 +51,14 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
     () => messagesMap[sessionId] ?? EMPTY_MESSAGES,
     [messagesMap, sessionId],
   );
+
+  console.log("messages", messagesMap);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const ProviderIcon = PROVIDER_ICONS_MAP[session?.provider as ProviderType];
+  const lastMessage = messages[messages.length - 1];
+  const isWaitingForResponse =
+    isLoading && lastMessage && lastMessage.role === "user";
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -97,6 +103,7 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
               <ChatMessage key={message.id} message={message} />
             ))
           )}
+          {isWaitingForResponse && <Loader variant="dots" className="ml-1" />}
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
@@ -117,7 +124,7 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
       {/* Resuming state */}
       {isResuming && (
         <div className="flex items-center justify-center mx-auto gap-2 px-4 py-3 rounded-lg border border-border bg-muted/50">
-          <VscLoading className="animate-spin text-muted-foreground" />
+          <Loader variant="classic" className="text-foreground" />
           <p className="text-sm text-muted-foreground">Resuming session...</p>
         </div>
       )}
