@@ -521,3 +521,13 @@ body {
     opacity: 1;
   }
 }
+
+::selection {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+::-moz-selection {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}

@@ -21,7 +21,6 @@ import {
   LuCopy,
 } from "react-icons/lu";
 import { useState, useCallback } from "react";
-import { Tool } from "@/components/prompt-kit/tool";
 
 function getToolIcon(status: string) {
   switch (status) {
