@@ -9,6 +9,7 @@ import { BiCollapseVertical, BiExpandVertical } from "react-icons/bi";
 import { useState } from "react";
 import { useSelectorSettingsStore } from "@/stores";
 import { cn } from "@/lib/utils";
+import { MermaidDiagram } from "@/components/chat/chat-message/mermaid-diagram";
 
 export function CodeBlockWithHeader({
   language,
@@ -34,9 +35,10 @@ export function CodeBlockWithHeader({
           <button
             className={cn(
               "flex items-center text-muted-foreground text-sm gap-1.5",
-              "hover:bg-muted rounded-sm px-1.5 py-0.5 cursor-pointer",
+              "hover:bg-muted/50 rounded-sm px-1.5 py-0.5 cursor-pointer",
             )}
             onClick={() => setCollapsed((pre) => !pre)}
+            title={collapsed ? "Expand" : "Collapse"}
           >
             {collapsed ? <BiExpandVertical /> : <BiCollapseVertical />}
             {language}
@@ -54,14 +56,17 @@ export function CodeBlockWithHeader({
             )}
           </Button>
         </CodeBlockGroup>
-        {!collapsed && (
-          <CodeBlockCode
-            code={children}
-            language="javascript"
-            theme={resolvedTheme === "dark" ? "one-dark-pro" : "one-light"}
-            className="[&_pre]:bg-background!"
-          />
-        )}
+        {!collapsed &&
+          (language === "mermaid" ? (
+            <MermaidDiagram code={children as string} />
+          ) : (
+            <CodeBlockCode
+              code={children}
+              language="javascript"
+              theme={resolvedTheme === "dark" ? "one-dark-pro" : "one-light"}
+              className="[&_pre]:bg-background!"
+            />
+          ))}
       </CodeBlock>
     </div>
   );
