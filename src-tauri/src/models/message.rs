@@ -125,3 +125,23 @@ pub struct InteractionPrompt {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_name: Option<String>,
 }
+
+/// Event emitted when available slash commands are updated for a session
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AvailableCommandsEvent {
+    pub session_id: String,
+    pub available_commands: Vec<AvailableCommand>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AvailableCommand {
+    pub name: String,
+    pub description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input: Option<AvailableCommandInput>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AvailableCommandInput {
+    pub hint: String,
+}

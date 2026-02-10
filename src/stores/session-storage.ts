@@ -10,6 +10,7 @@ import type {
   StreamChunk,
   SessionStatusEvent,
   MessagePart,
+  AvailableCommand,
 } from "@/types";
 
 interface InteractionPrompt {
@@ -33,6 +34,7 @@ interface SessionState {
   creatingSessions: Set<string>; // Track sessions currently being created
   messageQueue: Record<string, string[]>; // Queue messages for creating sessions
   interactionPrompts: Record<string, InteractionPrompt | null>;
+  availableCommands: Record<string, AvailableCommand[]>;
   error: string | null;
 
   // Actions
@@ -63,6 +65,10 @@ interface SessionState {
     sessionId: string,
     prompt: InteractionPrompt | null,
   ) => void;
+  setAvailableCommands: (
+    sessionId: string,
+    commands: AvailableCommand[],
+  ) => void;
   clearError: () => void;
 }
 
@@ -85,6 +91,7 @@ export const useSessionStore = create<SessionState>()(
         creatingSessions: new Set(),
         messageQueue: {},
         interactionPrompts: {},
+        availableCommands: {},
         error: null,
 
         // Actions
@@ -324,6 +331,8 @@ export const useSessionStore = create<SessionState>()(
                   state.messagesLoaded;
                 const { [sessionId]: ___, ...remainingQueue } =
                   state.messageQueue;
+                const { [sessionId]: ____, ...remainingCommands } =
+                  state.availableCommands;
 
                 // Also remove from creatingSessions and streamingSessions if present
                 const newCreatingSessions = new Set(state.creatingSessions);
@@ -337,6 +346,7 @@ export const useSessionStore = create<SessionState>()(
                   messages: remainingMessages,
                   messagesLoaded: remainingLoaded,
                   messageQueue: remainingQueue,
+                  availableCommands: remainingCommands,
                   creatingSessions: newCreatingSessions,
                   streamingSessions: newStreamingSessions,
                   openTabIds: newTabIds,
@@ -697,6 +707,14 @@ export const useSessionStore = create<SessionState>()(
             interactionPrompts: {
               ...state.interactionPrompts,
               [sessionId]: prompt,
+            },
+          }));
+        },
+        setAvailableCommands: (sessionId, commands) => {
+          set((state) => ({
+            availableCommands: {
+              ...state.availableCommands,
+              [sessionId]: commands,
             },
           }));
         },

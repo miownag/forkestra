@@ -8,6 +8,7 @@ use tokio::sync::{mpsc, oneshot, Mutex};
 
 use crate::error::{AppError, AppResult};
 use crate::models::{
+    AvailableCommand, AvailableCommandsEvent,
     ClientCapabilities, ContentBlock, FileSystemCapabilities, InitializeParams, InteractionPrompt,
     JsonRpcRequest, JsonRpcResponse, ModelInfo, PendingPermission, ProviderType, SessionNewResult,
     SessionPromptParams, SessionRequestPermissionParams, SessionResumeResult,
@@ -126,6 +127,7 @@ pub fn spawn_stdout_reader(
                                     &session_id,
                                     &msg_id,
                                     &stream_tx,
+                                    &app_handle,
                                 )
                                 .await;
                             }
@@ -511,6 +513,7 @@ async fn handle_session_update_raw(
     session_id: &str,
     message_id: &str,
     stream_tx: &mpsc::Sender<StreamChunk>,
+    app_handle: &AppHandle,
 ) {
     let update_type = match update.get("sessionUpdate").and_then(|v| v.as_str()) {
         Some(t) => t,
@@ -709,7 +712,27 @@ async fn handle_session_update_raw(
                 .await;
         }
         "available_commands_update" => {
-            println!("[ACP] Received available_commands_update");
+            let commands: Vec<AvailableCommand> = update
+                .get("availableCommands")
+                .and_then(|v| serde_json::from_value(v.clone()).ok())
+                .unwrap_or_default();
+
+            println!(
+                "[ACP] Received available_commands_update with {} commands",
+                commands.len()
+            );
+
+            let event = AvailableCommandsEvent {
+                session_id: session_id.to_string(),
+                available_commands: commands,
+            };
+
+            if let Err(e) = app_handle.emit("available-commands-update", &event) {
+                eprintln!(
+                    "[ACP] Failed to emit available-commands-update event: {}",
+                    e
+                );
+            }
         }
         "mode_update" => {
             println!("[ACP] Received mode_update");

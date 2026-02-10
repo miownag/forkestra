@@ -1,13 +1,14 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useSelectorSessionStore } from "@/stores";
-import type { StreamChunk, InteractionPrompt, SessionStatusEvent } from "@/types";
+import type { StreamChunk, InteractionPrompt, SessionStatusEvent, AvailableCommandsEvent } from "@/types";
 
 export function useStreamEvents() {
-  const { handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged } = useSelectorSessionStore([
+  const { handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged, setAvailableCommands } = useSelectorSessionStore([
     "handleStreamChunk",
     "setInteractionPrompt",
     "handleSessionStatusChanged",
+    "setAvailableCommands",
   ]);
 
   useEffect(() => {
@@ -16,10 +17,11 @@ export function useStreamEvents() {
     let unlistenStreamFn: (() => void) | null = null;
     let unlistenPromptFn: (() => void) | null = null;
     let unlistenStatusFn: (() => void) | null = null;
+    let unlistenCommandsFn: (() => void) | null = null;
 
     const setupListeners = async () => {
       console.log("[useStreamEvents] Starting listener setup...");
-      
+
       // Listen for stream chunks
       console.log("[useStreamEvents] Setting up stream-chunk listener...");
       const unlistenStream = await listen<StreamChunk>("stream-chunk", (event) => {
@@ -61,15 +63,28 @@ export function useStreamEvents() {
       });
       console.log("[useStreamEvents] session-status-changed listener setup complete");
 
+      // Listen for available commands updates
+      const unlistenCommands = await listen<AvailableCommandsEvent>("available-commands-update", (event) => {
+        console.log("[useStreamEvents] Received available-commands-update:", event.payload.session_id, event.payload.available_commands.length, "commands");
+        if (isActive) {
+          setAvailableCommands(
+            event.payload.session_id,
+            event.payload.available_commands,
+          );
+        }
+      });
+
       if (isActive) {
         unlistenStreamFn = unlistenStream;
         unlistenPromptFn = unlistenPrompt;
         unlistenStatusFn = unlistenStatus;
+        unlistenCommandsFn = unlistenCommands;
         console.log("[useStreamEvents] All listeners setup complete");
       } else {
         unlistenStream();
         unlistenPrompt();
         unlistenStatus();
+        unlistenCommands();
       }
     };
 
@@ -87,6 +102,9 @@ export function useStreamEvents() {
       if (unlistenStatusFn) {
         unlistenStatusFn();
       }
+      if (unlistenCommandsFn) {
+        unlistenCommandsFn();
+      }
     };
-  }, [handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged]);
+  }, [handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged, setAvailableCommands]);
 }

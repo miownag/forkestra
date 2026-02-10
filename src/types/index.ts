@@ -170,6 +170,22 @@ export interface InteractionPrompt {
   tool_name?: string;
 }
 
+// Slash command types (from ACP available_commands_update)
+export interface AvailableCommandInput {
+  hint: string;
+}
+
+export interface AvailableCommand {
+  name: string;
+  description: string;
+  input?: AvailableCommandInput | null;
+}
+
+export interface AvailableCommandsEvent {
+  session_id: string;
+  available_commands: AvailableCommand[];
+}
+
 // Settings types
 export type Theme = "light" | "dark" | "system";
 export type FontSize = "small" | "base" | "large";

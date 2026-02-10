@@ -12,9 +12,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { LuArrowUp, LuSquare, LuCheck } from "react-icons/lu";
 import { GrAttachment } from "react-icons/gr";
-import { useState } from "react";
-import type { Session } from "@/types";
-import { TbBrain } from "react-icons/tb";
+import { useState, useCallback } from "react";
+import type { Session, AvailableCommand } from "@/types";
+import { TbBrain, TbSlash } from "react-icons/tb";
+import { SlashCommandSelector } from "./slash-command-selector";
+import { useSelectorSessionStore } from "@/stores";
 
 export function ChatInput({
   onSend,
@@ -31,14 +33,77 @@ export function ChatInput({
 }) {
   const [input, setInput] = useState("");
   const [modelPopoverOpen, setModelPopoverOpen] = useState(false);
+  const [inlineSlashOpen, setInlineSlashOpen] = useState(false);
+  const [inlineSlashQuery, setInlineSlashQuery] = useState("");
+  const [buttonSlashOpen, setButtonSlashOpen] = useState(false);
+
+  const { availableCommands: allCommands } = useSelectorSessionStore([
+    "availableCommands",
+  ]);
+  const commands = session?.id ? (allCommands[session.id] ?? []) : [];
 
   const availableModels = session?.available_models ?? [];
   const currentModel = availableModels.find(
     (m) => m.model_id === session?.model,
   );
 
+  const handleInputChange = useCallback(
+    (value: string) => {
+      setInput(value);
+
+      // Detect slash command pattern: "/" at start or after a space
+      const slashMatch = value.match(/(^|\s)\/(\S*)$/);
+      if (slashMatch && commands.length > 0) {
+        const query = slashMatch[2]; // text after "/"
+        // Check if any commands match; if not, close the selector
+        const hasMatches = query
+          ? commands.some((c) =>
+              c.name.toLowerCase().startsWith(query.toLowerCase()),
+            )
+          : true;
+        if (hasMatches) {
+          setInlineSlashQuery(query);
+          setInlineSlashOpen(true);
+        } else {
+          setInlineSlashOpen(false);
+          setInlineSlashQuery("");
+        }
+      } else {
+        setInlineSlashOpen(false);
+        setInlineSlashQuery("");
+      }
+    },
+    [commands],
+  );
+
+  const handleCommandSelect = useCallback(
+    async (command: AvailableCommand) => {
+      // Directly send the command
+      setInlineSlashOpen(false);
+      setInlineSlashQuery("");
+      setButtonSlashOpen(false);
+      setInput("");
+      await onSend(`/${command.name}`);
+    },
+    [onSend],
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === "Escape" && inlineSlashOpen) {
+        e.preventDefault();
+        setInlineSlashOpen(false);
+        setInlineSlashQuery("");
+      }
+    },
+    [inlineSlashOpen],
+  );
+
   const handleOnSubmit = async () => {
     if (input.trim() && !disabled) {
+      setInlineSlashOpen(false);
+      setInlineSlashQuery("");
+      setButtonSlashOpen(false);
       await onSend(input);
       setInput("");
     }
@@ -49,20 +114,35 @@ export function ChatInput({
     setModelPopoverOpen(false);
   };
 
+  const handleSlashButtonClick = () => {
+    if (commands.length > 0) {
+      setButtonSlashOpen(!buttonSlashOpen);
+    }
+  };
+
   return (
     <PromptInput
       value={input}
-      onValueChange={setInput}
+      onValueChange={handleInputChange}
       isLoading={isLoading}
       onSubmit={handleOnSubmit}
       className="w-full max-w-(--breakpoint-md) mx-auto mb-4"
     >
-      <PromptInputTextarea
-        placeholder={
-          disabled ? "Waiting for response..." : "Type your instruction..."
-        }
-        disabled={disabled}
-      />
+      <SlashCommandSelector
+        open={inlineSlashOpen}
+        onOpenChange={setInlineSlashOpen}
+        commands={commands}
+        searchQuery={inlineSlashQuery}
+        onSelect={handleCommandSelect}
+      >
+        <PromptInputTextarea
+          placeholder={
+            disabled ? "Waiting for response..." : "Type your instruction..."
+          }
+          disabled={disabled}
+          onKeyDown={handleKeyDown}
+        />
+      </SlashCommandSelector>
 
       <PromptInputActions className="flex items-center justify-between gap-2 pt-2">
         <Popover open={modelPopoverOpen} onOpenChange={setModelPopoverOpen}>
@@ -106,7 +186,7 @@ export function ChatInput({
         </Popover>
 
         <div className="flex items-center gap-2">
-          <PromptInputAction tooltip="Attach files">
+          <PromptInputAction tooltip="Choose Files">
             <label
               htmlFor="select-file-path"
               className="hover:bg-secondary-foreground/10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-2xl"
@@ -119,6 +199,24 @@ export function ChatInput({
               />
               <GrAttachment className="text-primary size-4" />
             </label>
+          </PromptInputAction>
+          <PromptInputAction tooltip="Slash Commands">
+            <SlashCommandSelector
+              open={buttonSlashOpen}
+              onOpenChange={setButtonSlashOpen}
+              commands={commands}
+              searchQuery=""
+              onSelect={handleCommandSelect}
+              align="end"
+            >
+              <button
+                type="button"
+                onClick={handleSlashButtonClick}
+                className="hover:bg-secondary-foreground/10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-2xl text-muted-foreground"
+              >
+                <TbSlash className="text-primary size-5" />
+              </button>
+            </SlashCommandSelector>
           </PromptInputAction>
           <PromptInputAction
             tooltip={isLoading ? "Stop generation" : "Send message"}
