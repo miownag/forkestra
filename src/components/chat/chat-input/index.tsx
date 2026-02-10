@@ -198,24 +198,22 @@ export function ChatInput({
               <GrAttachment className="text-primary size-4" />
             </label>
           </PromptInputAction>
-          <PromptInputAction tooltip="Slash Commands">
-            <SlashCommandSelector
-              open={buttonSlashOpen}
-              onOpenChange={setButtonSlashOpen}
-              commands={commands}
-              searchQuery=""
-              onSelect={handleCommandSelect}
-              align="end"
+          <SlashCommandSelector
+            open={buttonSlashOpen}
+            onOpenChange={setButtonSlashOpen}
+            commands={commands}
+            searchQuery=""
+            onSelect={handleCommandSelect}
+            align="end"
+          >
+            <button
+              type="button"
+              onClick={handleSlashButtonClick}
+              className="hover:bg-secondary-foreground/10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-2xl text-muted-foreground"
             >
-              <button
-                type="button"
-                onClick={handleSlashButtonClick}
-                className="hover:bg-secondary-foreground/10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-2xl text-muted-foreground"
-              >
-                <TbSlash className="text-primary size-5" />
-              </button>
-            </SlashCommandSelector>
-          </PromptInputAction>
+              <TbSlash className="text-primary size-5" />
+            </button>
+          </SlashCommandSelector>
           <PromptInputAction
             tooltip={isLoading ? "Stop generation" : "Send message"}
           >

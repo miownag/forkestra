@@ -224,14 +224,21 @@ pub fn spawn_stdout_reader(
 
 /// Spawn a stderr reader task for logging
 /// Also monitors for fatal CLI errors and clears pending requests so callers fail immediately.
+/// Detects `<local-command-stdout>` content and forwards it to the frontend as text chunks.
 pub fn spawn_stderr_reader(
     stderr: tokio::process::ChildStderr,
     provider_name: String,
     pending_requests: PendingRequests,
+    stream_tx: mpsc::Sender<StreamChunk>,
+    session_id: String,
+    current_message_id: Arc<Mutex<String>>,
 ) {
     tokio::spawn(async move {
         let reader = BufReader::new(stderr);
         let mut lines = reader.lines();
+        // Regex to extract content between <local-command-stdout> tags
+        let tag_re = regex::Regex::new(r"<local-command-stdout>([\s\S]*?)</local-command-stdout>")
+            .expect("invalid regex");
 
         while let Ok(Some(line)) = lines.next_line().await {
             println!("[ACP:{}:stderr] {}", provider_name, line);
@@ -244,6 +251,26 @@ pub fn spawn_stderr_reader(
                 );
                 let mut pending = pending_requests.lock().await;
                 pending.clear();
+            }
+
+            // Forward <local-command-stdout> content as text chunks
+            for cap in tag_re.captures_iter(&line) {
+                if let Some(content) = cap.get(1) {
+                    let text = content.as_str().to_string();
+                    if !text.is_empty() {
+                        let msg_id = current_message_id.lock().await.clone();
+                        let _ = stream_tx
+                            .send(StreamChunk {
+                                session_id: session_id.clone(),
+                                message_id: msg_id,
+                                content: text,
+                                is_complete: false,
+                                chunk_type: Some(StreamChunkType::Text),
+                                tool_call: None,
+                            })
+                            .await;
+                    }
+                }
             }
         }
     });

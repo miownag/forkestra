@@ -156,7 +156,6 @@ impl ClaudeAdapter {
 
         // Spawn tasks
         spawn_stdin_writer(stdin, stdin_rx);
-        spawn_stderr_reader(stderr, "claude".to_string(), self.pending_requests.clone());
 
         let current_message_id = self.current_message_id.clone();
         let pending_requests = self.pending_requests.clone();
@@ -176,6 +175,15 @@ impl ClaudeAdapter {
                 session_id_for_forwarder
             );
         });
+
+        spawn_stderr_reader(
+            stderr,
+            "claude".to_string(),
+            self.pending_requests.clone(),
+            internal_tx.clone(),
+            session_id.to_string(),
+            current_message_id.clone(),
+        );
 
         spawn_stdout_reader(
             stdout,
