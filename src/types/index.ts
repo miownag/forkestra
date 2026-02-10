@@ -163,12 +163,19 @@ export interface StreamChunk {
   tool_call?: ToolCallInfo;
 }
 
+export interface PermissionOptionInfo {
+  kind: string;
+  name: string;
+  option_id: string;
+}
+
 export interface InteractionPrompt {
   session_id: string;
   prompt_type: string;
   message: string;
   request_id?: string;
   tool_name?: string;
+  options?: PermissionOptionInfo[];
 }
 
 // Slash command types (from ACP available_commands_update)

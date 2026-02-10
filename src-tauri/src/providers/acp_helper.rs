@@ -24,7 +24,8 @@ use crate::managers::SessionManager;
 use crate::models::{
     AvailableCommand, AvailableCommandsEvent,
     ClientCapabilities, ContentBlock, FileSystemCapabilities, InitializeParams, InteractionPrompt,
-    JsonRpcRequest, JsonRpcResponse, ModelInfo, PendingPermission, ProviderType, SessionNewResult,
+    JsonRpcRequest, JsonRpcResponse, ModelInfo, PendingPermission, PermissionOptionInfo,
+    ProviderType, SessionNewResult,
     SessionPromptParams, SessionRequestPermissionParams, SessionResumeResult,
     StreamChunk, StreamChunkType, ToolCallInfo,
 };
@@ -69,6 +70,8 @@ pub fn spawn_stdout_reader(
     tokio::spawn(async move {
         let reader = BufReader::new(stdout);
         let mut lines = reader.lines();
+        // Track the last tool name from session/update tool_call events
+        let mut last_tool_name: Option<String> = None;
 
         while let Ok(Some(line)) = lines.next_line().await {
             let line = line.trim().to_string();
@@ -135,6 +138,19 @@ pub fn spawn_stdout_reader(
                     "session/update" => {
                         if let Some(params) = json_value.get("params") {
                             if let Some(update) = params.get("update") {
+                                // Track tool name from tool_call updates for permission requests
+                                if update.get("sessionUpdate").and_then(|v| v.as_str()) == Some("tool_call") {
+                                    let tool_name = update
+                                        .get("_meta")
+                                        .and_then(|m| m.get("claudeCode"))
+                                        .and_then(|cc| cc.get("toolName"))
+                                        .and_then(|v| v.as_str())
+                                        .or_else(|| update.get("toolName").and_then(|v| v.as_str()));
+                                    if let Some(name) = tool_name {
+                                        last_tool_name = Some(name.to_string());
+                                    }
+                                }
+
                                 let msg_id = current_message_id.lock().await.clone();
                                 handle_session_update_raw(
                                     update,
@@ -159,20 +175,36 @@ pub fn spawn_stdout_reader(
                                     params.clone(),
                                 )
                             {
-                                // Store the pending permission for response
+                                // Store the pending permission for response (including options)
                                 {
                                     let mut perm = pending_permission.lock().await;
-                                    *perm = Some(PendingPermission { jsonrpc_id });
+                                    *perm = Some(PendingPermission {
+                                        jsonrpc_id,
+                                        options: perm_params.options.clone(),
+                                    });
                                 }
 
+                                // Resolve tool name: prefer perm_params.tool_name, then last tracked tool name
                                 let tool_name = perm_params
                                     .tool_name
                                     .clone()
+                                    .or_else(|| last_tool_name.clone())
                                     .unwrap_or_else(|| "unknown".to_string());
                                 let description = perm_params
                                     .description
                                     .clone()
                                     .unwrap_or_else(|| "Permission requested".to_string());
+
+                                // Convert options to frontend format
+                                let options_info: Vec<PermissionOptionInfo> = perm_params
+                                    .options
+                                    .iter()
+                                    .map(|o| PermissionOptionInfo {
+                                        kind: o.kind.clone(),
+                                        name: o.name.clone(),
+                                        option_id: o.option_id.clone(),
+                                    })
+                                    .collect();
 
                                 let prompt = InteractionPrompt {
                                     session_id: session_id.clone(),
@@ -180,6 +212,11 @@ pub fn spawn_stdout_reader(
                                     message: format!("{}: {}", tool_name, description),
                                     request_id: perm_params.request_id.clone(),
                                     tool_name: Some(tool_name),
+                                    options: if options_info.is_empty() {
+                                        None
+                                    } else {
+                                        Some(options_info)
+                                    },
                                 };
 
                                 if let Err(e) =
@@ -509,13 +546,13 @@ pub fn build_prompt_request(
     ))
 }
 
-/// Build a permission response JSON-RPC message
-pub fn build_permission_response(jsonrpc_id: u64, granted: bool) -> String {
+/// Build a permission response JSON-RPC message with the selected option ID
+pub fn build_permission_response(jsonrpc_id: u64, option_id: &str) -> String {
     let response = serde_json::json!({
         "jsonrpc": "2.0",
         "id": jsonrpc_id,
         "result": {
-            "granted": granted,
+            "optionId": option_id,
         }
     });
     serde_json::to_string(&response).unwrap_or_default()

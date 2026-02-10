@@ -216,8 +216,28 @@ pub struct SessionUpdateParams {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct PermissionOption {
+    pub kind: String,
+    pub name: String,
+    pub option_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PermissionToolCall {
+    pub tool_call_id: String,
+    #[serde(default)]
+    pub raw_input: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SessionRequestPermissionParams {
     pub session_id: String,
+    #[serde(default)]
+    pub options: Vec<PermissionOption>,
+    #[serde(default)]
+    pub tool_call: Option<PermissionToolCall>,
     #[serde(default)]
     pub request_id: Option<String>,
     #[serde(default)]
@@ -228,12 +248,6 @@ pub struct SessionRequestPermissionParams {
     pub input: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SessionPermissionResponse {
-    pub granted: bool,
-}
-
 // ========================
 // Pending permission state
 // ========================
@@ -242,4 +256,6 @@ pub struct SessionPermissionResponse {
 pub struct PendingPermission {
     /// The JSON-RPC id from the request_permission message
     pub jsonrpc_id: u64,
+    /// The options from the request_permission message
+    pub options: Vec<PermissionOption>,
 }

@@ -326,14 +326,13 @@ impl ProviderAdapter for ClaudeAdapter {
         };
 
         if let Some(perm) = pending_perm {
-            // Interpret the message as a permission response
-            // "n" or "no" = deny, anything else = grant
-            let granted = !matches!(message.trim().to_lowercase().as_str(), "n" | "no" | "deny");
-            let response_json = build_permission_response(perm.jsonrpc_id, granted);
+            // The message is the selected option_id from the frontend
+            let option_id = message.trim();
+            let response_json = build_permission_response(perm.jsonrpc_id, option_id);
 
             println!(
-                "[ClaudeAdapter] Sending permission response: granted={}",
-                granted
+                "[ClaudeAdapter] Sending permission response: option_id={}",
+                option_id
             );
             stdin_tx.send(response_json).await.map_err(|e| {
                 AppError::Provider(format!("Failed to send permission response: {}", e))

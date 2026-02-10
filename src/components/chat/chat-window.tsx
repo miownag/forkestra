@@ -123,7 +123,9 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
       </ScrollArea>
 
       {/* Interaction Prompt */}
-      {hasInteractionPrompt && <InteractionPromptPanel sessionId={sessionId} />}
+      {hasInteractionPrompt && isLoading && (
+        <InteractionPromptPanel sessionId={sessionId} />
+      )}
 
       {/* Create error state */}
       {hasCreateError && (

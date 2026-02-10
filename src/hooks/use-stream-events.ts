@@ -80,6 +80,11 @@ export function useStreamEvents() {
             message: event.payload.message,
             requestId: event.payload.request_id,
             toolName: event.payload.tool_name,
+            options: event.payload.options?.map((o) => ({
+              kind: o.kind,
+              name: o.name,
+              optionId: o.option_id,
+            })),
           });
           console.log("[useStreamEvents] setInteractionPrompt called");
         }

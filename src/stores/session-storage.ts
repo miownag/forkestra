@@ -13,12 +13,19 @@ import type {
   AvailableCommand,
 } from "@/types";
 
+interface PermissionOption {
+  kind: string;
+  name: string;
+  optionId: string;
+}
+
 interface InteractionPrompt {
   sessionId: string;
   type: "confirm" | "input" | "permission";
   message: string;
   requestId?: string;
   toolName?: string;
+  options?: PermissionOption[];
 }
 
 interface SessionState {

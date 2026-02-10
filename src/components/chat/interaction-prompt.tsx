@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useSelectorSessionStore } from "@/stores";
 import { cn } from "@/lib/utils";
-import { Keyboard, Check, X } from "lucide-react";
+import { Keyboard, Check, X, ShieldCheck } from "lucide-react";
 
 interface InteractionPromptProps {
   sessionId: string;
@@ -13,15 +13,7 @@ export function InteractionPromptPanel({ sessionId }: InteractionPromptProps) {
 
   const prompt = interactionPrompts[sessionId];
 
-  console.log("[InteractionPromptPanel] sessionId:", sessionId);
-  console.log(
-    "[InteractionPromptPanel] interactionPrompts:",
-    interactionPrompts,
-  );
-  console.log("[InteractionPromptPanel] prompt:", prompt);
-
   if (!prompt) {
-    console.log("[InteractionPromptPanel] No prompt, returning null");
     return null;
   }
 
@@ -33,6 +25,10 @@ export function InteractionPromptPanel({ sessionId }: InteractionPromptProps) {
   const handleDecline = async () => {
     // Send 'n' for decline
     await sendInteractionResponse(sessionId, "n");
+  };
+
+  const handleOptionSelect = async (optionId: string) => {
+    await sendInteractionResponse(sessionId, optionId);
   };
 
   return (
@@ -51,7 +47,32 @@ export function InteractionPromptPanel({ sessionId }: InteractionPromptProps) {
         </div>
 
         <div className="flex gap-2">
-          {prompt.type === "confirm" ? (
+          {prompt.type === "permission" && prompt.options && prompt.options.length > 0 ? (
+            <>
+              {prompt.options.map((option) => {
+                const isReject = option.kind === "reject_once" || option.kind === "reject_always";
+                const isAlwaysAllow = option.kind === "allow_always";
+                return (
+                  <Button
+                    key={option.optionId}
+                    size="sm"
+                    variant={isReject ? "outline" : isAlwaysAllow ? "secondary" : "default"}
+                    onClick={() => handleOptionSelect(option.optionId)}
+                    className="gap-1.5"
+                  >
+                    {isReject ? (
+                      <X className="h-3.5 w-3.5" />
+                    ) : isAlwaysAllow ? (
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                    ) : (
+                      <Check className="h-3.5 w-3.5" />
+                    )}
+                    {option.name}
+                  </Button>
+                );
+              })}
+            </>
+          ) : prompt.type === "confirm" ? (
             <>
               <Button size="sm" onClick={handleConfirm} className="gap-1.5">
                 <Check className="h-3.5 w-3.5" />

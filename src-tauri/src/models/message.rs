@@ -116,6 +116,13 @@ pub struct ToolCallInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PermissionOptionInfo {
+    pub kind: String,
+    pub name: String,
+    pub option_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InteractionPrompt {
     pub session_id: String,
     pub prompt_type: String, // "confirm" | "input" | "permission"
@@ -124,6 +131,8 @@ pub struct InteractionPrompt {
     pub request_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub options: Option<Vec<PermissionOptionInfo>>,
 }
 
 /// Event emitted when available slash commands are updated for a session
