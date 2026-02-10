@@ -267,6 +267,7 @@ impl Database {
                     acp_session_id: row.get(9)?,
                     model: model_str,
                     available_models: vec![],
+                    available_commands: vec![],
                 })
             })
             .map_err(|e| AppError::Database(format!("Failed to query sessions: {}", e)))?;

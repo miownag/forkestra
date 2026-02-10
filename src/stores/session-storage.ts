@@ -34,7 +34,6 @@ interface SessionState {
   creatingSessions: Set<string>; // Track sessions currently being created
   messageQueue: Record<string, string[]>; // Queue messages for creating sessions
   interactionPrompts: Record<string, InteractionPrompt | null>;
-  availableCommands: Record<string, AvailableCommand[]>;
   error: string | null;
 
   // Actions
@@ -47,6 +46,7 @@ interface SessionState {
   reorderTab: (oldIndex: number, newIndex: number) => void;
   loadSessionMessages: (sessionId: string) => Promise<void>;
   sendMessage: (sessionId: string, message: string) => Promise<void>;
+  stopStreaming: (sessionId: string) => void;
   sendInteractionResponse: (
     sessionId: string,
     response: string,
@@ -91,7 +91,6 @@ export const useSessionStore = create<SessionState>()(
         creatingSessions: new Set(),
         messageQueue: {},
         interactionPrompts: {},
-        availableCommands: {},
         error: null,
 
         // Actions
@@ -109,15 +108,20 @@ export const useSessionStore = create<SessionState>()(
               activeSessionIds.has(id),
             );
             const activeId = get().activeSessionId;
+            const resolvedActiveId =
+              activeId && reconciledTabIds.includes(activeId)
+                ? activeId
+                : reconciledTabIds[0] ?? null;
             set({
               sessions,
               openTabIds: reconciledTabIds,
-              activeSessionId:
-                activeId && reconciledTabIds.includes(activeId)
-                  ? activeId
-                  : reconciledTabIds[0] ?? null,
+              activeSessionId: resolvedActiveId,
               isLoading: false,
             });
+            // Lazy-load messages for the restored active session
+            if (resolvedActiveId) {
+              get().loadSessionMessages(resolvedActiveId);
+            }
           } catch (error) {
             set({ error: String(error), isLoading: false });
           }
@@ -310,7 +314,66 @@ export const useSessionStore = create<SessionState>()(
           }
         },
 
+        stopStreaming: (sessionId) => {
+          set((state) => {
+            const newStreamingSessions = new Set(state.streamingSessions);
+            newStreamingSessions.delete(sessionId);
+
+            // Mark the current streaming message as complete and interrupt running tool calls
+            const sessionMessages = state.messages[sessionId] || [];
+            const updatedMessages = sessionMessages.map((m) => {
+              if (!m.is_streaming) return m;
+
+              // Mark running tool calls as interrupted
+              const toolCalls = m.tool_calls?.map((tc) =>
+                tc.status === "running"
+                  ? { ...tc, status: "interrupted" }
+                  : tc,
+              );
+              const parts = m.parts?.map((p) =>
+                p.type === "tool_call" && p.tool_call.status === "running"
+                  ? {
+                      ...p,
+                      tool_call: { ...p.tool_call, status: "interrupted" },
+                    }
+                  : p,
+              );
+
+              const stoppedMessage = {
+                ...m,
+                is_streaming: false,
+                tool_calls: toolCalls,
+                parts,
+              };
+
+              // Persist interrupted message to DB
+              invoke("save_message", { message: stoppedMessage }).catch(
+                (err) => {
+                  console.error(
+                    "Failed to persist interrupted message:",
+                    err,
+                  );
+                },
+              );
+
+              return stoppedMessage;
+            });
+
+            return {
+              streamingSessions: newStreamingSessions,
+              messages: {
+                ...state.messages,
+                [sessionId]: updatedMessages,
+              },
+            };
+          });
+        },
+
         terminateSession: async (sessionId, cleanupWorktree) => {
+          // If session is streaming, save the partial message before terminating
+          if (get().streamingSessions.has(sessionId)) {
+            get().stopStreaming(sessionId);
+          }
           set({ isLoading: true, error: null });
           try {
             await invoke("terminate_session", { sessionId, cleanupWorktree });
@@ -331,8 +394,6 @@ export const useSessionStore = create<SessionState>()(
                   state.messagesLoaded;
                 const { [sessionId]: ___, ...remainingQueue } =
                   state.messageQueue;
-                const { [sessionId]: ____, ...remainingCommands } =
-                  state.availableCommands;
 
                 // Also remove from creatingSessions and streamingSessions if present
                 const newCreatingSessions = new Set(state.creatingSessions);
@@ -346,7 +407,6 @@ export const useSessionStore = create<SessionState>()(
                   messages: remainingMessages,
                   messagesLoaded: remainingLoaded,
                   messageQueue: remainingQueue,
-                  availableCommands: remainingCommands,
                   creatingSessions: newCreatingSessions,
                   streamingSessions: newStreamingSessions,
                   openTabIds: newTabIds,
@@ -712,10 +772,11 @@ export const useSessionStore = create<SessionState>()(
         },
         setAvailableCommands: (sessionId, commands) => {
           set((state) => ({
-            availableCommands: {
-              ...state.availableCommands,
-              [sessionId]: commands,
-            },
+            sessions: state.sessions.map((s) =>
+              s.id === sessionId
+                ? { ...s, available_commands: commands }
+                : s,
+            ),
           }));
         },
         clearError: () => set({ error: null }),

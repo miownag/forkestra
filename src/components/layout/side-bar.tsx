@@ -317,7 +317,7 @@ export function Sidebar() {
           <Button
             variant="ghost"
             onClick={handleSettingsClick}
-            className="w-full"
+            className="w-full duration-0"
             size="sm"
           >
             <VscSettingsGear className="mr-1 h-4 w-4" />

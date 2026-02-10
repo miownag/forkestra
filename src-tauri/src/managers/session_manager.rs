@@ -11,7 +11,7 @@ use crate::error::{AppError, AppResult};
 use crate::managers::settings_manager::SettingsManager;
 use crate::managers::worktree_manager::WorktreeManager;
 use crate::models::{
-    CreateSessionRequest, ProviderSettings, ProviderType, Session, SessionStatus,
+    AvailableCommand, CreateSessionRequest, ProviderSettings, ProviderType, Session, SessionStatus,
     SessionStatusEvent, StreamChunk,
 };
 use crate::providers::{ClaudeAdapter, KimiAdapter, ProviderAdapter};
@@ -124,6 +124,7 @@ impl SessionManager {
             acp_session_id: None,
             model: None,
             available_models: vec![],
+            available_commands: vec![],
         };
 
         // Store session in memory
@@ -566,6 +567,14 @@ impl SessionManager {
                 "Session '{}' not found",
                 session_id
             )))
+        }
+    }
+
+    /// Update available commands for a session
+    pub async fn update_session_commands(&self, session_id: &str, commands: Vec<AvailableCommand>) {
+        let mut sessions = self.sessions.write().await;
+        if let Some(entry) = sessions.get_mut(session_id) {
+            entry.session.available_commands = commands;
         }
     }
 

@@ -16,16 +16,17 @@ import { useState, useCallback } from "react";
 import type { Session, AvailableCommand } from "@/types";
 import { TbBrain, TbSlash } from "react-icons/tb";
 import { SlashCommandSelector } from "./slash-command-selector";
-import { useSelectorSessionStore } from "@/stores";
 
 export function ChatInput({
   onSend,
+  onStop,
   isLoading,
   disabled,
   session,
   onModelChange,
 }: {
   onSend: (content: string) => Promise<void>;
+  onStop: () => void;
   isLoading: boolean;
   disabled?: boolean;
   session?: Session;
@@ -37,10 +38,7 @@ export function ChatInput({
   const [inlineSlashQuery, setInlineSlashQuery] = useState("");
   const [buttonSlashOpen, setButtonSlashOpen] = useState(false);
 
-  const { availableCommands: allCommands } = useSelectorSessionStore([
-    "availableCommands",
-  ]);
-  const commands = session?.id ? (allCommands[session.id] ?? []) : [];
+  const commands = session?.available_commands ?? [];
 
   const availableModels = session?.available_models ?? [];
   const currentModel = availableModels.find(
@@ -225,8 +223,8 @@ export function ChatInput({
               variant="default"
               size="icon"
               className="h-8 w-8 rounded-full"
-              onClick={handleOnSubmit}
-              disabled={disabled}
+              onClick={isLoading ? onStop : handleOnSubmit}
+              disabled={!isLoading && disabled}
             >
               {isLoading ? (
                 <LuSquare className="size-4 fill-current" />

@@ -96,6 +96,7 @@ export interface Session {
   acp_session_id?: string | null;
   model?: string | null;
   available_models: ModelInfo[];
+  available_commands: AvailableCommand[];
 }
 
 export interface CreateSessionRequest {

@@ -1,12 +1,26 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::ChildStdin;
 use tokio::sync::{mpsc, oneshot, Mutex};
 
 use crate::error::{AppError, AppResult};
+
+/// Safely truncate a string to at most `max_bytes` bytes at a valid UTF-8 char boundary.
+fn truncate_str(s: &str, max_bytes: usize) -> &str {
+    if s.len() <= max_bytes {
+        return s;
+    }
+    // Find the largest index <= max_bytes that is a char boundary
+    let mut end = max_bytes;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    &s[..end]
+}
+use crate::managers::SessionManager;
 use crate::models::{
     AvailableCommand, AvailableCommandsEvent,
     ClientCapabilities, ContentBlock, FileSystemCapabilities, InitializeParams, InteractionPrompt,
@@ -66,13 +80,13 @@ pub fn spawn_stdout_reader(
                 Ok(v) => v,
                 Err(_) => {
                     // Not a JSON line, skip (e.g., npx output, warnings)
-                    println!("[ACP] Non-JSON line: {}", &line[..line.len().min(200)]);
+                    println!("[ACP] Non-JSON line: {}", truncate_str(&line, 200));
                     continue;
                 }
             };
 
             // Debug: log every JSON-RPC message received
-            println!("[ACP:stdout] {}", &line[..line.len().min(500)]);
+            println!("[ACP:stdout] {}", truncate_str(&line, 500));
 
             // Check if this is a response (has "id" and "result" or "error")
             if json_value.get("id").is_some()
@@ -721,6 +735,11 @@ async fn handle_session_update_raw(
                 "[ACP] Received available_commands_update with {} commands",
                 commands.len()
             );
+
+            // Store commands on the session so they survive frontend refreshes
+            if let Some(manager) = app_handle.try_state::<SessionManager>() {
+                manager.update_session_commands(session_id, commands.clone()).await;
+            }
 
             let event = AvailableCommandsEvent {
                 session_id: session_id.to_string(),

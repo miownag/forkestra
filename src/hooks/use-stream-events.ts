@@ -1,7 +1,40 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { useSelectorSessionStore } from "@/stores";
+import { useSessionStore } from "@/stores/session-storage";
 import type { StreamChunk, InteractionPrompt, SessionStatusEvent, AvailableCommandsEvent } from "@/types";
+
+/**
+ * Flush all currently-streaming messages to the database.
+ * Called on window unload/close so partial responses are not lost.
+ */
+function flushStreamingMessages() {
+  const state = useSessionStore.getState();
+  for (const sessionId of state.streamingSessions) {
+    const sessionMessages = state.messages[sessionId] || [];
+    for (const m of sessionMessages) {
+      if (!m.is_streaming) continue;
+
+      const toolCalls = m.tool_calls?.map((tc) =>
+        tc.status === "running"
+          ? { ...tc, status: "interrupted" }
+          : tc,
+      );
+
+      const saved = {
+        ...m,
+        is_streaming: false,
+        tool_calls: toolCalls,
+        parts: undefined,
+      };
+
+      invoke("save_message", { message: saved }).catch((err) => {
+        console.error("Failed to flush streaming message:", err);
+      });
+    }
+  }
+}
 
 export function useStreamEvents() {
   const { handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged, setAvailableCommands } = useSelectorSessionStore([
@@ -107,4 +140,12 @@ export function useStreamEvents() {
       }
     };
   }, [handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged, setAvailableCommands]);
+
+  // Flush streaming messages to DB on window close / refresh
+  useEffect(() => {
+    window.addEventListener("beforeunload", flushStreamingMessages);
+    return () => {
+      window.removeEventListener("beforeunload", flushStreamingMessages);
+    };
+  }, []);
 }

@@ -23,6 +23,7 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
     sendInteractionResponse,
     resumeSession,
     setSessionModel,
+    stopStreaming,
     streamingSessions,
     resumingSessions,
     creatingSessions,
@@ -35,6 +36,7 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
     "sendInteractionResponse",
     "resumeSession",
     "setSessionModel",
+    "stopStreaming",
     "streamingSessions",
     "resumingSessions",
     "creatingSessions",
@@ -80,6 +82,10 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
       // Normal message send
       await sendMessage(sessionId, content);
     }
+  };
+
+  const handleStop = () => {
+    stopStreaming(sessionId);
   };
 
   const handleResume = async () => {
@@ -149,6 +155,7 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
       {/* Input */}
       <ChatInput
         onSend={handleSend}
+        onStop={handleStop}
         isLoading={isLoading}
         disabled={isTerminated || isResuming || hasCreateError}
         session={session}

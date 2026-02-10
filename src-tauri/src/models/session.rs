@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use super::message::AvailableCommand;
 use super::provider::ProviderType;
 
 /// Model information returned from ACP providers
@@ -40,6 +41,8 @@ pub struct Session {
     pub model: Option<String>,
     #[serde(default)]
     pub available_models: Vec<ModelInfo>,
+    #[serde(default)]
+    pub available_commands: Vec<AvailableCommand>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

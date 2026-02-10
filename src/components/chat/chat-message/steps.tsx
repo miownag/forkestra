@@ -17,10 +17,14 @@ import {
   LuCircleCheckBig,
   LuLoader,
   LuCircle,
+  LuCircleSlash,
   LuMessageSquareText,
   LuCopy,
 } from "react-icons/lu";
 import { useState, useCallback } from "react";
+import { Components } from "react-markdown";
+import { CodeBlockWithHeader } from "./code-block";
+import { cn } from "@/lib/utils";
 
 function getToolIcon(status: string) {
   switch (status) {
@@ -30,6 +34,8 @@ function getToolIcon(status: string) {
       return <LuCircleCheckBig className="size-4 text-green-500" />;
     case "error":
       return <LuCircle className="size-4 text-red-500" />;
+    case "interrupted":
+      return <LuCircleSlash className="size-4 text-yellow-500" />;
     default:
       return <LuLoader className="size-4 animate-spin text-blue-500" />;
   }
@@ -40,6 +46,44 @@ function getToolTitle(tc: ToolCallInfo) {
   if (tc.tool_name) return tc.tool_name;
   return "Tool Call";
 }
+
+function extractLanguage(className?: string): string {
+  if (!className) return "plaintext";
+  const match = className.match(/language-(\w+)/);
+  return match ? match[1] : "plaintext";
+}
+
+const customComponents: Partial<Components> = {
+  code: function CodeComponent({ className, children, ...props }) {
+    const isInline =
+      !props.node?.position?.start.line ||
+      props.node?.position?.start.line === props.node?.position?.end.line;
+
+    if (isInline) {
+      return (
+        <span
+          className={cn(
+            "bg-muted rounded-sm px-1 font-mono text-sm",
+            className,
+          )}
+          {...props}
+        >
+          {children}
+        </span>
+      );
+    }
+    const language = extractLanguage(className);
+
+    return (
+      <CodeBlockWithHeader language={language}>
+        {children as string}
+      </CodeBlockWithHeader>
+    );
+  },
+  pre: function PreComponent({ children }) {
+    return <>{children}</>;
+  },
+};
 
 function TextStep({ content, isLast }: { content: string; isLast: boolean }) {
   const [copied, setCopied] = useState(false);
@@ -79,7 +123,7 @@ function TextStep({ content, isLast }: { content: string; isLast: boolean }) {
       <ChainOfThoughtContent>
         <ChainOfThoughtItem>
           <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-strong:text-foreground text-foreground">
-            <Markdown>{content}</Markdown>
+            <Markdown components={customComponents}>{content}</Markdown>
           </div>
         </ChainOfThoughtItem>
       </ChainOfThoughtContent>
