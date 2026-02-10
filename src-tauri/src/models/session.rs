@@ -51,3 +51,11 @@ pub struct CreateSessionRequest {
     #[serde(default)]
     pub use_local: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionStatusEvent {
+    pub session_id: String,
+    pub status: SessionStatus,
+    pub session: Option<Session>,
+    pub error: Option<String>,
+}

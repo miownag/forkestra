@@ -1,12 +1,13 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useSelectorSessionStore } from "@/stores";
-import type { StreamChunk, InteractionPrompt } from "@/types";
+import type { StreamChunk, InteractionPrompt, SessionStatusEvent } from "@/types";
 
 export function useStreamEvents() {
-  const { handleStreamChunk, setInteractionPrompt } = useSelectorSessionStore([
+  const { handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged } = useSelectorSessionStore([
     "handleStreamChunk",
     "setInteractionPrompt",
+    "handleSessionStatusChanged",
   ]);
 
   useEffect(() => {
@@ -14,6 +15,7 @@ export function useStreamEvents() {
     let isActive = true;
     let unlistenStreamFn: (() => void) | null = null;
     let unlistenPromptFn: (() => void) | null = null;
+    let unlistenStatusFn: (() => void) | null = null;
 
     const setupListeners = async () => {
       console.log("[useStreamEvents] Starting listener setup...");
@@ -49,13 +51,25 @@ export function useStreamEvents() {
       });
       console.log("[useStreamEvents] interaction-prompt listener setup complete");
 
+      // Listen for session status changes
+      console.log("[useStreamEvents] Setting up session-status-changed listener...");
+      const unlistenStatus = await listen<SessionStatusEvent>("session-status-changed", (event) => {
+        console.log("[useStreamEvents] Received session-status-changed:", event.payload.session_id, event.payload.status);
+        if (isActive) {
+          handleSessionStatusChanged(event.payload);
+        }
+      });
+      console.log("[useStreamEvents] session-status-changed listener setup complete");
+
       if (isActive) {
         unlistenStreamFn = unlistenStream;
         unlistenPromptFn = unlistenPrompt;
+        unlistenStatusFn = unlistenStatus;
         console.log("[useStreamEvents] All listeners setup complete");
       } else {
         unlistenStream();
         unlistenPrompt();
+        unlistenStatus();
       }
     };
 
@@ -70,6 +84,9 @@ export function useStreamEvents() {
       if (unlistenPromptFn) {
         unlistenPromptFn();
       }
+      if (unlistenStatusFn) {
+        unlistenStatusFn();
+      }
     };
-  }, [handleStreamChunk, setInteractionPrompt]);
+  }, [handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged]);
 }

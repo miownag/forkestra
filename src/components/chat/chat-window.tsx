@@ -119,14 +119,6 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
       {/* Interaction Prompt */}
       {hasInteractionPrompt && <InteractionPromptPanel sessionId={sessionId} />}
 
-      {/* Creating state */}
-      {isCreating && !hasCreateError && (
-        <div className="flex items-center justify-center mx-auto gap-2 px-4 py-3 rounded-lg border border-border bg-muted/50">
-          <Loader variant="classic" className="text-foreground" size="sm" />
-          <p className="text-sm text-muted-foreground">Creating session...</p>
-        </div>
-      )}
-
       {/* Create error state */}
       {hasCreateError && (
         <div className="flex items-center justify-start mx-auto gap-3 px-4 py-3 rounded-lg border border-destructive/50 bg-destructive/10">

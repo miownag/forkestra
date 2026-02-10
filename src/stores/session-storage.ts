@@ -8,6 +8,7 @@ import type {
   CreateSessionRequest,
   ChatMessage,
   StreamChunk,
+  SessionStatusEvent,
   MessagePart,
 } from "@/types";
 
@@ -57,6 +58,7 @@ interface SessionState {
   setSessionModel: (sessionId: string, modelId: string) => Promise<void>;
   addMessage: (sessionId: string, message: ChatMessage) => void;
   handleStreamChunk: (chunk: StreamChunk) => void;
+  handleSessionStatusChanged: (event: SessionStatusEvent) => void;
   setInteractionPrompt: (
     sessionId: string,
     prompt: InteractionPrompt | null,
@@ -115,103 +117,28 @@ export const useSessionStore = create<SessionState>()(
         },
 
         createSession: async (request) => {
-          // Generate temporary ID for optimistic session
-          const tempId = crypto.randomUUID();
-          const tempName = request.name || DEFAULT_SESSION_NAME;
-
-          // Optimistic session object
-          const optimisticSession: Session = {
-            id: tempId,
-            name: tempName,
-            provider: request.provider,
-            status: "creating",
-            worktree_path: "",
-            branch_name: "",
-            created_at: new Date().toISOString(),
-            project_path: request.project_path,
-            is_local: request.use_local ?? false,
-            acp_session_id: null,
-            model: null,
-            available_models: [],
-          };
-
-          // Optimistically add session to state
-          set((state) => ({
-            sessions: [...state.sessions, optimisticSession],
-            activeSessionId: tempId,
-            openTabIds: [...state.openTabIds, tempId],
-            messages: { ...state.messages, [tempId]: [] },
-            messagesLoaded: { ...state.messagesLoaded, [tempId]: true },
-            creatingSessions: new Set(state.creatingSessions).add(tempId),
-            messageQueue: { ...state.messageQueue, [tempId]: [] },
-            error: null,
-          }));
+          set({ error: null });
 
           try {
-            // Create session in backend
+            // Backend now returns immediately with a Creating session (branch_name populated)
             const session = await invoke<Session>("create_session", {
               request,
             });
 
-            // Replace optimistic session with real one
-            set((state) => {
-              const newCreatingSessions = new Set(state.creatingSessions);
-              newCreatingSessions.delete(tempId);
-
-              // Get queued messages before removing them from state
-              const queuedMessages = state.messageQueue[tempId] || [];
-              const { [tempId]: _, ...remainingQueue } = state.messageQueue;
-
-              // Process queued messages after state update
-              setTimeout(() => {
-                for (const message of queuedMessages) {
-                  get().sendMessage(session.id, message).catch((err) => {
-                    console.error("Failed to send queued message:", err);
-                  });
-                }
-              }, 0);
-
-              return {
-                sessions: state.sessions.map((s) =>
-                  s.id === tempId ? session : s,
-                ),
-                activeSessionId: session.id,
-                openTabIds: state.openTabIds.map((id) =>
-                  id === tempId ? session.id : id,
-                ),
-                messages: {
-                  ...state.messages,
-                  [session.id]: state.messages[tempId] || [],
-                },
-                messagesLoaded: {
-                  ...state.messagesLoaded,
-                  [session.id]: true,
-                },
-                creatingSessions: newCreatingSessions,
-                messageQueue: remainingQueue,
-                error: null,
-              };
-            });
+            // Add the real session to state
+            set((state) => ({
+              sessions: [...state.sessions, session],
+              activeSessionId: session.id,
+              openTabIds: [...state.openTabIds, session.id],
+              messages: { ...state.messages, [session.id]: [] },
+              messagesLoaded: { ...state.messagesLoaded, [session.id]: true },
+              creatingSessions: new Set(state.creatingSessions).add(session.id),
+              messageQueue: { ...state.messageQueue, [session.id]: [] },
+            }));
 
             return session;
           } catch (error) {
-            // Remove optimistic session on error
-            set((state) => {
-              const newCreatingSessions = new Set(state.creatingSessions);
-              newCreatingSessions.delete(tempId);
-
-              const { [tempId]: _, ...remainingMessageQueue } = state.messageQueue;
-
-              return {
-                sessions: state.sessions.filter((s) => s.id !== tempId),
-                openTabIds: state.openTabIds.filter((id) => id !== tempId),
-                activeSessionId:
-                  state.activeSessionId === tempId ? null : state.activeSessionId,
-                creatingSessions: newCreatingSessions,
-                messageQueue: remainingMessageQueue,
-                error: String(error),
-              };
-            });
+            set({ error: String(error) });
             throw error;
           }
         },
@@ -683,6 +610,71 @@ export const useSessionStore = create<SessionState>()(
               };
             }
           });
+        },
+
+        handleSessionStatusChanged: (event) => {
+          const { session_id, status, session, error } = event;
+
+          if (status === "active" && session) {
+            // ACP connection succeeded: replace session in store with full session data
+            set((state) => {
+              const newCreatingSessions = new Set(state.creatingSessions);
+              newCreatingSessions.delete(session_id);
+
+              // Get queued messages before clearing
+              const queuedMessages = state.messageQueue[session_id] || [];
+              const { [session_id]: _, ...remainingQueue } = state.messageQueue;
+
+              // Flush queued messages after state update
+              if (queuedMessages.length > 0) {
+                setTimeout(() => {
+                  for (const message of queuedMessages) {
+                    get().sendMessage(session_id, message).catch((err) => {
+                      console.error("Failed to send queued message:", err);
+                    });
+                  }
+                }, 0);
+              }
+
+              // Session might not be in the store yet if event arrived before command response
+              const sessionExists = state.sessions.some((s) => s.id === session_id);
+              if (!sessionExists) {
+                return state;
+              }
+
+              return {
+                sessions: state.sessions.map((s) =>
+                  s.id === session_id ? session : s,
+                ),
+                creatingSessions: newCreatingSessions,
+                messageQueue: remainingQueue,
+              };
+            });
+          } else if (status === "error") {
+            // ACP connection failed
+            set((state) => {
+              const newCreatingSessions = new Set(state.creatingSessions);
+              newCreatingSessions.delete(session_id);
+
+              const { [session_id]: _, ...remainingQueue } = state.messageQueue;
+
+              const sessionExists = state.sessions.some((s) => s.id === session_id);
+              if (!sessionExists) {
+                return state;
+              }
+
+              return {
+                sessions: state.sessions.map((s) =>
+                  s.id === session_id
+                    ? { ...s, status: "error" as const }
+                    : s,
+                ),
+                creatingSessions: newCreatingSessions,
+                messageQueue: remainingQueue,
+                error: error || "Failed to establish ACP connection",
+              };
+            });
+          }
         },
 
         sendInteractionResponse: async (sessionId, response) => {

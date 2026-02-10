@@ -106,6 +106,13 @@ export interface CreateSessionRequest {
   use_local?: boolean;
 }
 
+export interface SessionStatusEvent {
+  session_id: string;
+  status: SessionStatus;
+  session?: Session | null;
+  error?: string | null;
+}
+
 // Message types
 export type MessageRole = "user" | "assistant" | "system";
 export type MessageContentType = "text" | "tool_use" | "tool_result" | "error";

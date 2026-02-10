@@ -14,6 +14,7 @@ import { LuArrowUp, LuSquare, LuCheck } from "react-icons/lu";
 import { GrAttachment } from "react-icons/gr";
 import { useState } from "react";
 import type { Session } from "@/types";
+import { TbBrain } from "react-icons/tb";
 
 export function ChatInput({
   onSend,
@@ -67,8 +68,9 @@ export function ChatInput({
         <Popover open={modelPopoverOpen} onOpenChange={setModelPopoverOpen}>
           <PopoverTrigger asChild>
             {currentModel ? (
-              <button className="text-xs p-1.5 rounded-md cursor-pointer text-muted-foreground hover:bg-secondary-foreground/10!">
-                {currentModel.display_name}
+              <button className="flex items-center gap-1 p-1.5 rounded-md cursor-pointer text-muted-foreground hover:bg-secondary-foreground/5!">
+                <TbBrain />
+                <span className="text-xs">{currentModel.display_name}</span>
               </button>
             ) : (
               <span />

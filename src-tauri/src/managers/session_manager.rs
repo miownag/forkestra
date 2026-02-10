@@ -12,7 +12,7 @@ use crate::managers::settings_manager::SettingsManager;
 use crate::managers::worktree_manager::WorktreeManager;
 use crate::models::{
     CreateSessionRequest, ProviderSettings, ProviderType, Session, SessionStatus,
-    StreamChunk,
+    SessionStatusEvent, StreamChunk,
 };
 use crate::providers::{ClaudeAdapter, KimiAdapter, ProviderAdapter};
 
@@ -81,10 +81,12 @@ impl SessionManager {
         &self.db
     }
 
-    /// Create a new session
+    /// Create a new session (two-phase: sync worktree creation + async ACP connection)
     pub async fn create_session(&self, request: CreateSessionRequest) -> AppResult<Session> {
         let session_id = uuid::Uuid::new_v4().to_string();
         let project_path = PathBuf::from(&request.project_path);
+
+        // Phase 1 (sync): Create worktree and session object
 
         // Determine worktree path and branch name based on use_local flag
         let (worktree_path, branch_name) = if request.use_local {
@@ -108,7 +110,7 @@ impl SessionManager {
             )?
         };
 
-        // Create session
+        // Create session with status=Creating (branch_name is already populated)
         let session = Session {
             id: session_id.clone(),
             name: request.name,
@@ -124,55 +126,6 @@ impl SessionManager {
             available_models: vec![],
         };
 
-        // Create provider adapter with settings
-        let provider_settings = self.settings_manager.get_provider_settings(&request.provider);
-        let mut adapter: Box<dyn ProviderAdapter> = match &request.provider {
-            ProviderType::Claude => {
-                if let Some(ProviderSettings::Claude(settings)) = provider_settings {
-                    Box::new(ClaudeAdapter::with_settings(&settings))
-                } else {
-                    Box::new(ClaudeAdapter::new())
-                }
-            }
-            ProviderType::Kimi => {
-                if let Some(ProviderSettings::Kimi(settings)) = provider_settings {
-                    Box::new(KimiAdapter::with_settings(&settings))
-                } else {
-                    Box::new(KimiAdapter::new())
-                }
-            }
-        };
-
-        // Create channel for streaming
-        let (tx, mut rx) = mpsc::channel::<StreamChunk>(100);
-
-        // Forward stream chunks to frontend via Tauri events
-        let app_handle = self.app_handle.clone();
-        let session_id_for_log = session_id.clone();
-        tokio::spawn(async move {
-            println!("[SessionManager] Starting stream forwarder for session {}", session_id_for_log);
-            while let Some(chunk) = rx.recv().await {
-                println!("[SessionManager] Forwarding stream chunk: session={}, message_id={}, is_complete={}",
-                    chunk.session_id, chunk.message_id, chunk.is_complete);
-                if let Err(e) = app_handle.emit("stream-chunk", &chunk) {
-                    eprintln!("[SessionManager] Failed to emit stream-chunk event: {}", e);
-                }
-            }
-            println!("[SessionManager] Stream forwarder ended for session {}", session_id_for_log);
-        });
-
-        // Start the session
-        adapter
-            .start_session(&session_id, &worktree_path, tx, self.app_handle.clone())
-            .await?;
-
-        // Update session status, capture ACP session ID and models
-        let mut session = session;
-        session.status = SessionStatus::Active;
-        session.acp_session_id = adapter.acp_session_id().map(|s| s.to_string());
-        session.available_models = adapter.available_models();
-        session.model = adapter.current_model_id().map(|s| s.to_string());
-
         // Store session in memory
         {
             let mut sessions = self.sessions.write().await;
@@ -180,7 +133,7 @@ impl SessionManager {
                 session_id.clone(),
                 SessionEntry {
                     session: session.clone(),
-                    adapter: Some(Arc::new(tokio::sync::Mutex::new(adapter))),
+                    adapter: None,
                 },
             );
         }
@@ -190,7 +143,161 @@ impl SessionManager {
             eprintln!("[SessionManager] Failed to persist session to database: {}", e);
         }
 
+        // Phase 2 (async): Spawn ACP connection in background
+        self.spawn_acp_connection(session_id, worktree_path, request.provider);
+
         Ok(session)
+    }
+
+    /// Spawn a background task to establish the ACP connection for a creating session
+    fn spawn_acp_connection(
+        &self,
+        session_id: String,
+        worktree_path: PathBuf,
+        provider: ProviderType,
+    ) {
+        let sessions = self.sessions.clone();
+        let db = self.db.clone();
+        let app_handle = self.app_handle.clone();
+        let settings_manager = self.settings_manager.clone();
+
+        tokio::spawn(async move {
+            // Yield to ensure the command response reaches the frontend first
+            tokio::task::yield_now().await;
+
+            // Create provider adapter with settings
+            let provider_settings = settings_manager.get_provider_settings(&provider);
+            let mut adapter: Box<dyn ProviderAdapter> = match &provider {
+                ProviderType::Claude => {
+                    if let Some(ProviderSettings::Claude(settings)) = provider_settings {
+                        Box::new(ClaudeAdapter::with_settings(&settings))
+                    } else {
+                        Box::new(ClaudeAdapter::new())
+                    }
+                }
+                ProviderType::Kimi => {
+                    if let Some(ProviderSettings::Kimi(settings)) = provider_settings {
+                        Box::new(KimiAdapter::with_settings(&settings))
+                    } else {
+                        Box::new(KimiAdapter::new())
+                    }
+                }
+            };
+
+            // Create channel for streaming
+            let (tx, mut rx) = mpsc::channel::<StreamChunk>(100);
+
+            // Forward stream chunks to frontend via Tauri events
+            let app_handle_for_stream = app_handle.clone();
+            let session_id_for_log = session_id.clone();
+            tokio::spawn(async move {
+                println!("[SessionManager] Starting stream forwarder for session {}", session_id_for_log);
+                while let Some(chunk) = rx.recv().await {
+                    println!("[SessionManager] Forwarding stream chunk: session={}, message_id={}, is_complete={}",
+                        chunk.session_id, chunk.message_id, chunk.is_complete);
+                    if let Err(e) = app_handle_for_stream.emit("stream-chunk", &chunk) {
+                        eprintln!("[SessionManager] Failed to emit stream-chunk event: {}", e);
+                    }
+                }
+                println!("[SessionManager] Stream forwarder ended for session {}", session_id_for_log);
+            });
+
+            // Start the ACP session
+            let result = adapter
+                .start_session(&session_id, &worktree_path, tx, app_handle.clone())
+                .await;
+
+            match result {
+                Ok(()) => {
+                    // Check session still exists and is in Creating state
+                    let mut sessions_guard = sessions.write().await;
+                    if let Some(entry) = sessions_guard.get_mut(&session_id) {
+                        if entry.session.status != SessionStatus::Creating {
+                            println!(
+                                "[SessionManager] Session {} is no longer in Creating state, skipping activation",
+                                session_id
+                            );
+                            return;
+                        }
+
+                        // Update session to Active
+                        entry.session.status = SessionStatus::Active;
+                        entry.session.acp_session_id =
+                            adapter.acp_session_id().map(|s| s.to_string());
+                        entry.session.available_models = adapter.available_models();
+                        entry.session.model =
+                            adapter.current_model_id().map(|s| s.to_string());
+                        entry.adapter = Some(Arc::new(tokio::sync::Mutex::new(adapter)));
+
+                        let updated_session = entry.session.clone();
+
+                        // Persist to database
+                        if let Err(e) = db.save_session(&updated_session) {
+                            eprintln!(
+                                "[SessionManager] Failed to persist active session to database: {}",
+                                e
+                            );
+                        }
+
+                        // Emit status event to frontend
+                        let event = SessionStatusEvent {
+                            session_id: session_id.clone(),
+                            status: SessionStatus::Active,
+                            session: Some(updated_session),
+                            error: None,
+                        };
+                        if let Err(e) = app_handle.emit("session-status-changed", &event) {
+                            eprintln!(
+                                "[SessionManager] Failed to emit session-status-changed event: {}",
+                                e
+                            );
+                        }
+
+                        println!("[SessionManager] Session {} is now Active", session_id);
+                    }
+                }
+                Err(e) => {
+                    let error_msg = format!("{}", e);
+                    eprintln!(
+                        "[SessionManager] Failed to start ACP session for {}: {}",
+                        session_id, error_msg
+                    );
+
+                    // Update session to Error state
+                    let mut sessions_guard = sessions.write().await;
+                    if let Some(entry) = sessions_guard.get_mut(&session_id) {
+                        if entry.session.status != SessionStatus::Creating {
+                            return;
+                        }
+                        entry.session.status = SessionStatus::Error;
+
+                        // Persist error status to database
+                        if let Err(db_err) =
+                            db.update_session_status(&session_id, &SessionStatus::Error)
+                        {
+                            eprintln!(
+                                "[SessionManager] Failed to update session error status in DB: {}",
+                                db_err
+                            );
+                        }
+                    }
+
+                    // Emit error event to frontend
+                    let event = SessionStatusEvent {
+                        session_id: session_id.clone(),
+                        status: SessionStatus::Error,
+                        session: None,
+                        error: Some(error_msg),
+                    };
+                    if let Err(e) = app_handle.emit("session-status-changed", &event) {
+                        eprintln!(
+                            "[SessionManager] Failed to emit session-status-changed event: {}",
+                            e
+                        );
+                    }
+                }
+            }
+        });
     }
 
     /// List all sessions
