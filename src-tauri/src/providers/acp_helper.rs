@@ -423,44 +423,92 @@ pub async fn acp_handshake(
     })
 }
 
-/// Perform the ACP handshake for resuming: initialize (with retry) + session/resume
+/// Perform the ACP handshake for resuming: initialize + session/load or session/resume.
+///
+/// - `is_new_process`: If true, this is a freshly spawned Agent process. `session/load` is used
+///   because the Agent needs to restore the session from persistent storage (per ACP spec).
+///   If the Agent doesn't support `loadSession` or `session/load` fails, falls back to `session/resume`.
+/// - If false, the Agent process already has this session in memory (future use case), so
+///   `session/resume` is used directly.
 pub async fn acp_resume_handshake(
     stdin_tx: &mpsc::Sender<String>,
     pending_requests: &PendingRequests,
     acp_session_id: &str,
     cwd: &str,
     _provider_type: &ProviderType,
+    is_new_process: bool,
 ) -> AppResult<AcpHandshakeResult> {
     // Step 1: Initialize with retry
     let initialize_result = acp_initialize(stdin_tx, pending_requests).await?;
 
-    // Step 2: session/resume with sessionId, cwd, mcpServers
+    // Step 2: Decide between session/load and session/resume
+    // session/load: Agent restores session from persistent storage and replays history
+    // session/resume: Agent reconnects to an existing in-memory session
+    let supports_load = initialize_result
+        .agent_capabilities
+        .as_ref()
+        .map_or(false, |caps| caps.load_session);
+
     let params = serde_json::json!({
         "sessionId": acp_session_id,
         "cwd": cwd,
         "mcpServers": []
     });
 
-    let resume_request = JsonRpcRequest::new(2, "session/resume", params);
-    let resume_response = send_and_await(stdin_tx, pending_requests, resume_request, 30).await?;
-
-    let resume_result: SessionResumeResult = serde_json::from_value(
-        resume_response.result.unwrap_or_default(),
-    )
-    .map_err(|e| {
-        AppError::Provider(format!(
-            "Failed to parse session/resume result: {}",
-            e
-        ))
-    })?;
+    let (models, method_used) = if is_new_process && supports_load {
+        // New process: try session/load first (Agent replays conversation history via session/update)
+        let load_request = JsonRpcRequest::new(2, "session/load", params.clone());
+        match send_and_await(stdin_tx, pending_requests, load_request, 60).await {
+            Ok(_response) => {
+                // session/load response result is null per spec
+                println!("[ACP] Session loaded via session/load for {}", acp_session_id);
+                (SessionResumeResult::default(), "session/load")
+            }
+            Err(e) => {
+                // session/load failed — fallback to session/resume
+                println!(
+                    "[ACP] session/load failed for {}, falling back to session/resume: {}",
+                    acp_session_id, e
+                );
+                let resume_request = JsonRpcRequest::new(3, "session/resume", params);
+                let resume_response =
+                    send_and_await(stdin_tx, pending_requests, resume_request, 30).await?;
+                let resume_result: SessionResumeResult = serde_json::from_value(
+                    resume_response.result.unwrap_or_default(),
+                )
+                .map_err(|e| {
+                    AppError::Provider(format!("Failed to parse session/resume result: {}", e))
+                })?;
+                (resume_result, "session/resume (fallback from load)")
+            }
+        }
+    } else {
+        // Either not a new process or Agent doesn't support loadSession — use session/resume
+        if is_new_process && !supports_load {
+            println!(
+                "[ACP] Agent does not support loadSession, using session/resume for {}",
+                acp_session_id
+            );
+        }
+        let resume_request = JsonRpcRequest::new(2, "session/resume", params);
+        let resume_response =
+            send_and_await(stdin_tx, pending_requests, resume_request, 30).await?;
+        let resume_result: SessionResumeResult = serde_json::from_value(
+            resume_response.result.unwrap_or_default(),
+        )
+        .map_err(|e| {
+            AppError::Provider(format!("Failed to parse session/resume result: {}", e))
+        })?;
+        (resume_result, "session/resume")
+    };
 
     println!(
-        "[ACP] Session resumed with ACP session ID: {}",
-        acp_session_id
+        "[ACP] Session restored via {} with ACP session ID: {}",
+        method_used, acp_session_id
     );
 
-    let current_model_id = resume_result.models.current_model_id;
-    let models = resume_result
+    let current_model_id = models.models.current_model_id;
+    let model_list = models
         .models
         .available_models
         .into_iter()
@@ -473,7 +521,7 @@ pub async fn acp_resume_handshake(
 
     Ok(AcpHandshakeResult {
         session_id: acp_session_id.to_string(),
-        models,
+        models: model_list,
         current_model_id,
         initialize_result,
     })
@@ -605,6 +653,28 @@ pub fn build_permission_response(jsonrpc_id: u64, option_id: &str) -> String {
         }
     });
     serde_json::to_string(&response).unwrap_or_default()
+}
+
+/// Send session/cancel to gracefully stop the current prompt.
+/// Returns Ok(()) if the cancel was acknowledged, Err if it failed or timed out.
+pub async fn cancel_session(
+    stdin_tx: &mpsc::Sender<String>,
+    pending_requests: &PendingRequests,
+    session_id: &str,
+    request_id: u64,
+) -> AppResult<()> {
+    let request = JsonRpcRequest::new(
+        request_id,
+        "session/cancel",
+        serde_json::json!({
+            "sessionId": session_id,
+        }),
+    );
+
+    send_and_await(stdin_tx, pending_requests, request, 10).await?;
+
+    println!("[ACP] Session cancel acknowledged for {}", session_id);
+    Ok(())
 }
 
 /// Set the model for a session using the session/set_model JSON-RPC method
