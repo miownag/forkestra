@@ -466,8 +466,11 @@ export const useSessionStore = create<SessionState>()(
                   ? state.openTabIds
                   : [...state.openTabIds, session.id],
                 resumingSessions: newResumingSessions,
+                isLoading: false,
               };
             });
+            // Load messages for the resumed session
+            get().loadSessionMessages(sessionId);
             return session;
           } catch (error) {
             set((state) => {
@@ -476,6 +479,7 @@ export const useSessionStore = create<SessionState>()(
               return {
                 error: String(error),
                 resumingSessions: newResumingSessions,
+                isLoading: false,
               };
             });
             throw error;

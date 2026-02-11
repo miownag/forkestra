@@ -23,12 +23,14 @@ export interface ClaudeProviderSettings {
   enabled: boolean;
   custom_cli_path: string | null;
   disable_login_prompt: boolean;
+  env_vars?: Record<string, string>;
 }
 
 export interface KimiProviderSettings {
   provider_type: "kimi";
   enabled: boolean;
   custom_cli_path: string | null;
+  env_vars?: Record<string, string>;
 }
 
 // Discriminated union for all provider settings
@@ -58,12 +60,14 @@ export function createDefaultProviderSettings(
         enabled: true,
         custom_cli_path: null,
         disable_login_prompt: false,
+        env_vars: {},
       };
     case "kimi":
       return {
         provider_type: "kimi",
         enabled: true,
         custom_cli_path: null,
+        env_vars: {},
       };
   }
 }

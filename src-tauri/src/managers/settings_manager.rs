@@ -14,22 +14,37 @@ pub struct SettingsManager {
 
 impl SettingsManager {
     pub fn new(app_handle: &AppHandle) -> AppResult<Self> {
-        // Use Tauri's app data directory for settings
-        let app_data_dir = app_handle
-            .path()
-            .app_data_dir()
-            .map_err(|e| AppError::Io(format!("Failed to get app data dir: {}", e)))?;
+        // Use ~/.forkestra for settings (like VSCode uses ~/.vscode)
+        let home_dir = dirs::home_dir()
+            .ok_or_else(|| AppError::Io("Failed to get home directory".to_string()))?;
 
-        std::fs::create_dir_all(&app_data_dir)?;
-        let settings_path = app_data_dir.join("settings.json");
+        let forkestra_dir = home_dir.join(".forkestra");
+        std::fs::create_dir_all(&forkestra_dir)?;
+        let settings_path = forkestra_dir.join("settings.json");
 
         // Load existing settings or create default
-        let settings = if settings_path.exists() {
+        let mut settings = if settings_path.exists() {
             let content = std::fs::read_to_string(&settings_path)?;
             serde_json::from_str(&content).unwrap_or_else(|_| AppSettings::default())
         } else {
             AppSettings::default()
         };
+
+        // Merge with defaults to ensure new fields are populated
+        let defaults = AppSettings::default();
+        if settings.general.is_none() {
+            settings.general = defaults.general;
+        }
+        if settings.appearance.is_none() {
+            settings.appearance = defaults.appearance;
+        }
+
+        // Persist merged settings if file exists
+        if settings_path.exists() {
+            if let Ok(json) = serde_json::to_string_pretty(&settings) {
+                let _ = std::fs::write(&settings_path, json);
+            }
+        }
 
         Ok(Self {
             settings: Arc::new(RwLock::new(settings)),
@@ -39,6 +54,27 @@ impl SettingsManager {
 
     pub fn get_settings(&self) -> AppSettings {
         self.settings.read().clone()
+    }
+
+    pub fn get_settings_path(&self) -> PathBuf {
+        self.settings_path.clone()
+    }
+
+    pub fn get_settings_json(&self) -> AppResult<String> {
+        let settings = self.settings.read().clone();
+        serde_json::to_string_pretty(&settings)
+            .map_err(|e| AppError::Io(format!("Failed to serialize settings: {}", e)))
+    }
+
+    pub fn update_settings_from_json(&self, json: &str) -> AppResult<()> {
+        let settings: AppSettings = serde_json::from_str(json)
+            .map_err(|e| AppError::InvalidOperation(format!("Invalid JSON: {}", e)))?;
+
+        // Update in memory
+        *self.settings.write() = settings;
+
+        // Persist to file
+        self.persist()
     }
 
     pub fn update_settings(&self, settings: AppSettings) -> AppResult<()> {

@@ -1,17 +1,29 @@
 import { create } from "zustand";
-import { devtools, persist, subscribeWithSelector } from "zustand/middleware";
+import { devtools, subscribeWithSelector } from "zustand/middleware";
 import type { Theme, FontSize, AccentColor, DefaultWorkMode } from "@/types";
 import { useShallow } from "zustand/react/shallow";
 import { pick } from "es-toolkit";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 
 type ResolvedTheme = "light" | "dark";
 
+interface GeneralSettings {
+  defaultProjectPath: string | null;
+  defaultWorkMode: DefaultWorkMode;
+}
+
+interface AppearanceSettings {
+  theme: Theme;
+  fontSize: FontSize;
+  accentColor: AccentColor;
+}
+
 interface SettingsState {
   // Theme
-  theme: Theme; // User preference: "light" | "dark" | "system"
-  systemTheme: ResolvedTheme; // Detected system theme
-  resolvedTheme: ResolvedTheme; // Actual applied theme
+  theme: Theme;
+  systemTheme: ResolvedTheme;
+  resolvedTheme: ResolvedTheme;
 
   // Window
   isFullscreen: boolean;
@@ -27,6 +39,9 @@ interface SettingsState {
   defaultProjectPath: string | null;
   defaultWorkMode: DefaultWorkMode;
 
+  // Initialization
+  isInitialized: boolean;
+
   // Actions
   setTheme: (theme: Theme) => void;
   setSystemTheme: (theme: ResolvedTheme) => void;
@@ -39,6 +54,10 @@ interface SettingsState {
   setWorktreeBasePath: (path: string | null) => void;
   setDefaultProjectPath: (path: string | null) => void;
   setDefaultWorkMode: (mode: DefaultWorkMode) => void;
+
+  // File-based storage actions
+  loadSettings: () => Promise<void>;
+  saveSettings: () => Promise<void>;
 }
 
 const resolveTheme = (
@@ -48,56 +67,120 @@ const resolveTheme = (
 
 export const useSettingsStore = create<SettingsState>()(
   devtools(
-    subscribeWithSelector(
-      persist(
-        (set, get) => ({
-          theme: "system",
-          systemTheme: "light",
-          resolvedTheme: "light",
-          isFullscreen: false,
-          sidebarCollapsed: false,
-          fontSize: "base",
-          accentColor: "default",
+    subscribeWithSelector((set, get) => ({
+      theme: "system",
+      systemTheme: "light",
+      resolvedTheme: "light",
+      isFullscreen: false,
+      sidebarCollapsed: false,
+      fontSize: "base",
+      accentColor: "default",
 
-          defaultProvider: null,
-          worktreeBasePath: null,
-          defaultProjectPath: null,
-          defaultWorkMode: "worktree",
+      defaultProvider: null,
+      worktreeBasePath: null,
+      defaultProjectPath: null,
+      defaultWorkMode: "worktree",
 
-          setTheme: (theme) =>
-            set({
-              theme,
-              resolvedTheme: resolveTheme(theme, get().systemTheme),
-            }),
-          setSystemTheme: (systemTheme) =>
-            set({
-              systemTheme,
-              resolvedTheme: resolveTheme(get().theme, systemTheme),
-            }),
-          setIsFullscreen: (isFullscreen) => set({ isFullscreen }),
-          setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
-          toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-          setFontSize: (fontSize) => set({ fontSize }),
-          setAccentColor: (accentColor) => set({ accentColor }),
-          setDefaultProvider: (provider) => set({ defaultProvider: provider }),
-          setWorktreeBasePath: (path) => set({ worktreeBasePath: path }),
-          setDefaultProjectPath: (path) => set({ defaultProjectPath: path }),
-          setDefaultWorkMode: (mode) => set({ defaultWorkMode: mode }),
+      isInitialized: false,
+
+      setTheme: (theme) => {
+        set({
+          theme,
+          resolvedTheme: resolveTheme(theme, get().systemTheme),
+        });
+        get().saveSettings();
+      },
+
+      setSystemTheme: (systemTheme) =>
+        set({
+          systemTheme,
+          resolvedTheme: resolveTheme(get().theme, systemTheme),
         }),
-        {
-          name: "forkestra-settings",
-          partialize: (state) => ({
-            theme: state.theme,
-            fontSize: state.fontSize,
-            accentColor: state.accentColor,
-            defaultProvider: state.defaultProvider,
-            worktreeBasePath: state.worktreeBasePath,
-            defaultProjectPath: state.defaultProjectPath,
-            defaultWorkMode: state.defaultWorkMode,
-          }),
-        },
-      ),
-    ),
+
+      setIsFullscreen: (isFullscreen) => set({ isFullscreen }),
+
+      setSidebarCollapsed: (collapsed) =>
+        set({ sidebarCollapsed: collapsed }),
+
+      toggleSidebar: () =>
+        set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+
+      setFontSize: (fontSize) => {
+        set({ fontSize });
+        get().saveSettings();
+      },
+
+      setAccentColor: (accentColor) => {
+        set({ accentColor });
+        get().saveSettings();
+      },
+
+      setDefaultProvider: (provider) => set({ defaultProvider: provider }),
+
+      setWorktreeBasePath: (path) => set({ worktreeBasePath: path }),
+
+      setDefaultProjectPath: (path) => {
+        set({ defaultProjectPath: path });
+        get().saveSettings();
+      },
+
+      setDefaultWorkMode: (mode) => {
+        set({ defaultWorkMode: mode });
+        get().saveSettings();
+      },
+
+      loadSettings: async () => {
+        try {
+          const settings = await invoke<{
+            general?: GeneralSettings;
+            appearance?: AppearanceSettings;
+          }>("get_ui_settings");
+
+          const updates: Partial<SettingsState> = { isInitialized: true };
+
+          if (settings.general) {
+            updates.defaultProjectPath = settings.general.defaultProjectPath;
+            updates.defaultWorkMode = settings.general.defaultWorkMode;
+          }
+
+          if (settings.appearance) {
+            updates.theme = settings.appearance.theme;
+            updates.fontSize = settings.appearance.fontSize;
+            updates.accentColor = settings.appearance.accentColor;
+            updates.resolvedTheme = resolveTheme(
+              settings.appearance.theme,
+              get().systemTheme,
+            );
+          }
+
+          set(updates);
+        } catch (err) {
+          console.error("Failed to load settings from file:", err);
+          set({ isInitialized: true });
+        }
+      },
+
+      saveSettings: async () => {
+        const state = get();
+        try {
+          await invoke("update_ui_settings", {
+            uiSettings: {
+              general: {
+                defaultProjectPath: state.defaultProjectPath,
+                defaultWorkMode: state.defaultWorkMode,
+              },
+              appearance: {
+                theme: state.theme,
+                fontSize: state.fontSize,
+                accentColor: state.accentColor,
+              },
+            },
+          });
+        } catch (err) {
+          console.error("Failed to save settings to file:", err);
+        }
+      },
+    })),
     { name: "SettingsStore" },
   ),
 );
@@ -110,7 +193,6 @@ const initSystemTheme = async () => {
       .getState()
       .setSystemTheme(theme === "dark" ? "dark" : "light");
   } catch {
-    // Fallback to media query
     const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     useSettingsStore.getState().setSystemTheme(isDark ? "dark" : "light");
   }
@@ -125,7 +207,6 @@ const setupSystemThemeListener = () => {
         .setSystemTheme(payload === "dark" ? "dark" : "light");
     })
     .catch(() => {
-      // Fallback: listen to media query changes
       window
         .matchMedia("(prefers-color-scheme: dark)")
         .addEventListener("change", (e) => {

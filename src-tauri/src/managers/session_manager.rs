@@ -439,6 +439,7 @@ impl SessionManager {
         })?;
 
         let worktree_path = PathBuf::from(&session.worktree_path);
+        let project_path = PathBuf::from(&session.project_path);
 
         // Create provider adapter with settings
         let provider_settings = self.settings_manager.get_provider_settings(&session.provider);
@@ -491,6 +492,7 @@ impl SessionManager {
                 session_id,
                 acp_session_id,
                 &worktree_path,
+                &project_path,
                 tx,
                 self.app_handle.clone(),
             )
@@ -543,6 +545,22 @@ impl SessionManager {
                 );
             }
         }
+
+        // Emit status event to frontend
+        let event = crate::models::SessionStatusEvent {
+            session_id: session_id.to_string(),
+            status: crate::models::SessionStatus::Active,
+            session: Some(updated_session.clone()),
+            error: None,
+        };
+        if let Err(e) = self.app_handle.emit("session-status-changed", &event) {
+            eprintln!(
+                "[SessionManager] Failed to emit session-status-changed event: {}",
+                e
+            );
+        }
+
+        println!("[SessionManager] Session {} resumed successfully", session_id);
 
         Ok(updated_session)
     }
