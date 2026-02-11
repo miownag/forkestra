@@ -13,8 +13,8 @@ use crate::models::{
 };
 use crate::providers::acp_helper::{
     acp_handshake, acp_resume_handshake, build_clean_env, build_permission_response,
-    build_prompt_request, set_session_model, spawn_stderr_reader, spawn_stdin_writer,
-    spawn_stdout_reader, PendingRequests,
+    build_prompt_request, cancel_session, set_session_model, spawn_stderr_reader,
+    spawn_stdin_writer, spawn_stdout_reader, PendingRequests,
 };
 use crate::providers::adapter::ProviderAdapter;
 use crate::providers::detector::ProviderDetector;
@@ -281,6 +281,7 @@ impl ProviderAdapter for ClaudeAdapter {
             acp_session_id,
             &worktree_path.to_string_lossy(),
             &ProviderType::Claude,
+            true, // new process — always true since we spawn a fresh ACP process
         )
         .await?;
 
@@ -398,8 +399,30 @@ impl ProviderAdapter for ClaudeAdapter {
         self.is_active
     }
 
+    async fn cancel(&mut self) -> AppResult<()> {
+        let stdin_tx = self
+            .stdin_tx
+            .as_ref()
+            .ok_or_else(|| AppError::Provider("Session not started".to_string()))?;
+
+        let acp_session_id = self
+            .acp_session_id
+            .as_ref()
+            .ok_or_else(|| AppError::Provider("ACP session not established".to_string()))?;
+
+        let request_id = self.next_id().await;
+        cancel_session(stdin_tx, &self.pending_requests, acp_session_id, request_id).await
+    }
+
     async fn terminate(&mut self) -> AppResult<()> {
         println!("[ClaudeAdapter] Terminating session");
+
+        // Try graceful cancel first, then force kill
+        if self.stdin_tx.is_some() && self.acp_session_id.is_some() {
+            if let Err(e) = self.cancel().await {
+                println!("[ClaudeAdapter] Graceful cancel failed, force killing: {}", e);
+            }
+        }
 
         // Drop stdin channel to signal the writer to stop
         self.stdin_tx = None;

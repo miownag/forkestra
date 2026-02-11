@@ -63,6 +63,13 @@ pub trait ProviderAdapter: Send + Sync {
     /// Check if the session is active
     fn is_active(&self) -> bool;
 
+    /// Cancel the current ongoing prompt (graceful)
+    async fn cancel(&mut self) -> AppResult<()> {
+        Err(AppError::Provider(
+            "This provider does not support cancel".to_string(),
+        ))
+    }
+
     /// Terminate the session
     async fn terminate(&mut self) -> AppResult<()>;
 }

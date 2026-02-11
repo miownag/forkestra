@@ -163,7 +163,7 @@ pub struct SessionNewResult {
     pub models: SessionModelState,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionResumeResult {
     #[serde(default)]
