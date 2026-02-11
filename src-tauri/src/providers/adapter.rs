@@ -25,15 +25,19 @@ pub trait ProviderAdapter: Send + Sync {
     ) -> AppResult<()>;
 
     /// Resume an existing ACP session by its session ID
+    ///
+    /// - `worktree_path`: Directory where the ACP process will run (for file access isolation)
+    /// - `project_path`: Original project path used for session file lookup (should match session/new cwd)
     async fn resume_session(
         &mut self,
         session_id: &str,
         acp_session_id: &str,
         worktree_path: &Path,
+        project_path: &Path,
         stream_tx: mpsc::Sender<StreamChunk>,
         app_handle: AppHandle,
     ) -> AppResult<()> {
-        let _ = (session_id, acp_session_id, worktree_path, stream_tx, app_handle);
+        let _ = (session_id, acp_session_id, worktree_path, project_path, stream_tx, app_handle);
         Err(AppError::Provider(
             "This provider does not support session resume".to_string(),
         ))

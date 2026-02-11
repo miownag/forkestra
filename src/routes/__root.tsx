@@ -16,17 +16,24 @@ export const Route = createRootRoute({
 function RootComponent() {
   const { fetchSessions } = useSelectorSessionStore(["fetchSessions"]);
   const { detectProviders } = useSelectorProviderStore(["detectProviders"]);
-  const { resolvedTheme, fontSize, accentColor } = useSelectorSettingsStore([
-    "resolvedTheme",
-    "fontSize",
-    "accentColor",
-  ]);
+  const { resolvedTheme, fontSize, accentColor, loadSettings } =
+    useSelectorSettingsStore([
+      "resolvedTheme",
+      "fontSize",
+      "accentColor",
+      "loadSettings",
+    ]);
   const navigate = useNavigate();
 
   useEffect(() => {
     detectProviders();
     fetchSessions();
   }, [detectProviders, fetchSessions]);
+
+  // Load settings from file on app start
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   // Listen for menu:preferences event from backend
   useEffect(() => {

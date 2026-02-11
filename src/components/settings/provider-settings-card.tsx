@@ -7,18 +7,18 @@ import { useProviderSettingsStore } from "@/stores";
 import type {
   ProviderInfo,
   ProviderSettings,
-  ClaudeProviderSettings,
 } from "@/types";
 import { isClaudeSettings } from "@/types";
-import { VscFolder, VscCheck, VscClose } from "react-icons/vsc";
+import { VscFolder, VscCheck, VscClose, VscTrash } from "react-icons/vsc";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import PROVIDER_ICONS_MAP from "@/constants/icons";
 
 interface ProviderSettingsCardProps {
   provider: ProviderInfo;
+  refresh: () => Promise<void>;
 }
 
-export function ProviderSettingsCard({ provider }: ProviderSettingsCardProps) {
+export function ProviderSettingsCard({ provider, refresh }: ProviderSettingsCardProps) {
   const storeSettings = useProviderSettingsStore(
     (s) => s.settings[provider.provider_type],
   );
@@ -54,6 +54,7 @@ export function ProviderSettingsCard({ provider }: ProviderSettingsCardProps) {
 
   const handleSave = async () => {
     await updateProviderSettings(localSettings);
+    refresh();
     setIsDirty(false);
   };
 
@@ -61,6 +62,69 @@ export function ProviderSettingsCard({ provider }: ProviderSettingsCardProps) {
     setLocalSettings({
       ...localSettings,
       custom_cli_path: null,
+    });
+    setIsDirty(true);
+  };
+
+  const handleSelectConfigDir = async () => {
+    const selected = await openDialog({
+      title: "Select Config Directory",
+      multiple: false,
+      directory: true,
+    });
+    if (selected) {
+      const envVars = localSettings.env_vars || {};
+      setLocalSettings({
+        ...localSettings,
+        env_vars: {
+          ...envVars,
+          CLAUDE_CONFIG_DIR: selected as string,
+        },
+      });
+      setIsDirty(true);
+    }
+  };
+
+  const handleEnvVarChange = (key: string, value: string) => {
+    const envVars = localSettings.env_vars || {};
+    if (value.trim() === "") {
+      // Remove the env var if value is empty
+      const { [key]: _, ...rest } = envVars;
+      setLocalSettings({
+        ...localSettings,
+        env_vars: rest,
+      });
+    } else {
+      setLocalSettings({
+        ...localSettings,
+        env_vars: {
+          ...envVars,
+          [key]: value,
+        },
+      });
+    }
+    setIsDirty(true);
+  };
+
+  const handleRemoveEnvVar = (key: string) => {
+    const envVars = localSettings.env_vars || {};
+    const { [key]: _, ...rest } = envVars;
+    setLocalSettings({
+      ...localSettings,
+      env_vars: rest,
+    });
+    setIsDirty(true);
+  };
+
+  const handleAddCustomEnvVar = () => {
+    const envVars = localSettings.env_vars || {};
+    const newKey = `CUSTOM_VAR_${Object.keys(envVars).length + 1}`;
+    setLocalSettings({
+      ...localSettings,
+      env_vars: {
+        ...envVars,
+        [newKey]: "",
+      },
     });
     setIsDirty(true);
   };
@@ -137,7 +201,7 @@ export function ProviderSettingsCard({ provider }: ProviderSettingsCardProps) {
         </div>
 
         {/* Claude-specific: Disable Login Prompt */}
-        {isClaudeSettings(localSettings) && (
+        {/* {isClaudeSettings(localSettings) && (
           <div className="flex items-center justify-between">
             <div>
               <Label className="text-sm">Disable Login Prompt</Label>
@@ -158,7 +222,99 @@ export function ProviderSettingsCard({ provider }: ProviderSettingsCardProps) {
               }}
             />
           </div>
+        )} */}
+
+        {/* Claude-specific: Config Directory */}
+        {isClaudeSettings(localSettings) && (
+          <div>
+            <Label className="text-sm">Config Directory</Label>
+            <p className="text-xs text-muted-foreground mb-2">
+              Custom config directory (defaults to ~/.claude)
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={localSettings.env_vars?.CLAUDE_CONFIG_DIR || ""}
+                onChange={(e) => {
+                  handleEnvVarChange("CLAUDE_CONFIG_DIR", e.target.value);
+                }}
+                placeholder="~/.claude"
+                className="flex-1"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleSelectConfigDir}
+              >
+                <VscFolder className="h-4 w-4" />
+              </Button>
+              {localSettings.env_vars?.CLAUDE_CONFIG_DIR && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleRemoveEnvVar("CLAUDE_CONFIG_DIR")}
+                >
+                  <VscClose className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
         )}
+
+        {/* Environment Variables */}
+        <div>
+          <Label className="text-sm">Custom Environment Variables</Label>
+          <p className="text-xs text-muted-foreground mb-2">
+            Additional environment variables to pass to the ACP
+          </p>
+          <div className="space-y-2">
+            {Object.entries(localSettings.env_vars || {})
+              .filter(([key]) => key !== "CLAUDE_CONFIG_DIR") // Don't show CLAUDE_CONFIG_DIR here
+              .map(([key, value]) => (
+                <div key={key} className="flex gap-2">
+                  <Input
+                    value={key}
+                    onChange={(e) => {
+                      const oldKey = key;
+                      const newKey = e.target.value;
+                      if (newKey !== oldKey) {
+                        const envVars = { ...(localSettings.env_vars || {}) };
+                        delete envVars[oldKey];
+                        envVars[newKey] = value;
+                        setLocalSettings({
+                          ...localSettings,
+                          env_vars: envVars,
+                        });
+                        setIsDirty(true);
+                      }
+                    }}
+                    placeholder="Variable name"
+                    className="flex-1"
+                  />
+                  <Input
+                    value={value}
+                    onChange={(e) => handleEnvVarChange(key, e.target.value)}
+                    placeholder="Value"
+                    className="flex-1"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRemoveEnvVar(key)}
+                  >
+                    <VscTrash className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddCustomEnvVar}
+              className="w-full"
+            >
+              Add Environment Variable
+            </Button>
+          </div>
+        </div>
 
         {/* Enable/Disable Provider */}
         <div className="flex items-center justify-between">

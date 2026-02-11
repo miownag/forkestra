@@ -12,7 +12,7 @@ use crate::models::{
     ClaudeProviderSettings, ModelInfo, PendingPermission, ProviderInfo, ProviderType, StreamChunk,
 };
 use crate::providers::acp_helper::{
-    acp_handshake, acp_resume_handshake, build_clean_env, build_permission_response,
+    acp_handshake, acp_resume_handshake, build_clean_env_with_custom, build_permission_response,
     build_prompt_request, cancel_session, set_session_model, spawn_stderr_reader,
     spawn_stdin_writer, spawn_stdout_reader, PendingRequests,
 };
@@ -33,6 +33,7 @@ pub struct ClaudeAdapter {
     disable_login_prompt: bool,
     available_models: Vec<ModelInfo>,
     current_model_id: Option<String>,
+    env_vars: HashMap<String, String>,
 }
 
 impl ClaudeAdapter {
@@ -51,6 +52,7 @@ impl ClaudeAdapter {
             disable_login_prompt: false,
             available_models: vec![],
             current_model_id: None,
+            env_vars: HashMap::new(),
         }
     }
 
@@ -72,6 +74,7 @@ impl ClaudeAdapter {
             disable_login_prompt: settings.disable_login_prompt,
             available_models: vec![],
             current_model_id: None,
+            env_vars: settings.env_vars.clone(),
         }
     }
 
@@ -104,8 +107,8 @@ impl ClaudeAdapter {
                 )
             })?;
 
-        // Build clean environment
-        let mut env = build_clean_env();
+        // Build clean environment with user-configured env vars
+        let mut env = build_clean_env_with_custom(self.env_vars.clone());
 
         // Set custom CLI path if configured (non-default)
         if self.cli_path != "claude" {
@@ -261,25 +264,27 @@ impl ProviderAdapter for ClaudeAdapter {
         session_id: &str,
         acp_session_id: &str,
         worktree_path: &Path,
+        project_path: &Path,
         stream_tx: mpsc::Sender<StreamChunk>,
         app_handle: AppHandle,
     ) -> AppResult<()> {
         println!(
-            "[ClaudeAdapter] Resuming ACP session {} for {}",
-            acp_session_id, session_id
+            "[ClaudeAdapter] Resuming ACP session {} for {} (worktree: {}, project: {})",
+            acp_session_id, session_id, worktree_path.display(), project_path.display()
         );
 
+        // Spawn ACP process in worktree (for file access isolation)
         let (child, stdin_tx) =
             self.spawn_acp_process(session_id, worktree_path, stream_tx, app_handle)?;
 
-        // Perform ACP resume handshake
+        // Perform ACP resume handshake with project_path as cwd (for session file lookup)
         println!("[ClaudeAdapter] Starting ACP resume handshake...");
         let pending_requests = self.pending_requests.clone();
         let handshake = acp_resume_handshake(
             &stdin_tx,
             &pending_requests,
             acp_session_id,
-            &worktree_path.to_string_lossy(),
+            &project_path.to_string_lossy(),  // ← Use project_path for session file lookup
             &ProviderType::Claude,
             true, // new process — always true since we spawn a fresh ACP process
         )

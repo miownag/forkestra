@@ -58,6 +58,8 @@ pub struct ClaudeProviderSettings {
     pub enabled: bool,
     pub custom_cli_path: Option<String>,
     pub disable_login_prompt: bool,
+    #[serde(default)]
+    pub env_vars: std::collections::HashMap<String, String>,
 }
 
 impl Default for ClaudeProviderSettings {
@@ -66,6 +68,7 @@ impl Default for ClaudeProviderSettings {
             enabled: true,
             custom_cli_path: None,
             disable_login_prompt: false,
+            env_vars: std::collections::HashMap::new(),
         }
     }
 }
@@ -75,6 +78,8 @@ impl Default for ClaudeProviderSettings {
 pub struct KimiProviderSettings {
     pub enabled: bool,
     pub custom_cli_path: Option<String>,
+    #[serde(default)]
+    pub env_vars: std::collections::HashMap<String, String>,
 }
 
 impl Default for KimiProviderSettings {
@@ -82,6 +87,7 @@ impl Default for KimiProviderSettings {
         Self {
             enabled: true,
             custom_cli_path: None,
+            env_vars: std::collections::HashMap::new(),
         }
     }
 }

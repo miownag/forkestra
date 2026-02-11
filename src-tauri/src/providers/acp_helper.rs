@@ -948,6 +948,12 @@ async fn handle_session_update_raw(
 /// Build the clean environment for spawning ACP processes.
 /// Cleans up Node debug-related env vars that may interfere.
 pub fn build_clean_env() -> HashMap<String, String> {
+    build_clean_env_with_custom(HashMap::new())
+}
+
+pub fn build_clean_env_with_custom(
+    custom_env: HashMap<String, String>,
+) -> HashMap<String, String> {
     let mut env: HashMap<String, String> = std::env::vars().collect();
     env.remove("NODE_OPTIONS");
     env.remove("NODE_INSPECT");
@@ -956,6 +962,21 @@ pub fn build_clean_env() -> HashMap<String, String> {
     // Set shell PATH so GUI-launched apps can find user-installed tools
     if let Some(shell_path) = crate::providers::ProviderDetector::get_shell_path() {
         env.insert("PATH".to_string(), shell_path);
+    }
+
+    // Set CLAUDE_CONFIG_DIR to match the actual config directory used by the system
+    // Claude Code ACP defaults to ~/.claude, but the actual config may be elsewhere
+    if let Ok(home) = std::env::var("HOME") {
+        // Check if ~/.claude-internal exists (custom config directory)
+        let claude_internal = format!("{}/.claude-internal", home);
+        if std::path::Path::new(&claude_internal).exists() {
+            env.insert("CLAUDE_CONFIG_DIR".to_string(), claude_internal);
+        }
+    }
+
+    // Merge user-configured environment variables (these take precedence)
+    for (key, value) in custom_env {
+        env.insert(key, value);
     }
 
     env
