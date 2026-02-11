@@ -20,3 +20,7 @@
 ### AI Provider
 
 通过ACP协议与AI Coding CLI交互
+
+ACP List:
+- Claude Code: 通过zed实现的 @zed-industries/claude-code-acp
+- Kimi Code: kimi cli 天然支持 ACP

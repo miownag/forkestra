@@ -23,7 +23,8 @@ fn truncate_str(s: &str, max_bytes: usize) -> &str {
 use crate::managers::SessionManager;
 use crate::models::{
     AvailableCommand, AvailableCommandsEvent,
-    ClientCapabilities, ContentBlock, FileSystemCapabilities, InitializeParams, InteractionPrompt,
+    ClientCapabilities, ClientInfo, ContentBlock, FileSystemCapabilities,
+    InitializeParams, InitializeResult, InteractionPrompt,
     JsonRpcRequest, JsonRpcResponse, ModelInfo, PendingPermission, PermissionOptionInfo,
     ProviderType, SessionNewResult,
     SessionPromptParams, SessionRequestPermissionParams, SessionResumeResult,
@@ -364,11 +365,12 @@ pub async fn send_and_await(
     }
 }
 
-/// Result of an ACP handshake, including available models
+/// Result of an ACP handshake, including available models and agent capabilities
 pub struct AcpHandshakeResult {
     pub session_id: String,
     pub models: Vec<ModelInfo>,
     pub current_model_id: Option<String>,
+    pub initialize_result: InitializeResult,
 }
 
 /// Perform the ACP handshake: initialize (with retry) + session/new
@@ -378,7 +380,7 @@ pub async fn acp_handshake(
     cwd: &str,
 ) -> AppResult<AcpHandshakeResult> {
     // Step 1: Initialize with retry
-    acp_initialize(stdin_tx, pending_requests).await?;
+    let initialize_result = acp_initialize(stdin_tx, pending_requests).await?;
 
     // Step 2: session/new with required cwd and mcpServers
     let session_request = JsonRpcRequest::new(
@@ -417,6 +419,7 @@ pub async fn acp_handshake(
         session_id: session_result.session_id,
         models,
         current_model_id,
+        initialize_result,
     })
 }
 
@@ -429,7 +432,7 @@ pub async fn acp_resume_handshake(
     _provider_type: &ProviderType,
 ) -> AppResult<AcpHandshakeResult> {
     // Step 1: Initialize with retry
-    acp_initialize(stdin_tx, pending_requests).await?;
+    let initialize_result = acp_initialize(stdin_tx, pending_requests).await?;
 
     // Step 2: session/resume with sessionId, cwd, mcpServers
     let params = serde_json::json!({
@@ -472,22 +475,32 @@ pub async fn acp_resume_handshake(
         session_id: acp_session_id.to_string(),
         models,
         current_model_id,
+        initialize_result,
     })
 }
+
+/// The protocol version supported by this client
+const CLIENT_PROTOCOL_VERSION: u32 = 1;
 
 /// Shared ACP initialize step with retry
 async fn acp_initialize(
     stdin_tx: &mpsc::Sender<String>,
     pending_requests: &PendingRequests,
-) -> AppResult<()> {
+) -> AppResult<InitializeResult> {
     let init_params = InitializeParams {
-        protocol_version: 1,
+        protocol_version: CLIENT_PROTOCOL_VERSION,
         client_capabilities: ClientCapabilities {
             fs: FileSystemCapabilities {
                 read_text_file: false,
                 write_text_file: false,
             },
+            terminal: false,
         },
+        client_info: Some(ClientInfo {
+            name: "forkestra".to_string(),
+            title: Some("Forkestra".to_string()),
+            version: Some(env!("CARGO_PKG_VERSION").to_string()),
+        }),
     };
 
     let init_params_value = serde_json::to_value(init_params)
@@ -497,10 +510,50 @@ async fn acp_initialize(
     for attempt in 1..=15 {
         let request = JsonRpcRequest::new(1, "initialize", init_params_value.clone());
         match send_and_await(stdin_tx, pending_requests, request, 10).await {
-            Ok(_response) => {
+            Ok(response) => {
                 println!("[ACP] Initialize succeeded on attempt {}", attempt);
-                last_error = None;
-                break;
+
+                // Parse the initialize result
+                let init_result: InitializeResult = serde_json::from_value(
+                    response.result.unwrap_or_default(),
+                )
+                .map_err(|e| {
+                    AppError::Provider(format!("Failed to parse initialize result: {}", e))
+                })?;
+
+                // Protocol version negotiation check
+                if init_result.protocol_version != CLIENT_PROTOCOL_VERSION {
+                    println!(
+                        "[ACP] Warning: Agent returned protocol version {}, client supports {}",
+                        init_result.protocol_version, CLIENT_PROTOCOL_VERSION
+                    );
+                    return Err(AppError::Provider(format!(
+                        "Protocol version mismatch: agent supports v{}, client supports v{}",
+                        init_result.protocol_version, CLIENT_PROTOCOL_VERSION
+                    )));
+                }
+
+                // Log agent info if available
+                if let Some(ref info) = init_result.agent_info {
+                    println!(
+                        "[ACP] Agent: {} v{}",
+                        info.title.as_deref().unwrap_or(&info.name),
+                        info.version.as_deref().unwrap_or("unknown")
+                    );
+                }
+
+                // Log agent capabilities
+                if let Some(ref caps) = init_result.agent_capabilities {
+                    println!(
+                        "[ACP] Agent capabilities: loadSession={}, prompt(image={}, audio={}, embeddedContext={})",
+                        caps.load_session,
+                        caps.prompt_capabilities.as_ref().map_or(false, |p| p.image),
+                        caps.prompt_capabilities.as_ref().map_or(false, |p| p.audio),
+                        caps.prompt_capabilities.as_ref().map_or(false, |p| p.embedded_context),
+                    );
+                }
+
+                return Ok(init_result);
             }
             Err(e) => {
                 println!(
@@ -513,14 +566,10 @@ async fn acp_initialize(
         }
     }
 
-    if let Some(e) = last_error {
-        return Err(AppError::Provider(format!(
-            "ACP initialize failed after 15 attempts: {}",
-            e
-        )));
-    }
-
-    Ok(())
+    Err(AppError::Provider(format!(
+        "ACP initialize failed after 15 attempts: {}",
+        last_error.map_or("unknown error".to_string(), |e| e.to_string())
+    )))
 }
 
 /// Build a session/prompt JSON-RPC request

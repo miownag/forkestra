@@ -47,12 +47,26 @@ pub struct JsonRpcError {
 pub struct InitializeParams {
     pub protocol_version: u32,
     pub client_capabilities: ClientCapabilities,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_info: Option<ClientInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientInfo {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClientCapabilities {
     pub fs: FileSystemCapabilities,
+    #[serde(default)]
+    pub terminal: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,6 +74,63 @@ pub struct ClientCapabilities {
 pub struct FileSystemCapabilities {
     pub read_text_file: bool,
     pub write_text_file: bool,
+}
+
+// ========================
+// ACP Initialize Response
+// ========================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InitializeResult {
+    pub protocol_version: u32,
+    #[serde(default)]
+    pub agent_capabilities: Option<AgentCapabilities>,
+    #[serde(default)]
+    pub agent_info: Option<AgentInfo>,
+    #[serde(default)]
+    pub auth_methods: Vec<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentCapabilities {
+    #[serde(default)]
+    pub load_session: bool,
+    #[serde(default)]
+    pub prompt_capabilities: Option<PromptCapabilities>,
+    #[serde(default)]
+    pub mcp: Option<McpCapabilities>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptCapabilities {
+    #[serde(default)]
+    pub image: bool,
+    #[serde(default)]
+    pub audio: bool,
+    #[serde(default)]
+    pub embedded_context: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpCapabilities {
+    #[serde(default)]
+    pub http: bool,
+    #[serde(default)]
+    pub sse: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentInfo {
+    pub name: String,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub version: Option<String>,
 }
 
 // ========================
