@@ -400,6 +400,7 @@ impl ProviderAdapter for ClaudeAdapter {
     }
 
     async fn cancel(&mut self) -> AppResult<()> {
+        println!("[ClaudeAdapter] cancel() called");
         let cmd_tx = self
             .cmd_tx
             .as_ref()
@@ -410,6 +411,7 @@ impl ProviderAdapter for ClaudeAdapter {
             .as_ref()
             .ok_or_else(|| AppError::Provider("ACP session not established".to_string()))?;
 
+        println!("[ClaudeAdapter] Sending Cancel command for session: {}", acp_session_id);
         let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
         let cmd = AcpCommand::Cancel {
             session_id: acp_session_id.clone(),
@@ -420,10 +422,13 @@ impl ProviderAdapter for ClaudeAdapter {
             AppError::Provider(format!("Failed to send cancel command: {}", e))
         })?;
 
-        reply_rx
+        let result = reply_rx
             .await
             .map_err(|_| AppError::Provider("Cancel reply channel closed".to_string()))?
-            .map_err(|e| AppError::Provider(e))
+            .map_err(|e| AppError::Provider(e));
+
+        println!("[ClaudeAdapter] Cancel command result: {:?}", result);
+        result
     }
 
     async fn terminate(&mut self) -> AppResult<()> {

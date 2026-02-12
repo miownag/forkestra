@@ -148,6 +148,7 @@ pub async fn cancel_generation(
     manager: State<'_, SessionManager>,
     session_id: String,
 ) -> Result<(), String> {
+    println!("[Command] cancel_generation called for session: {}", session_id);
     manager
         .cancel_generation(&session_id)
         .await

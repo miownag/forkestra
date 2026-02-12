@@ -869,6 +869,9 @@ async fn run_command_loop(
     let pending_perm: std::cell::RefCell<Option<PendingPermissionInfo>> =
         std::cell::RefCell::new(None);
 
+    // Wrap connection in Rc for sharing across tasks
+    let conn = std::rc::Rc::new(conn);
+
     loop {
         tokio::select! {
             cmd = cmd_rx.recv() => {
@@ -884,40 +887,50 @@ async fn run_command_loop(
                             vec![ContentBlock::Text(TextContent::new(message))],
                         );
 
-                        let result = conn.prompt(prompt).await;
+                        // Spawn prompt in background so Cancel can be processed immediately
+                        let conn_clone = conn.clone();
+                        let stream_tx_clone = stream_tx.clone();
+                        let session_id_clone = session_id.clone();
+                        let current_message_id_clone = current_message_id.clone();
 
-                        match result {
-                            Ok(_response) => {
-                                let msg_id = current_message_id.lock().await.clone();
-                                let _ = stream_tx
-                                    .send(StreamChunk {
-                                        session_id: session_id.clone(),
-                                        message_id: msg_id,
-                                        content: String::new(),
-                                        is_complete: true,
-                                        chunk_type: None,
-                                        tool_call: None,
-                                        image_content: None,
-                                    })
-                                    .await;
-                                let _ = reply.send(Ok(()));
+                        tokio::task::spawn_local(async move {
+                            let result = conn_clone.prompt(prompt).await;
+
+                            match result {
+                                Ok(_response) => {
+                                    let msg_id = current_message_id_clone.lock().await.clone();
+                                    let _ = stream_tx_clone
+                                        .send(StreamChunk {
+                                            session_id: session_id_clone,
+                                            message_id: msg_id,
+                                            content: String::new(),
+                                            is_complete: true,
+                                            chunk_type: None,
+                                            tool_call: None,
+                                            image_content: None,
+                                        })
+                                        .await;
+                                    let _ = reply.send(Ok(()));
+                                }
+                                Err(e) => {
+                                    let _ = reply.send(Err(format!("prompt failed: {:?}", e)));
+                                }
                             }
-                            Err(e) => {
-                                let _ = reply.send(Err(format!("prompt failed: {:?}", e)));
-                            }
-                        }
+                        });
                     }
                     Some(AcpCommand::Cancel { session_id: acp_sid, reply }) => {
+                        println!("[ACP] Received Cancel command for session: {}", acp_sid);
                         let result = conn
                             .cancel(CancelNotification::new(SessionId::new(&*acp_sid)))
                             .await;
 
                         match result {
                             Ok(()) => {
-                                println!("[ACP] Session cancel sent for {}", acp_sid);
+                                println!("[ACP] Session cancel notification sent successfully for {}", acp_sid);
                                 let _ = reply.send(Ok(()));
                             }
                             Err(e) => {
+                                println!("[ACP] Session cancel failed for {}: {:?}", acp_sid, e);
                                 let _ = reply.send(Err(format!("cancel failed: {:?}", e)));
                             }
                         }

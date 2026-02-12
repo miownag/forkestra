@@ -50,8 +50,8 @@ export function InteractionPromptPanel({ sessionId }: InteractionPromptProps) {
           {prompt.type === "permission" && prompt.options && prompt.options.length > 0 ? (
             <>
               {prompt.options.map((option) => {
-                const isReject = option.kind === "reject_once" || option.kind === "reject_always";
-                const isAlwaysAllow = option.kind === "allow_always";
+                const isReject = option.kind === "rejectonce" || option.kind === "rejectalways";
+                const isAlwaysAllow = option.kind === "allowalways";
                 return (
                   <Button
                     key={option.optionId}
