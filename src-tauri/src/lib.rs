@@ -113,6 +113,7 @@ pub fn run() {
             commands::get_session_messages,
             commands::save_message,
             commands::set_session_model,
+            commands::cancel_generation,
             commands::get_settings,
             commands::get_settings_json,
             commands::get_settings_path,

@@ -673,4 +673,24 @@ impl SessionManager {
             }
         }
     }
+
+    /// Cancel the current ongoing generation for a session
+    pub async fn cancel_generation(&self, session_id: &str) -> AppResult<()> {
+        let adapter = {
+            let sessions = self.sessions.read().await;
+            sessions.get(session_id).and_then(|e| e.adapter.clone())
+        };
+
+        if let Some(adapter) = adapter {
+            let mut adapter = adapter.lock().await;
+            adapter.cancel().await?;
+            println!("[SessionManager] Generation cancelled for session {}", session_id);
+            Ok(())
+        } else {
+            Err(AppError::NotFound(format!(
+                "Session '{}' not found or not active",
+                session_id
+            )))
+        }
+    }
 }

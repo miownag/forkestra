@@ -649,7 +649,10 @@ pub fn build_permission_response(jsonrpc_id: u64, option_id: &str) -> String {
         "jsonrpc": "2.0",
         "id": jsonrpc_id,
         "result": {
-            "optionId": option_id,
+            "outcome": {
+                "outcome": "selected",
+                "optionId": option_id
+            }
         }
     });
     serde_json::to_string(&response).unwrap_or_default()

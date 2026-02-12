@@ -63,6 +63,9 @@
 
 * {
   border-color: var(--color-border);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 body {
@@ -71,6 +74,25 @@ body {
   font-family: var(--font-sans);
 
   scrollbar-width: thin;
+}
+
+img, a, button {
+  -webkit-user-drag: none;
+}
+
+p, span, h1, h2, h3, h4, h5, h6,
+li, td, th, dt, dd, label,
+article, section, blockquote,
+pre, code,
+.selectable {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: auto;
+  user-select: auto;
+  -webkit-touch-callout: default;
 }
 
 @keyframes spin {

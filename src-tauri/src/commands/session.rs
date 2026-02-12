@@ -142,3 +142,14 @@ pub async fn set_session_model(
         .await
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn cancel_generation(
+    manager: State<'_, SessionManager>,
+    session_id: String,
+) -> Result<(), String> {
+    manager
+        .cancel_generation(&session_id)
+        .await
+        .map_err(|e| e.to_string())
+}

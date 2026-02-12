@@ -322,6 +322,12 @@ export const useSessionStore = create<SessionState>()(
         },
 
         stopStreaming: (sessionId) => {
+          // Call backend to cancel the ongoing generation
+          invoke("cancel_generation", { sessionId }).catch((err) => {
+            console.error("Failed to cancel generation:", err);
+            // Continue with frontend cleanup even if backend cancel fails
+          });
+
           set((state) => {
             const newStreamingSessions = new Set(state.streamingSessions);
             newStreamingSessions.delete(sessionId);
@@ -457,9 +463,19 @@ export const useSessionStore = create<SessionState>()(
             set((state) => {
               const newResumingSessions = new Set(state.resumingSessions);
               newResumingSessions.delete(sessionId);
+              // Preserve available_commands from the existing session if the
+              // backend returned an empty list (commands arrive asynchronously
+              // via the available_commands_update event and may not yet be on
+              // the session object returned by resume_session).
+              const existing = state.sessions.find((s) => s.id === sessionId);
+              const mergedSession =
+                session.available_commands.length === 0 &&
+                existing?.available_commands?.length
+                  ? { ...session, available_commands: existing.available_commands }
+                  : session;
               return {
                 sessions: state.sessions.map((s) =>
-                  s.id === sessionId ? session : s,
+                  s.id === sessionId ? mergedSession : s,
                 ),
                 activeSessionId: session.id,
                 openTabIds: state.openTabIds.includes(session.id)
@@ -724,9 +740,18 @@ export const useSessionStore = create<SessionState>()(
               }
 
               return {
-                sessions: state.sessions.map((s) =>
-                  s.id === session_id ? session : s,
-                ),
+                sessions: state.sessions.map((s) => {
+                  if (s.id !== session_id) return s;
+                  // Preserve available_commands already set via the
+                  // available_commands_update event if the incoming session
+                  // has none (race condition during resume/create).
+                  const mergedSession =
+                    session.available_commands.length === 0 &&
+                    s.available_commands?.length
+                      ? { ...session, available_commands: s.available_commands }
+                      : session;
+                  return mergedSession;
+                }),
                 creatingSessions: newCreatingSessions,
                 messageQueue: remainingQueue,
               };
