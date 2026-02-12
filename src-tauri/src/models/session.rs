@@ -1,9 +1,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::message::AvailableCommand;
+use super::message::{AvailableCommand, PlanEntry};
 use super::provider::ProviderType;
-use super::acp::PlanEntry;
 
 /// Model information returned from ACP providers
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

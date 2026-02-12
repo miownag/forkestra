@@ -226,7 +226,12 @@ impl SessionManager {
                         entry.session.status = SessionStatus::Active;
                         entry.session.acp_session_id =
                             adapter.acp_session_id().map(|s| s.to_string());
-                        entry.session.available_models = adapter.available_models();
+                        let available_models = adapter.available_models();
+                        println!(
+                            "[SessionManager] Create session '{}': available_models from adapter = {:?}",
+                            session_id, available_models
+                        );
+                        entry.session.available_models = available_models;
                         entry.session.model =
                             adapter.current_model_id().map(|s| s.to_string());
                         entry.adapter = Some(Arc::new(tokio::sync::Mutex::new(adapter)));
@@ -503,6 +508,10 @@ impl SessionManager {
         let new_acp_session_id = adapter.acp_session_id().map(|s| s.to_string());
         let new_available_models = adapter.available_models();
         let new_current_model_id = adapter.current_model_id().map(|s| s.to_string());
+        println!(
+            "[SessionManager] Resume session '{}': available_models from adapter = {:?}",
+            session_id, new_available_models
+        );
 
         // Update session in memory
         let updated_session = {

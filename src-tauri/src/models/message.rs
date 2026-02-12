@@ -159,7 +159,7 @@ pub struct AvailableCommandsEvent {
 pub struct PlanUpdateEvent {
     pub session_id: String,
     pub message_id: String,
-    pub entries: Vec<crate::models::PlanEntry>,
+    pub entries: Vec<PlanEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -173,4 +173,32 @@ pub struct AvailableCommand {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AvailableCommandInput {
     pub hint: String,
+}
+
+// ========================
+// Agent Plan
+// ========================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PlanEntryPriority {
+    High,
+    Medium,
+    Low,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlanEntryStatus {
+    Pending,
+    InProgress,
+    Completed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanEntry {
+    pub content: String,
+    pub priority: PlanEntryPriority,
+    pub status: PlanEntryStatus,
 }

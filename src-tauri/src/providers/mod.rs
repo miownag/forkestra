@@ -1,4 +1,4 @@
-pub mod acp_helper;
+pub mod acp_client_sdk;
 pub mod adapter;
 pub mod claude;
 pub mod detector;

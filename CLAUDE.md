@@ -9,6 +9,7 @@
 
 1. kebab-case文件名
 2. 如果遇到不知道的context，请优先使用Context7 MCP而不是Web Search去搜索，查询Context7时应该查询这两个库，ACP相关可以查询Agent Client Protocol和Claude Code ACP这两个库
+3. 使用bun/bunx
 
 ### 核心目标
 
@@ -21,6 +22,9 @@
 
 通过ACP协议与AI Coding CLI交互
 
+ACP SDK: agent-client-protocol
+
 ACP List:
+
 - Claude Code: 通过zed实现的 @zed-industries/claude-code-acp
 - Kimi Code: kimi cli 天然支持 ACP
