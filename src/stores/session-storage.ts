@@ -604,6 +604,8 @@ export const useSessionStore = create<SessionState>()(
 
             const isToolCall =
               chunk.chunk_type === "tool_call" && chunk.tool_call;
+            const isImage =
+              chunk.chunk_type === "image" && chunk.image_content;
 
             if (existingMessageIndex >= 0) {
               const updatedMessages = [...sessionMessages];
@@ -661,6 +663,17 @@ export const useSessionStore = create<SessionState>()(
                   tool_calls: toolCalls,
                   parts,
                 };
+              } else if (isImage) {
+                // Add image content part
+                parts.push({
+                  type: "image",
+                  content: chunk.image_content!,
+                });
+
+                updatedMessages[existingMessageIndex] = {
+                  ...existing,
+                  parts,
+                };
               } else {
                 // Append text content
                 const lastPart = parts[parts.length - 1];
@@ -692,13 +705,15 @@ export const useSessionStore = create<SessionState>()(
               // Create new streaming message
               const firstPart: MessagePart = isToolCall
                 ? { type: "tool_call", tool_call: chunk.tool_call! }
-                : { type: "text", content: chunk.content };
+                : isImage
+                  ? { type: "image", content: chunk.image_content! }
+                  : { type: "text", content: chunk.content };
 
               const newMessage: ChatMessage = {
                 id: chunk.message_id,
                 session_id: chunk.session_id,
                 role: "assistant",
-                content: isToolCall ? "" : chunk.content,
+                content: isToolCall || isImage ? "" : chunk.content,
                 content_type: "text",
                 tool_calls: isToolCall ? [chunk.tool_call!] : undefined,
                 parts: [firstPart],

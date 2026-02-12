@@ -94,6 +94,17 @@ pub struct StreamChunk {
     pub chunk_type: Option<StreamChunkType>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_call: Option<ToolCallInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image_content: Option<ImageContent>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageContent {
+    pub data: String,
+    #[serde(rename = "mimeType")]
+    pub mime_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uri: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -102,6 +113,7 @@ pub enum StreamChunkType {
     Text,
     Thinking,
     ToolCall,
+    Image,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
