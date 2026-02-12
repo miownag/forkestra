@@ -68,7 +68,7 @@ const customComponents: Partial<Components> = {
         <span
           className={cn(
             "bg-muted rounded-sm px-1 font-mono text-sm",
-            className,
+            className
           )}
           {...props}
         >
@@ -99,7 +99,7 @@ function TextStep({ content, isLast }: { content: string; isLast: boolean }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     },
-    [content],
+    [content]
   );
 
   return (
@@ -238,7 +238,7 @@ function PlanStep({
                     <span
                       className={cn(
                         "text-xs font-medium uppercase",
-                        getPriorityColor(entry.priority),
+                        getPriorityColor(entry.priority)
                       )}
                     >
                       {entry.priority}
@@ -314,6 +314,8 @@ export function Steps({ message }: StepsProps) {
   const parts = message.parts;
   const planEntries = message.plan_entries;
 
+  console.log("message", message);
+
   // If no parts yet (legacy or loading), fall back to content + tool_calls
   if (!parts || parts.length === 0) {
     const fallbackParts: MessagePart[] = [];
@@ -327,7 +329,10 @@ export function Steps({ message }: StepsProps) {
       fallbackParts.push({ type: "text", content: message.content });
     }
 
-    if (fallbackParts.length === 0 && (!planEntries || planEntries.length === 0)) {
+    if (
+      fallbackParts.length === 0 &&
+      (!planEntries || planEntries.length === 0)
+    ) {
       if (message.is_streaming) {
         return <Loader variant="dots" className="ml-1 text-foreground" />;
       }

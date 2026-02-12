@@ -491,7 +491,10 @@ export const useSessionStore = create<SessionState>()(
                 isLoading: false,
               };
             });
-            // Load messages for the resumed session
+            // Force-reload messages from DB so stale is_streaming flags are cleared
+            set((state) => ({
+              messagesLoaded: { ...state.messagesLoaded, [sessionId]: false },
+            }));
             get().loadSessionMessages(sessionId);
             return session;
           } catch (error) {
