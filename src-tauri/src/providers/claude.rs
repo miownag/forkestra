@@ -9,24 +9,20 @@ use tokio::sync::{mpsc, Mutex};
 
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    ClaudeProviderSettings, ModelInfo, PendingPermission, ProviderInfo, ProviderType, StreamChunk,
+    ClaudeProviderSettings, ModelInfo, ProviderInfo, ProviderType, StreamChunk,
 };
-use crate::providers::acp_helper::{
-    acp_handshake, acp_resume_handshake, build_clean_env_with_custom, build_permission_response,
-    build_prompt_request, cancel_session, set_session_model, spawn_stderr_reader,
-    spawn_stdin_writer, spawn_stdout_reader, PendingRequests,
+use crate::providers::acp_client_sdk::{
+    build_clean_env_with_custom, spawn_acp_connection, spawn_acp_resume_connection,
+    spawn_stderr_reader, AcpCommand,
 };
 use crate::providers::adapter::ProviderAdapter;
 use crate::providers::detector::ProviderDetector;
 
 pub struct ClaudeAdapter {
     child: Option<tokio::process::Child>,
-    stdin_tx: Option<mpsc::Sender<String>>,
+    cmd_tx: Option<mpsc::Sender<AcpCommand>>,
     acp_session_id: Option<String>,
     session_id: Option<String>,
-    next_request_id: Arc<Mutex<u64>>,
-    pending_requests: PendingRequests,
-    pending_permission: Arc<Mutex<Option<PendingPermission>>>,
     current_message_id: Arc<Mutex<String>>,
     is_active: bool,
     cli_path: String,
@@ -40,12 +36,9 @@ impl ClaudeAdapter {
     pub fn new() -> Self {
         Self {
             child: None,
-            stdin_tx: None,
+            cmd_tx: None,
             acp_session_id: None,
             session_id: None,
-            next_request_id: Arc::new(Mutex::new(10)), // Start at 10 to avoid colliding with handshake IDs
-            pending_requests: Arc::new(Mutex::new(HashMap::new())),
-            pending_permission: Arc::new(Mutex::new(None)),
             current_message_id: Arc::new(Mutex::new(uuid::Uuid::new_v4().to_string())),
             is_active: false,
             cli_path: "claude".to_string(),
@@ -59,12 +52,9 @@ impl ClaudeAdapter {
     pub fn with_settings(settings: &ClaudeProviderSettings) -> Self {
         Self {
             child: None,
-            stdin_tx: None,
+            cmd_tx: None,
             acp_session_id: None,
             session_id: None,
-            next_request_id: Arc::new(Mutex::new(10)),
-            pending_requests: Arc::new(Mutex::new(HashMap::new())),
-            pending_permission: Arc::new(Mutex::new(None)),
             current_message_id: Arc::new(Mutex::new(uuid::Uuid::new_v4().to_string())),
             is_active: false,
             cli_path: settings
@@ -78,39 +68,24 @@ impl ClaudeAdapter {
         }
     }
 
-    /// Get the next JSON-RPC request ID
-    async fn next_id(&self) -> u64 {
-        let mut id = self.next_request_id.lock().await;
-        let current = *id;
-        *id += 1;
-        current
-    }
-
-    /// Spawn the ACP bridge process and set up I/O tasks.
-    /// Returns (child, stdin_tx, pending_requests_clone, pending_permission_clone).
-    fn spawn_acp_process(
+    /// Spawn the ACP bridge process. Returns (child, stdin, stdout, stderr).
+    fn spawn_process(
         &self,
-        session_id: &str,
         worktree_path: &Path,
-        stream_tx: mpsc::Sender<StreamChunk>,
-        app_handle: AppHandle,
     ) -> AppResult<(
         tokio::process::Child,
-        mpsc::Sender<String>,
+        tokio::process::ChildStdin,
+        tokio::process::ChildStdout,
+        tokio::process::ChildStderr,
     )> {
-        // Resolve npx path
-        let npx_path = ProviderDetector::find_in_path("npx")
-            .ok_or_else(|| {
-                AppError::Provider(
-                    "npx not found in PATH. Please install Node.js to use Claude Code ACP."
-                        .to_string(),
-                )
-            })?;
+        let npx_path = ProviderDetector::find_in_path("npx").ok_or_else(|| {
+            AppError::Provider(
+                "npx not found in PATH. Please install Node.js to use Claude Code ACP.".to_string(),
+            )
+        })?;
 
-        // Build clean environment with user-configured env vars
         let mut env = build_clean_env_with_custom(self.env_vars.clone());
 
-        // Set custom CLI path if configured (non-default)
         if self.cli_path != "claude" {
             let resolved = ProviderDetector::find_in_path(&self.cli_path)
                 .map(|p| p.to_string_lossy().to_string())
@@ -119,12 +94,10 @@ impl ClaudeAdapter {
             env.insert("CLAUDE_CODE_EXECUTABLE".to_string(), resolved);
         }
 
-        // Set disable login prompt if configured
         if self.disable_login_prompt {
             env.insert("DISABLE_AUTHN".to_string(), "1".to_string());
         }
 
-        // Spawn the ACP bridge process
         let mut child = tokio::process::Command::new(npx_path.as_os_str())
             .args(["@zed-industries/claude-code-acp"])
             .current_dir(worktree_path)
@@ -140,7 +113,6 @@ impl ClaudeAdapter {
                 ))
             })?;
 
-        // Take stdin, stdout, stderr
         let stdin = child
             .stdin
             .take()
@@ -154,51 +126,7 @@ impl ClaudeAdapter {
             .take()
             .ok_or_else(|| AppError::Provider("Failed to get stderr handle".to_string()))?;
 
-        // Create stdin writer channel
-        let (stdin_tx, stdin_rx) = mpsc::channel::<String>(100);
-
-        // Spawn tasks
-        spawn_stdin_writer(stdin, stdin_rx);
-
-        let current_message_id = self.current_message_id.clone();
-        let pending_requests = self.pending_requests.clone();
-        let pending_permission = self.pending_permission.clone();
-
-        // Forward stream chunks to frontend
-        let (internal_tx, mut internal_rx) = mpsc::channel::<StreamChunk>(100);
-        let session_id_for_forwarder = session_id.to_string();
-        tokio::spawn(async move {
-            while let Some(chunk) = internal_rx.recv().await {
-                if stream_tx.send(chunk).await.is_err() {
-                    break;
-                }
-            }
-            println!(
-                "[ClaudeAdapter] Stream forwarder ended for session {}",
-                session_id_for_forwarder
-            );
-        });
-
-        spawn_stderr_reader(
-            stderr,
-            "claude".to_string(),
-            self.pending_requests.clone(),
-            internal_tx.clone(),
-            session_id.to_string(),
-            current_message_id.clone(),
-        );
-
-        spawn_stdout_reader(
-            stdout,
-            internal_tx,
-            app_handle,
-            pending_requests,
-            pending_permission,
-            session_id.to_string(),
-            current_message_id,
-        );
-
-        Ok((child, stdin_tx))
+        Ok((child, stdin, stdout, stderr))
     }
 }
 
@@ -233,25 +161,47 @@ impl ProviderAdapter for ClaudeAdapter {
             session_id
         );
 
-        let (child, stdin_tx) =
-            self.spawn_acp_process(session_id, worktree_path, stream_tx, app_handle)?;
+        let (child, stdin, stdout, stderr) = self.spawn_process(worktree_path)?;
 
-        // Perform ACP handshake
-        println!("[ClaudeAdapter] Starting ACP handshake...");
-        let pending_requests = self.pending_requests.clone();
-        let handshake =
-            acp_handshake(&stdin_tx, &pending_requests, &worktree_path.to_string_lossy()).await?;
+        // Spawn stderr reader (stays on the tokio multi-threaded runtime)
+        spawn_stderr_reader(
+            stderr,
+            "claude".to_string(),
+            stream_tx.clone(),
+            session_id.to_string(),
+            self.current_message_id.clone(),
+        );
+
+        // Spawn the ACP connection on a dedicated LocalSet thread
+        let (cmd_tx, handshake_rx) = spawn_acp_connection(
+            stdin,
+            stdout,
+            session_id.to_string(),
+            worktree_path.to_string_lossy().to_string(),
+            stream_tx,
+            app_handle,
+            self.current_message_id.clone(),
+        );
+
+        // Wait for the handshake result
+        let handshake = handshake_rx
+            .await
+            .map_err(|_| AppError::Provider("Handshake channel closed".to_string()))?
+            .map_err(|e| AppError::Provider(e))?;
 
         println!(
             "[ClaudeAdapter] ACP session established: {}",
             handshake.session_id
         );
 
-        // Store state
         self.child = Some(child);
-        self.stdin_tx = Some(stdin_tx);
+        self.cmd_tx = Some(cmd_tx);
         self.acp_session_id = Some(handshake.session_id);
         self.session_id = Some(session_id.to_string());
+        println!(
+            "[ClaudeAdapter] Handshake complete: available_models = {:?}, current_model = {:?}",
+            handshake.models, handshake.current_model_id
+        );
         self.available_models = handshake.models;
         self.current_model_id = handshake.current_model_id;
         self.is_active = true;
@@ -270,36 +220,51 @@ impl ProviderAdapter for ClaudeAdapter {
     ) -> AppResult<()> {
         println!(
             "[ClaudeAdapter] Resuming ACP session {} for {} (worktree: {}, project: {})",
-            acp_session_id, session_id, worktree_path.display(), project_path.display()
+            acp_session_id,
+            session_id,
+            worktree_path.display(),
+            project_path.display()
         );
 
-        // Spawn ACP process in worktree (for file access isolation)
-        let (child, stdin_tx) =
-            self.spawn_acp_process(session_id, worktree_path, stream_tx, app_handle)?;
+        let (child, stdin, stdout, stderr) = self.spawn_process(worktree_path)?;
 
-        // Perform ACP resume handshake with project_path as cwd (for session file lookup)
-        println!("[ClaudeAdapter] Starting ACP resume handshake...");
-        let pending_requests = self.pending_requests.clone();
-        let handshake = acp_resume_handshake(
-            &stdin_tx,
-            &pending_requests,
-            acp_session_id,
-            &project_path.to_string_lossy(),  // ← Use project_path for session file lookup
-            &ProviderType::Claude,
-            true, // new process — always true since we spawn a fresh ACP process
-        )
-        .await?;
+        spawn_stderr_reader(
+            stderr,
+            "claude".to_string(),
+            stream_tx.clone(),
+            session_id.to_string(),
+            self.current_message_id.clone(),
+        );
+
+        let (cmd_tx, handshake_rx) = spawn_acp_resume_connection(
+            stdin,
+            stdout,
+            session_id.to_string(),
+            acp_session_id.to_string(),
+            project_path.to_string_lossy().to_string(),
+            stream_tx,
+            app_handle,
+            self.current_message_id.clone(),
+        );
+
+        let handshake = handshake_rx
+            .await
+            .map_err(|_| AppError::Provider("Handshake channel closed".to_string()))?
+            .map_err(|e| AppError::Provider(e))?;
 
         println!(
             "[ClaudeAdapter] ACP session resumed: {}",
             handshake.session_id
         );
 
-        // Store state
         self.child = Some(child);
-        self.stdin_tx = Some(stdin_tx);
+        self.cmd_tx = Some(cmd_tx);
         self.acp_session_id = Some(handshake.session_id);
         self.session_id = Some(session_id.to_string());
+        println!(
+            "[ClaudeAdapter] Handshake complete: available_models = {:?}, current_model = {:?}",
+            handshake.models, handshake.current_model_id
+        );
         self.available_models = handshake.models;
         self.current_model_id = handshake.current_model_id;
         self.is_active = true;
@@ -320,73 +285,80 @@ impl ProviderAdapter for ClaudeAdapter {
     }
 
     async fn send_message(&mut self, message: &str) -> AppResult<()> {
-        let stdin_tx = self
-            .stdin_tx
+        let cmd_tx = self
+            .cmd_tx
             .as_ref()
             .ok_or_else(|| AppError::Provider("Session not started".to_string()))?;
 
-        // Check if there's a pending permission request
-        let pending_perm = {
-            let mut perm = self.pending_permission.lock().await;
-            perm.take()
-        };
-
-        if let Some(perm) = pending_perm {
-            // The message is the selected option_id from the frontend
-            let option_id = message.trim();
-            let response_json = build_permission_response(perm.jsonrpc_id, option_id);
-
-            println!(
-                "[ClaudeAdapter] Sending permission response: option_id={}",
-                option_id
-            );
-            stdin_tx.send(response_json).await.map_err(|e| {
-                AppError::Provider(format!("Failed to send permission response: {}", e))
-            })?;
-
-            return Ok(());
-        }
-
-        // Generate a new message_id for this prompt's response
-        {
-            let mut msg_id = self.current_message_id.lock().await;
-            *msg_id = uuid::Uuid::new_v4().to_string();
-        }
-
-        // Normal message: send as session/prompt
         let acp_session_id = self
             .acp_session_id
             .as_ref()
             .ok_or_else(|| AppError::Provider("ACP session not established".to_string()))?;
 
-        let request_id = self.next_id().await;
-        let request = build_prompt_request(request_id, acp_session_id, message)?;
+        let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
 
-        let json_str = serde_json::to_string(&request)
-            .map_err(|e| AppError::Provider(format!("Failed to serialize prompt request: {}", e)))?;
+        // Check if this is a permission response (starts with an option_id)
+        // The frontend sends the option_id directly as the message
+        // We determine if it's a permission response by trying to send it as one first
+        let cmd = AcpCommand::PermissionResponse {
+            option_id: message.trim().to_string(),
+            reply: reply_tx,
+        };
 
-        println!(
-            "[ClaudeAdapter] Sending session/prompt (id={})",
-            request_id
-        );
+        cmd_tx.send(cmd).await.map_err(|e| {
+            AppError::Provider(format!("Failed to send command: {}", e))
+        })?;
 
-        // Register the pending request for response tracking
-        {
-            let (tx, _rx) = tokio::sync::oneshot::channel();
-            let mut pending = self.pending_requests.lock().await;
-            pending.insert(request_id, tx);
+        match reply_rx.await {
+            Ok(Ok(())) => {
+                println!(
+                    "[ClaudeAdapter] Sent permission response: option_id={}",
+                    message.trim()
+                );
+                return Ok(());
+            }
+            Ok(Err(_)) => {
+                // No pending permission - treat as a normal prompt
+            }
+            Err(_) => {
+                return Err(AppError::Provider("Command channel closed".to_string()));
+            }
         }
 
-        stdin_tx.send(json_str).await.map_err(|e| {
-            AppError::Provider(format!("Failed to send prompt to stdin: {}", e))
+        // Normal message: send as prompt
+        let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+        let cmd = AcpCommand::Prompt {
+            session_id: acp_session_id.clone(),
+            message: message.to_string(),
+            reply: reply_tx,
+        };
+
+        cmd_tx.send(cmd).await.map_err(|e| {
+            AppError::Provider(format!("Failed to send prompt command: {}", e))
         })?;
+
+        // Don't wait for the prompt to complete - it's long-running.
+        // The completion signal will come via stream_tx from the SDK.
+        // We just fire-and-forget the prompt command.
+        // Actually, we need to spawn a task to handle the reply to avoid leaking.
+        tokio::spawn(async move {
+            match reply_rx.await {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => {
+                    eprintln!("[ClaudeAdapter] Prompt error: {}", e);
+                }
+                Err(_) => {
+                    eprintln!("[ClaudeAdapter] Prompt reply channel closed");
+                }
+            }
+        });
 
         Ok(())
     }
 
     async fn set_model(&mut self, model_id: &str) -> AppResult<()> {
-        let stdin_tx = self
-            .stdin_tx
+        let cmd_tx = self
+            .cmd_tx
             .as_ref()
             .ok_or_else(|| AppError::Provider("Session not started".to_string()))?;
 
@@ -395,9 +367,21 @@ impl ProviderAdapter for ClaudeAdapter {
             .as_ref()
             .ok_or_else(|| AppError::Provider("ACP session not established".to_string()))?;
 
-        set_session_model(stdin_tx, &self.pending_requests, acp_session_id, model_id).await?;
+        let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+        let cmd = AcpCommand::SetModel {
+            session_id: acp_session_id.clone(),
+            model_id: model_id.to_string(),
+            reply: reply_tx,
+        };
 
-        Ok(())
+        cmd_tx.send(cmd).await.map_err(|e| {
+            AppError::Provider(format!("Failed to send set_model command: {}", e))
+        })?;
+
+        reply_rx
+            .await
+            .map_err(|_| AppError::Provider("Set model reply channel closed".to_string()))?
+            .map_err(|e| AppError::Provider(e))
     }
 
     fn is_active(&self) -> bool {
@@ -405,8 +389,8 @@ impl ProviderAdapter for ClaudeAdapter {
     }
 
     async fn cancel(&mut self) -> AppResult<()> {
-        let stdin_tx = self
-            .stdin_tx
+        let cmd_tx = self
+            .cmd_tx
             .as_ref()
             .ok_or_else(|| AppError::Provider("Session not started".to_string()))?;
 
@@ -415,22 +399,29 @@ impl ProviderAdapter for ClaudeAdapter {
             .as_ref()
             .ok_or_else(|| AppError::Provider("ACP session not established".to_string()))?;
 
-        let request_id = self.next_id().await;
-        cancel_session(stdin_tx, &self.pending_requests, acp_session_id, request_id).await
+        let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+        let cmd = AcpCommand::Cancel {
+            session_id: acp_session_id.clone(),
+            reply: reply_tx,
+        };
+
+        cmd_tx.send(cmd).await.map_err(|e| {
+            AppError::Provider(format!("Failed to send cancel command: {}", e))
+        })?;
+
+        reply_rx
+            .await
+            .map_err(|_| AppError::Provider("Cancel reply channel closed".to_string()))?
+            .map_err(|e| AppError::Provider(e))
     }
 
     async fn terminate(&mut self) -> AppResult<()> {
         println!("[ClaudeAdapter] Terminating session");
 
-        // Try graceful cancel first, then force kill
-        if self.stdin_tx.is_some() && self.acp_session_id.is_some() {
-            if let Err(e) = self.cancel().await {
-                println!("[ClaudeAdapter] Graceful cancel failed, force killing: {}", e);
-            }
+        // Send shutdown command
+        if let Some(cmd_tx) = self.cmd_tx.take() {
+            let _ = cmd_tx.send(AcpCommand::Shutdown).await;
         }
-
-        // Drop stdin channel to signal the writer to stop
-        self.stdin_tx = None;
 
         // Kill the child process
         if let Some(mut child) = self.child.take() {
@@ -442,12 +433,6 @@ impl ProviderAdapter for ClaudeAdapter {
         self.session_id = None;
         self.available_models.clear();
         self.current_model_id = None;
-
-        // Clear pending requests
-        {
-            let mut pending = self.pending_requests.lock().await;
-            pending.clear();
-        }
 
         Ok(())
     }

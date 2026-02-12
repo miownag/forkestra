@@ -39,10 +39,9 @@ export function ChatInput({
   const [buttonSlashOpen, setButtonSlashOpen] = useState(false);
 
   const commands = session?.available_commands ?? [];
-
   const availableModels = session?.available_models ?? [];
   const currentModel = availableModels.find(
-    (m) => m.model_id === session?.model,
+    (m) => m.model_id === session?.model
   );
 
   const handleInputChange = useCallback(
@@ -56,7 +55,7 @@ export function ChatInput({
         // Check if any commands match; if not, close the selector
         const hasMatches = query
           ? commands.some((c) =>
-              c.name.toLowerCase().startsWith(query.toLowerCase()),
+              c.name.toLowerCase().startsWith(query.toLowerCase())
             )
           : true;
         if (hasMatches) {
@@ -71,7 +70,7 @@ export function ChatInput({
         setInlineSlashQuery("");
       }
     },
-    [commands],
+    [commands]
   );
 
   const handleCommandSelect = useCallback(
@@ -83,7 +82,7 @@ export function ChatInput({
       setInput("");
       await onSend(`/${command.name}`);
     },
-    [onSend],
+    [onSend]
   );
 
   const handleKeyDown = useCallback(
@@ -94,7 +93,7 @@ export function ChatInput({
         setInlineSlashQuery("");
       }
     },
-    [inlineSlashOpen],
+    [inlineSlashOpen]
   );
 
   const handleOnSubmit = async () => {
