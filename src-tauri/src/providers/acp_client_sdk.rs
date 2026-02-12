@@ -703,8 +703,10 @@ async fn run_acp_connection(
         let acp_session_id = session_response.session_id.to_string();
         println!("[ACP] Session created: {}", acp_session_id);
 
-        let (models, current_model_id) =
-            extract_models_from_config_options(session_response.config_options.as_deref());
+        let (models, current_model_id) = extract_models(
+            session_response.models.as_ref(),
+            session_response.config_options.as_deref(),
+        );
 
         Ok(AcpHandshakeResult {
             session_id: acp_session_id,
@@ -787,7 +789,7 @@ async fn run_acp_resume_connection(
         println!("[ACP] Attempting to restore session: {} (cwd: {})", acp_session_id, cwd);
         println!("[ACP] Agent supports loadSession: {}", supports_load);
 
-        let config_options = if supports_load {
+        let (model_state, config_options) = if supports_load {
             println!("[ACP] Trying session/load for {}", acp_session_id);
             match conn
                 .load_session(LoadSessionRequest::new(acp_session_id.clone(), cwd.clone()))
@@ -795,7 +797,7 @@ async fn run_acp_resume_connection(
             {
                 Ok(response) => {
                     println!("[ACP] Session loaded via session/load for {}", acp_session_id);
-                    response.config_options
+                    (response.models, response.config_options)
                 }
                 Err(e) => {
                     println!(
@@ -808,7 +810,7 @@ async fn run_acp_resume_connection(
                         .await
                         .map_err(|e| format!("session/resume failed: {:?}", e))?;
                     println!("[ACP] Session resumed via session/resume for {}", acp_session_id);
-                    resume_response.config_options
+                    (resume_response.models, resume_response.config_options)
                 }
             }
         } else {
@@ -820,13 +822,15 @@ async fn run_acp_resume_connection(
                 .resume_session(ResumeSessionRequest::new(acp_session_id.clone(), cwd.clone()))
                 .await
                 .map_err(|e| format!("session/resume failed: {:?}", e))?;
-            resume_response.config_options
+            (resume_response.models, resume_response.config_options)
         };
 
         println!("[ACP] Session restored: {}", acp_session_id);
 
-        let (models, current_model_id) =
-            extract_models_from_config_options(config_options.as_deref());
+        let (models, current_model_id) = extract_models(
+            model_state.as_ref(),
+            config_options.as_deref(),
+        );
 
         Ok(AcpHandshakeResult {
             session_id: acp_session_id.clone(),
@@ -1028,9 +1032,36 @@ async fn acp_initialize_with_retry(
 // Model Extraction
 // ========================
 
-fn extract_models_from_config_options(
+/// Extract models from the session response. Prefers the `models` (SessionModelState)
+/// field when available, falls back to extracting from `config_options`.
+fn extract_models(
+    model_state: Option<&acp::SessionModelState>,
     config_options: Option<&[acp::SessionConfigOption]>,
 ) -> (Vec<ModelInfo>, Option<String>) {
+    // Prefer the dedicated `models` field (unstable_session_model)
+    if let Some(state) = model_state {
+        let models: Vec<ModelInfo> = state
+            .available_models
+            .iter()
+            .map(|m| ModelInfo {
+                model_id: m.model_id.to_string(),
+                display_name: m.name.clone(),
+                description: m.description.clone(),
+            })
+            .collect();
+        let current_model_id = Some(state.current_model_id.to_string());
+
+        println!(
+            "[ACP] Extracted {} models from SessionModelState, current_model_id = {:?}",
+            models.len(), current_model_id
+        );
+
+        if !models.is_empty() {
+            return (models, current_model_id);
+        }
+    }
+
+    // Fallback: extract from config_options
     let mut models = Vec::new();
     let mut current_model_id = None;
 
@@ -1078,7 +1109,7 @@ fn extract_models_from_config_options(
     }
 
     println!(
-        "[ACP] Extracted {} models, current_model_id = {:?}",
+        "[ACP] Extracted {} models from config_options, current_model_id = {:?}",
         models.len(), current_model_id
     );
 
