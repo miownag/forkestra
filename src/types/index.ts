@@ -131,7 +131,14 @@ export interface ToolUseInfo {
 
 export type MessagePart =
   | { type: "text"; content: string }
+  | { type: "image"; content: ImageContent }
   | { type: "tool_call"; tool_call: ToolCallInfo };
+
+export interface ImageContent {
+  data: string; // Base64-encoded
+  mimeType: string;
+  uri?: string;
+}
 
 export interface ChatMessage {
   id: string;
@@ -148,7 +155,7 @@ export interface ChatMessage {
 }
 
 // Stream chunk types (ACP structured data)
-export type StreamChunkType = "text" | "thinking" | "tool_call";
+export type StreamChunkType = "text" | "thinking" | "tool_call" | "image";
 
 export interface ToolCallInfo {
   tool_call_id: string;
@@ -166,6 +173,7 @@ export interface StreamChunk {
   is_complete: boolean;
   chunk_type?: StreamChunkType;
   tool_call?: ToolCallInfo;
+  image_content?: ImageContent;
 }
 
 export interface PermissionOptionInfo {

@@ -23,7 +23,7 @@ fn truncate_str(s: &str, max_bytes: usize) -> &str {
 use crate::managers::SessionManager;
 use crate::models::{
     AvailableCommand, AvailableCommandsEvent,
-    ClientCapabilities, ClientInfo, ContentBlock, FileSystemCapabilities,
+    ClientCapabilities, ClientInfo, ContentBlock, FileSystemCapabilities, ImageContent,
     InitializeParams, InitializeResult, InteractionPrompt,
     JsonRpcRequest, JsonRpcResponse, ModelInfo, PendingPermission, PermissionOptionInfo,
     PlanUpdateEvent, ProviderType, SessionNewResult,
@@ -123,6 +123,7 @@ pub fn spawn_stdout_reader(
                                         is_complete: true,
                                         chunk_type: None,
                                         tool_call: None,
+                                        image_content: None,
                                     })
                                     .await;
                             }
@@ -255,6 +256,7 @@ pub fn spawn_stdout_reader(
                 is_complete: true,
                 chunk_type: None,
                 tool_call: None,
+                image_content: None,
             })
             .await;
     });
@@ -305,6 +307,7 @@ pub fn spawn_stderr_reader(
                                 is_complete: false,
                                 chunk_type: Some(StreamChunkType::Text),
                                 tool_call: None,
+                                image_content: None,
                             })
                             .await;
                     }
@@ -725,21 +728,80 @@ async fn handle_session_update_raw(
 
     match update_type {
         "agent_message_chunk" => {
-            if let Some(text) = update
+            // Check content type
+            let content_type = update
                 .get("content")
-                .and_then(|c| c.get("text"))
-                .and_then(|t| t.as_str())
-            {
-                let _ = stream_tx
-                    .send(StreamChunk {
-                        session_id: session_id.to_string(),
-                        message_id: message_id.to_string(),
-                        content: text.to_string(),
-                        is_complete: false,
-                        chunk_type: Some(StreamChunkType::Text),
-                        tool_call: None,
-                    })
-                    .await;
+                .and_then(|c| c.get("type"))
+                .and_then(|t| t.as_str());
+
+            match content_type {
+                Some("text") => {
+                    if let Some(text) = update
+                        .get("content")
+                        .and_then(|c| c.get("text"))
+                        .and_then(|t| t.as_str())
+                    {
+                        let _ = stream_tx
+                            .send(StreamChunk {
+                                session_id: session_id.to_string(),
+                                message_id: message_id.to_string(),
+                                content: text.to_string(),
+                                is_complete: false,
+                                chunk_type: Some(StreamChunkType::Text),
+                                tool_call: None,
+                                image_content: None,
+                            })
+                            .await;
+                    }
+                }
+                Some("image") => {
+                    if let (Some(data), Some(mime_type)) = (
+                        update.get("content").and_then(|c| c.get("data")).and_then(|d| d.as_str()),
+                        update.get("content").and_then(|c| c.get("mimeType")).and_then(|m| m.as_str()),
+                    ) {
+                        let uri = update
+                            .get("content")
+                            .and_then(|c| c.get("uri"))
+                            .and_then(|u| u.as_str())
+                            .map(|s| s.to_string());
+
+                        let _ = stream_tx
+                            .send(StreamChunk {
+                                session_id: session_id.to_string(),
+                                message_id: message_id.to_string(),
+                                content: String::new(),
+                                is_complete: false,
+                                chunk_type: Some(StreamChunkType::Image),
+                                tool_call: None,
+                                image_content: Some(ImageContent {
+                                    data: data.to_string(),
+                                    mime_type: mime_type.to_string(),
+                                    uri,
+                                }),
+                            })
+                            .await;
+                    }
+                }
+                _ => {
+                    // Fallback to text if type is missing or unknown
+                    if let Some(text) = update
+                        .get("content")
+                        .and_then(|c| c.get("text"))
+                        .and_then(|t| t.as_str())
+                    {
+                        let _ = stream_tx
+                            .send(StreamChunk {
+                                session_id: session_id.to_string(),
+                                message_id: message_id.to_string(),
+                                content: text.to_string(),
+                                is_complete: false,
+                                chunk_type: Some(StreamChunkType::Text),
+                                tool_call: None,
+                                image_content: None,
+                            })
+                            .await;
+                    }
+                }
             }
         }
         "agent_thought_chunk" => {
@@ -756,6 +818,7 @@ async fn handle_session_update_raw(
                         is_complete: false,
                         chunk_type: Some(StreamChunkType::Thinking),
                         tool_call: None,
+                        image_content: None,
                     })
                     .await;
             }
@@ -851,6 +914,7 @@ async fn handle_session_update_raw(
                         content: content_str,
                         raw_input,
                     }),
+                    image_content: None,
                 })
                 .await;
         }
@@ -908,6 +972,7 @@ async fn handle_session_update_raw(
                         content: content_str,
                         raw_input: None,
                     }),
+                    image_content: None,
                 })
                 .await;
         }

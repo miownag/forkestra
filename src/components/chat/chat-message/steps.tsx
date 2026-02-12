@@ -3,6 +3,7 @@ import type {
   MessagePart,
   ToolCallInfo,
   PlanEntry,
+  ImageContent,
 } from "@/types";
 import {
   ChainOfThought,
@@ -22,6 +23,7 @@ import {
   LuMessageSquareText,
   LuCopy,
   LuListTodo,
+  LuImage,
 } from "react-icons/lu";
 import { useState, useCallback } from "react";
 import { Components } from "react-markdown";
@@ -126,6 +128,43 @@ function TextStep({ content, isLast }: { content: string; isLast: boolean }) {
         <ChainOfThoughtItem>
           <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-strong:text-foreground text-foreground">
             <Markdown components={customComponents}>{content}</Markdown>
+          </div>
+        </ChainOfThoughtItem>
+      </ChainOfThoughtContent>
+    </ChainOfThoughtStep>
+  );
+}
+
+function ImageStep({
+  content,
+  isLast,
+}: {
+  content: ImageContent;
+  isLast: boolean;
+}) {
+  const imageUrl = `data:${content.mimeType};base64,${content.data}`;
+
+  return (
+    <ChainOfThoughtStep defaultOpen isLast={isLast}>
+      <ChainOfThoughtTrigger
+        leftIcon={<LuImage className="size-4 text-foreground" />}
+        swapIconOnHover={false}
+      >
+        Image
+      </ChainOfThoughtTrigger>
+      <ChainOfThoughtContent>
+        <ChainOfThoughtItem>
+          <div className="space-y-2">
+            <img
+              src={imageUrl}
+              alt="AI generated content"
+              className="max-w-full rounded-md border border-border"
+            />
+            {content.uri && (
+              <div className="text-xs text-muted-foreground">
+                Source: {content.uri}
+              </div>
+            )}
           </div>
         </ChainOfThoughtItem>
       </ChainOfThoughtContent>
@@ -300,17 +339,28 @@ export function Steps({ message }: StepsProps) {
         {planEntries && planEntries.length > 0 && (
           <PlanStep entries={planEntries} isLast={fallbackParts.length === 0} />
         )}
-        {fallbackParts.map((part, i) =>
-          part.type === "text" ? (
-            <TextStep
-              key={`fallback-text-${i}`}
-              content={part.content}
-              isLast={i === fallbackParts.length - 1}
-            />
-          ) : (
-            renderToolStep(part.tool_call, i === fallbackParts.length - 1)
-          ),
-        )}
+        {fallbackParts.map((part, i) => {
+          const isLast = i === fallbackParts.length - 1;
+          if (part.type === "text") {
+            return (
+              <TextStep
+                key={`fallback-text-${i}`}
+                content={part.content}
+                isLast={isLast}
+              />
+            );
+          } else if (part.type === "image") {
+            return (
+              <ImageStep
+                key={`fallback-image-${i}`}
+                content={part.content}
+                isLast={isLast}
+              />
+            );
+          } else {
+            return renderToolStep(part.tool_call, isLast);
+          }
+        })}
       </ChainOfThought>
     );
   }
@@ -321,17 +371,28 @@ export function Steps({ message }: StepsProps) {
         {planEntries && planEntries.length > 0 && (
           <PlanStep entries={planEntries} isLast={parts.length === 0} />
         )}
-        {parts.map((part, i) =>
-          part.type === "text" ? (
-            <TextStep
-              key={`text-${i}`}
-              content={part.content}
-              isLast={i === parts.length - 1}
-            />
-          ) : (
-            renderToolStep(part.tool_call, i === parts.length - 1)
-          ),
-        )}
+        {parts.map((part, i) => {
+          const isLast = i === parts.length - 1;
+          if (part.type === "text") {
+            return (
+              <TextStep
+                key={`text-${i}`}
+                content={part.content}
+                isLast={isLast}
+              />
+            );
+          } else if (part.type === "image") {
+            return (
+              <ImageStep
+                key={`image-${i}`}
+                content={part.content}
+                isLast={isLast}
+              />
+            );
+          } else {
+            return renderToolStep(part.tool_call, isLast);
+          }
+        })}
       </ChainOfThought>
       {message.is_streaming &&
         !message.tool_calls?.some((tc) => tc.status === "running") && (
