@@ -142,6 +142,14 @@ pub struct AvailableCommandsEvent {
     pub available_commands: Vec<AvailableCommand>,
 }
 
+/// Event emitted when Agent sends a plan update
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlanUpdateEvent {
+    pub session_id: String,
+    pub message_id: String,
+    pub entries: Vec<crate::models::PlanEntry>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AvailableCommand {
     pub name: String,

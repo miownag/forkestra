@@ -142,6 +142,7 @@ export interface ChatMessage {
   tool_use?: ToolUseInfo;
   tool_calls?: ToolCallInfo[];
   parts?: MessagePart[];
+  plan_entries?: PlanEntry[];
   timestamp: string;
   is_streaming: boolean;
 }
@@ -196,6 +197,22 @@ export interface AvailableCommand {
 export interface AvailableCommandsEvent {
   session_id: string;
   available_commands: AvailableCommand[];
+}
+
+// Agent Plan types (from ACP plan updates)
+export type PlanEntryPriority = "high" | "medium" | "low";
+export type PlanEntryStatus = "pending" | "in_progress" | "completed";
+
+export interface PlanEntry {
+  content: string;
+  priority: PlanEntryPriority;
+  status: PlanEntryStatus;
+}
+
+export interface PlanUpdateEvent {
+  session_id: string;
+  message_id: string;
+  entries: PlanEntry[];
 }
 
 // Settings types

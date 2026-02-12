@@ -259,6 +259,10 @@ pub enum SessionUpdate {
         #[serde(default)]
         modes: Option<serde_json::Value>,
     },
+    #[serde(rename = "plan")]
+    Plan {
+        entries: Vec<PlanEntry>,
+    },
     #[serde(other)]
     Unknown,
 }
@@ -329,4 +333,38 @@ pub struct PendingPermission {
     pub jsonrpc_id: u64,
     /// The options from the request_permission message
     pub options: Vec<PermissionOption>,
+}
+
+// ========================
+// Agent Plan
+// ========================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PlanEntryPriority {
+    High,
+    Medium,
+    Low,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlanEntryStatus {
+    Pending,
+    InProgress,
+    Completed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanEntry {
+    pub content: String,
+    pub priority: PlanEntryPriority,
+    pub status: PlanEntryStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Plan {
+    pub entries: Vec<PlanEntry>,
 }

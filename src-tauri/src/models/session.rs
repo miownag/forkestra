@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use super::message::AvailableCommand;
 use super::provider::ProviderType;
+use super::acp::PlanEntry;
 
 /// Model information returned from ACP providers
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -43,6 +44,8 @@ pub struct Session {
     pub available_models: Vec<ModelInfo>,
     #[serde(default)]
     pub available_commands: Vec<AvailableCommand>,
+    #[serde(default)]
+    pub plan_entries: Vec<PlanEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

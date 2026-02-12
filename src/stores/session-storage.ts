@@ -11,6 +11,7 @@ import type {
   SessionStatusEvent,
   MessagePart,
   AvailableCommand,
+  PlanEntry,
 } from "@/types";
 
 interface PermissionOption {
@@ -75,6 +76,11 @@ interface SessionState {
   setAvailableCommands: (
     sessionId: string,
     commands: AvailableCommand[],
+  ) => void;
+  setPlanEntries: (
+    sessionId: string,
+    messageId: string,
+    entries: PlanEntry[],
   ) => void;
   clearError: () => void;
 }
@@ -813,6 +819,18 @@ export const useSessionStore = create<SessionState>()(
                 ? { ...s, available_commands: commands }
                 : s,
             ),
+          }));
+        },
+        setPlanEntries: (sessionId, messageId, entries) => {
+          set((state) => ({
+            messages: {
+              ...state.messages,
+              [sessionId]: (state.messages[sessionId] || []).map((msg) =>
+                msg.id === messageId
+                  ? { ...msg, plan_entries: entries }
+                  : msg,
+              ),
+            },
           }));
         },
         clearError: () => set({ error: null }),

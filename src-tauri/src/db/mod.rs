@@ -268,6 +268,7 @@ impl Database {
                     model: model_str,
                     available_models: vec![],
                     available_commands: vec![],
+                    plan_entries: vec![],
                 })
             })
             .map_err(|e| AppError::Database(format!("Failed to query sessions: {}", e)))?;
