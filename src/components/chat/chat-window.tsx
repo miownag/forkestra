@@ -1,13 +1,19 @@
-import { useRef, useEffect, useMemo } from "react";
+import { useRef, useMemo } from "react";
 import { useSelectorSessionStore } from "@/stores";
 import { ChatMessage } from "./chat-message";
 import { ChatInput } from "./chat-input";
 import { InteractionPromptPanel } from "./interaction-prompt";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import PROVIDER_ICONS_MAP from "@/constants/icons";
 import { ProviderType } from "@/types";
 import { Loader } from "@/components/prompt-kit/loader";
+import { VscLoading } from "react-icons/vsc";
+import {
+  ChatContainerRoot,
+  ChatContainerContent,
+  ChatContainerScrollAnchor,
+} from "@/components/prompt-kit/chat-container";
+import { ScrollButton } from "../prompt-kit/scroll-button";
 
 const EMPTY_MESSAGES: never[] = [];
 
@@ -58,10 +64,10 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
 
   const messages = useMemo(
     () => messagesMap[sessionId] ?? EMPTY_MESSAGES,
-    [messagesMap, sessionId],
+    [messagesMap, sessionId]
   );
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollAnchorRef = useRef<HTMLDivElement>(null);
 
   const ProviderIcon = session?.provider
     ? PROVIDER_ICONS_MAP[session.provider as ProviderType]
@@ -69,10 +75,6 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
   const lastMessage = messages[messages.length - 1];
   const isWaitingForResponse =
     isLoading && lastMessage && lastMessage.role === "user";
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
 
   const handleSend = async (content: string) => {
     if (hasInteractionPrompt) {
@@ -99,8 +101,8 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
   return (
     <div className="flex-1 flex flex-col overflow-hidden sm:w-3xl md:w-4xl mx-auto gap-4">
       {/* Messages */}
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-4 min-h-full">
+      <ChatContainerRoot className="flex-1 relative">
+        <ChatContainerContent className="p-4 space-y-4 min-h-full">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-muted-foreground h-128">
               <ProviderIcon.Combine
@@ -118,9 +120,12 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
             ))
           )}
           {isWaitingForResponse && <Loader variant="dots" className="ml-1" />}
-          <div ref={messagesEndRef} />
+          <ChatContainerScrollAnchor ref={scrollAnchorRef} />
+        </ChatContainerContent>
+        <div className="absolute right-1/2 translate-x-1/2 bottom-4 z-10">
+          <ScrollButton className="shadow-sm" variant="secondary" size="icon" />
         </div>
-      </ScrollArea>
+      </ChatContainerRoot>
 
       {/* Interaction Prompt */}
       {hasInteractionPrompt && isLoading && (
@@ -149,7 +154,7 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
       {/* Resuming state */}
       {isResuming && (
         <div className="flex items-center justify-center mx-auto gap-2 px-4 py-3 rounded-lg border border-border bg-muted/50">
-          <Loader variant="classic" className="text-foreground" />
+          <VscLoading className="text-foreground animate-spin" />
           <p className="text-sm text-muted-foreground">Resuming session...</p>
         </div>
       )}
