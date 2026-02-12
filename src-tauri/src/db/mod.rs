@@ -371,7 +371,9 @@ impl Database {
                     timestamp: chrono::DateTime::parse_from_rfc3339(&timestamp_str)
                         .unwrap_or_else(|_| chrono::Utc::now().into())
                         .with_timezone(&chrono::Utc),
-                    is_streaming: row.get::<_, i32>(8)? != 0,
+                    // Always set is_streaming to false for loaded messages
+                    // because they are historical and no longer actively streaming
+                    is_streaming: false,
                 })
             })
             .map_err(|e| AppError::Database(format!("Failed to query messages: {}", e)))?;

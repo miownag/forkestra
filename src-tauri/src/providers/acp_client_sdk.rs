@@ -481,18 +481,61 @@ pub fn build_clean_env_with_custom(custom_env: HashMap<String, String>) -> HashM
         env.insert("PATH".to_string(), shell_path);
     }
 
-    if let Ok(home) = std::env::var("HOME") {
+    // Set default CLAUDE_CONFIG_DIR if .claude-internal exists
+    let default_config_dir = if let Ok(home) = std::env::var("HOME") {
         let claude_internal = format!("{}/.claude-internal", home);
         if std::path::Path::new(&claude_internal).exists() {
-            env.insert("CLAUDE_CONFIG_DIR".to_string(), claude_internal);
+            println!("[ACP] Setting default CLAUDE_CONFIG_DIR to: {}", claude_internal);
+            env.insert("CLAUDE_CONFIG_DIR".to_string(), claude_internal.clone());
+            Some(claude_internal)
+        } else {
+            None
         }
+    } else {
+        None
+    };
+
+    // Override with custom environment variables (including custom CLAUDE_CONFIG_DIR)
+    for (key, value) in custom_env {
+        let final_value = if key == "CLAUDE_CONFIG_DIR" {
+            // Expand ~ to home directory
+            let expanded = expand_tilde(&value);
+            if let Some(ref default) = default_config_dir {
+                if default != &expanded {
+                    println!("[ACP] Overriding CLAUDE_CONFIG_DIR: {} -> {}", default, expanded);
+                }
+            } else {
+                println!("[ACP] Setting custom CLAUDE_CONFIG_DIR: {}", expanded);
+            }
+            expanded
+        } else {
+            value
+        };
+        env.insert(key, final_value);
     }
 
-    for (key, value) in custom_env {
-        env.insert(key, value);
+    // Log final CLAUDE_CONFIG_DIR
+    if let Some(config_dir) = env.get("CLAUDE_CONFIG_DIR") {
+        println!("[ACP] Final CLAUDE_CONFIG_DIR: {}", config_dir);
+    } else {
+        println!("[ACP] CLAUDE_CONFIG_DIR not set, Claude Code will use default (~/.claude)");
     }
 
     env
+}
+
+/// Expand ~ to home directory in a path string
+fn expand_tilde(path: &str) -> String {
+    if path.starts_with("~/") {
+        if let Ok(home) = std::env::var("HOME") {
+            return path.replacen("~", &home, 1);
+        }
+    } else if path == "~" {
+        if let Ok(home) = std::env::var("HOME") {
+            return home;
+        }
+    }
+    path.to_string()
 }
 
 // ========================
@@ -741,7 +784,11 @@ async fn run_acp_resume_connection(
             );
         }
 
+        println!("[ACP] Attempting to restore session: {} (cwd: {})", acp_session_id, cwd);
+        println!("[ACP] Agent supports loadSession: {}", supports_load);
+
         let config_options = if supports_load {
+            println!("[ACP] Trying session/load for {}", acp_session_id);
             match conn
                 .load_session(LoadSessionRequest::new(acp_session_id.clone(), cwd.clone()))
                 .await
@@ -755,10 +802,12 @@ async fn run_acp_resume_connection(
                         "[ACP] session/load failed for {}, falling back to session/resume: {:?}",
                         acp_session_id, e
                     );
+                    println!("[ACP] Trying session/resume for {}", acp_session_id);
                     let resume_response = conn
                         .resume_session(ResumeSessionRequest::new(acp_session_id.clone(), cwd.clone()))
                         .await
                         .map_err(|e| format!("session/resume failed: {:?}", e))?;
+                    println!("[ACP] Session resumed via session/resume for {}", acp_session_id);
                     resume_response.config_options
                 }
             }

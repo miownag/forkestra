@@ -98,6 +98,17 @@ impl ClaudeAdapter {
             env.insert("DISABLE_AUTHN".to_string(), "1".to_string());
         }
 
+        // Print command details for debugging
+        println!("[ClaudeAdapter] Executing command:");
+        println!("  Command: {} @zed-industries/claude-code-acp", npx_path.display());
+        println!("  Working directory: {}", worktree_path.display());
+        println!("  Environment variables:");
+        for (key, value) in &env {
+            if key.starts_with("CLAUDE_") || key == "DISABLE_AUTHN" || key == "PATH" {
+                println!("    {}={}", key, value);
+            }
+        }
+
         let mut child = tokio::process::Command::new(npx_path.as_os_str())
             .args(["@zed-industries/claude-code-acp"])
             .current_dir(worktree_path)
