@@ -11,7 +11,7 @@ use crate::error::{AppError, AppResult};
 use crate::managers::settings_manager::SettingsManager;
 use crate::managers::worktree_manager::WorktreeManager;
 use crate::models::{
-    AvailableCommand, CreateSessionRequest, ProviderSettings, ProviderType, Session, SessionStatus,
+    AvailableCommand, CreateSessionRequest, PlanEntry, ProviderSettings, ProviderType, Session, SessionStatus,
     SessionStatusEvent, StreamChunk,
 };
 use crate::providers::{ClaudeAdapter, KimiAdapter, ProviderAdapter};
@@ -125,6 +125,7 @@ impl SessionManager {
             model: None,
             available_models: vec![],
             available_commands: vec![],
+            plan_entries: vec![],
         };
 
         // Store session in memory
@@ -593,6 +594,14 @@ impl SessionManager {
         let mut sessions = self.sessions.write().await;
         if let Some(entry) = sessions.get_mut(session_id) {
             entry.session.available_commands = commands;
+        }
+    }
+
+    /// Update plan entries for a session
+    pub async fn update_session_plan(&self, session_id: &str, plan_entries: Vec<PlanEntry>) {
+        let mut sessions = self.sessions.write().await;
+        if let Some(entry) = sessions.get_mut(session_id) {
+            entry.session.plan_entries = plan_entries;
         }
     }
 

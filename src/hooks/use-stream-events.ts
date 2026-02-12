@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { useSelectorSessionStore } from "@/stores";
 import { useSessionStore } from "@/stores/session-storage";
-import type { StreamChunk, InteractionPrompt, SessionStatusEvent, AvailableCommandsEvent } from "@/types";
+import type { StreamChunk, InteractionPrompt, SessionStatusEvent, AvailableCommandsEvent, PlanUpdateEvent } from "@/types";
 
 /**
  * Flush all currently-streaming messages to the database.
@@ -37,11 +37,12 @@ function flushStreamingMessages() {
 }
 
 export function useStreamEvents() {
-  const { handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged, setAvailableCommands } = useSelectorSessionStore([
+  const { handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged, setAvailableCommands, setPlanEntries } = useSelectorSessionStore([
     "handleStreamChunk",
     "setInteractionPrompt",
     "handleSessionStatusChanged",
     "setAvailableCommands",
+    "setPlanEntries",
   ]);
 
   useEffect(() => {
@@ -51,6 +52,7 @@ export function useStreamEvents() {
     let unlistenPromptFn: (() => void) | null = null;
     let unlistenStatusFn: (() => void) | null = null;
     let unlistenCommandsFn: (() => void) | null = null;
+    let unlistenPlanFn: (() => void) | null = null;
 
     const setupListeners = async () => {
       console.log("[useStreamEvents] Starting listener setup...");
@@ -112,17 +114,31 @@ export function useStreamEvents() {
         }
       });
 
+      // Listen for plan updates
+      const unlistenPlan = await listen<PlanUpdateEvent>("plan-update", (event) => {
+        console.log("[useStreamEvents] Received plan-update:", event.payload.session_id, event.payload.entries.length, "entries");
+        if (isActive) {
+          setPlanEntries(
+            event.payload.session_id,
+            event.payload.message_id,
+            event.payload.entries,
+          );
+        }
+      });
+
       if (isActive) {
         unlistenStreamFn = unlistenStream;
         unlistenPromptFn = unlistenPrompt;
         unlistenStatusFn = unlistenStatus;
         unlistenCommandsFn = unlistenCommands;
+        unlistenPlanFn = unlistenPlan;
         console.log("[useStreamEvents] All listeners setup complete");
       } else {
         unlistenStream();
         unlistenPrompt();
         unlistenStatus();
         unlistenCommands();
+        unlistenPlan();
       }
     };
 
@@ -143,8 +159,11 @@ export function useStreamEvents() {
       if (unlistenCommandsFn) {
         unlistenCommandsFn();
       }
+      if (unlistenPlanFn) {
+        unlistenPlanFn();
+      }
     };
-  }, [handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged, setAvailableCommands]);
+  }, [handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged, setAvailableCommands, setPlanEntries]);
 
   // Flush streaming messages to DB on window close / refresh
   useEffect(() => {

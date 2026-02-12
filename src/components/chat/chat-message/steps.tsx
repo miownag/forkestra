@@ -2,6 +2,7 @@ import type {
   ChatMessage as ChatMessageType,
   MessagePart,
   ToolCallInfo,
+  PlanEntry,
 } from "@/types";
 import {
   ChainOfThought,
@@ -20,6 +21,7 @@ import {
   LuCircleSlash,
   LuMessageSquareText,
   LuCopy,
+  LuListTodo,
 } from "react-icons/lu";
 import { useState, useCallback } from "react";
 import { Components } from "react-markdown";
@@ -131,6 +133,92 @@ function TextStep({ content, isLast }: { content: string; isLast: boolean }) {
   );
 }
 
+function getPlanStatusIcon(status: PlanEntry["status"]) {
+  switch (status) {
+    case "completed":
+      return <LuCircleCheckBig className="size-3.5 text-green-500" />;
+    case "in_progress":
+      return <LuLoader className="size-3.5 animate-spin text-blue-500" />;
+    case "pending":
+      return <LuCircle className="size-3.5 text-muted-foreground" />;
+    default:
+      return <LuCircle className="size-3.5 text-muted-foreground" />;
+  }
+}
+
+function getPriorityColor(priority: PlanEntry["priority"]) {
+  switch (priority) {
+    case "high":
+      return "text-red-500";
+    case "medium":
+      return "text-yellow-500";
+    case "low":
+      return "text-blue-500";
+    default:
+      return "text-muted-foreground";
+  }
+}
+
+function PlanStep({
+  entries,
+  isLast,
+}: {
+  entries: PlanEntry[];
+  isLast: boolean;
+}) {
+  const completedCount = entries.filter((e) => e.status === "completed").length;
+  const totalCount = entries.length;
+
+  return (
+    <ChainOfThoughtStep defaultOpen={false} isLast={isLast}>
+      <ChainOfThoughtTrigger
+        leftIcon={<LuListTodo className="size-4 text-foreground" />}
+        swapIconOnHover={false}
+      >
+        <div className="flex items-center gap-2">
+          <span className="uppercase">Plan</span>
+          <span className="text-xs text-muted-foreground">
+            ({completedCount}/{totalCount})
+          </span>
+        </div>
+      </ChainOfThoughtTrigger>
+      <ChainOfThoughtContent>
+        <ChainOfThoughtItem>
+          <div className="space-y-2">
+            {entries.map((entry, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-2.5"
+              >
+                <div className="mt-0.5">{getPlanStatusIcon(entry.status)}</div>
+                <div className="flex-1 space-y-1">
+                  <div className="text-sm leading-relaxed text-foreground">
+                    {entry.content}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "text-xs font-medium uppercase",
+                        getPriorityColor(entry.priority),
+                      )}
+                    >
+                      {entry.priority}
+                    </span>
+                    <span className="text-xs text-muted-foreground">•</span>
+                    <span className="text-xs capitalize text-muted-foreground">
+                      {entry.status.replace("_", " ")}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </ChainOfThoughtItem>
+      </ChainOfThoughtContent>
+    </ChainOfThoughtStep>
+  );
+}
+
 function renderToolStep(tc: ToolCallInfo, isLast: boolean) {
   const hasContent = tc.content || tc.raw_input;
   return (
@@ -185,6 +273,7 @@ interface StepsProps {
 
 export function Steps({ message }: StepsProps) {
   const parts = message.parts;
+  const planEntries = message.plan_entries;
 
   // If no parts yet (legacy or loading), fall back to content + tool_calls
   if (!parts || parts.length === 0) {
@@ -199,7 +288,7 @@ export function Steps({ message }: StepsProps) {
       fallbackParts.push({ type: "text", content: message.content });
     }
 
-    if (fallbackParts.length === 0) {
+    if (fallbackParts.length === 0 && (!planEntries || planEntries.length === 0)) {
       if (message.is_streaming) {
         return <Loader variant="dots" className="ml-1 text-foreground" />;
       }
@@ -208,6 +297,9 @@ export function Steps({ message }: StepsProps) {
 
     return (
       <ChainOfThought>
+        {planEntries && planEntries.length > 0 && (
+          <PlanStep entries={planEntries} isLast={fallbackParts.length === 0} />
+        )}
         {fallbackParts.map((part, i) =>
           part.type === "text" ? (
             <TextStep
@@ -226,6 +318,9 @@ export function Steps({ message }: StepsProps) {
   return (
     <>
       <ChainOfThought>
+        {planEntries && planEntries.length > 0 && (
+          <PlanStep entries={planEntries} isLast={parts.length === 0} />
+        )}
         {parts.map((part, i) =>
           part.type === "text" ? (
             <TextStep

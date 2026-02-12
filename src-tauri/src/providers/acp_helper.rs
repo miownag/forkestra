@@ -26,7 +26,7 @@ use crate::models::{
     ClientCapabilities, ClientInfo, ContentBlock, FileSystemCapabilities,
     InitializeParams, InitializeResult, InteractionPrompt,
     JsonRpcRequest, JsonRpcResponse, ModelInfo, PendingPermission, PermissionOptionInfo,
-    ProviderType, SessionNewResult,
+    PlanUpdateEvent, ProviderType, SessionNewResult,
     SessionPromptParams, SessionRequestPermissionParams, SessionResumeResult,
     StreamChunk, StreamChunkType, ToolCallInfo,
 };
@@ -941,6 +941,34 @@ async fn handle_session_update_raw(
         }
         "mode_update" => {
             println!("[ACP] Received mode_update");
+        }
+        "plan" => {
+            // Parse plan entries from the update
+            let entries: Vec<crate::models::PlanEntry> = update
+                .get("entries")
+                .and_then(|v| serde_json::from_value(v.clone()).ok())
+                .unwrap_or_default();
+
+            println!(
+                "[ACP] Received plan update with {} entries",
+                entries.len()
+            );
+
+            // Store plan on the session so it survives frontend refreshes
+            if let Some(manager) = app_handle.try_state::<SessionManager>() {
+                manager.update_session_plan(session_id, entries.clone()).await;
+            }
+
+            // Emit event to frontend
+            let event = PlanUpdateEvent {
+                session_id: session_id.to_string(),
+                message_id: message_id.to_string(),
+                entries,
+            };
+
+            if let Err(e) = app_handle.emit("plan-update", &event) {
+                eprintln!("[ACP] Failed to emit plan-update event: {}", e);
+            }
         }
         _ => {
             println!("[ACP] Received unknown session update type: {}", update_type);
