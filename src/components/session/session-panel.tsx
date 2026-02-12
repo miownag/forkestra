@@ -4,21 +4,115 @@ import { TerminalPanel } from "@/components/terminal/terminal-panel";
 import { ActionToolbar } from "@/components/toolbar/action-toolbar";
 import { VscFolderOpened } from "react-icons/vsc";
 import { LuGitBranch } from "react-icons/lu";
+import { cn } from "@/lib/utils";
+
+interface SessionTabContentProps {
+  sessionId: string;
+  isActive: boolean;
+}
+
+function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
+  const { position } = useSelectorTerminalStore(["position"]);
+  const { sessions, creatingSessions } = useSelectorSessionStore([
+    "sessions",
+    "creatingSessions",
+  ]);
+
+  const session = sessions.find((s) => s.id === sessionId);
+  const isCreating =
+    session?.status === "creating" || creatingSessions.has(sessionId);
+
+  if (!session) return null;
+
+  return (
+    <div
+      className={cn(
+        "flex-1 flex h-full overflow-hidden",
+        !isActive && "hidden"
+      )}
+    >
+      {/* Main Content Area */}
+      <div
+        className="flex flex-col flex-1 min-w-0"
+        style={{
+          flexDirection: position === "right" ? "row" : "column",
+        }}
+      >
+        {/* Chat Area */}
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+          {/* Session Header */}
+          <div className="border-b px-4 py-3 flex items-center justify-between bg-muted/20 shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="min-w-0">
+                <h2 className="font-medium text-sm truncate">{session.name}</h2>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <LuGitBranch className="h-3 w-3" />
+                    {session.branch_name || "-"}
+                  </span>
+                  <span
+                    className="flex items-center gap-1 truncate"
+                    title={session.project_path || "-"}
+                  >
+                    <VscFolderOpened className="h-3 w-3 shrink-0" />
+                    <span className="truncate">
+                      {session.project_path.split("/").pop() || "-"}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Action Toolbar */}
+              <ActionToolbar
+                sessionId={session.id}
+                sessionCwd={session.worktree_path}
+              />
+
+              <span
+                className={`px-2 py-0.5 rounded text-xs font-medium ${
+                  session.status === "active"
+                    ? "bg-green-500/10 text-green-600"
+                    : isCreating
+                      ? "bg-yellow-500/10 text-yellow-600"
+                      : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {session.status === "active"
+                  ? "Active"
+                  : isCreating
+                    ? "Creating..."
+                    : session.status}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {session.provider === "claude" ? "Claude Code" : "Kimi Code"}
+              </span>
+            </div>
+          </div>
+
+          {/* Chat Window */}
+          <ChatWindow sessionId={session.id} />
+        </div>
+
+        {/* Terminal Panel */}
+        <TerminalPanel
+          sessionId={session.id}
+          sessionCwd={session.worktree_path}
+          isVisible={isActive}
+        />
+      </div>
+    </div>
+  );
+}
 
 export function SessionPanel() {
-  const { position } = useSelectorTerminalStore(["position"]);
-  const { sessions, activeSessionId, creatingSessions } =
-    useSelectorSessionStore([
-      "sessions",
-      "activeSessionId",
-      "creatingSessions",
-    ]);
+  const { openTabIds, activeSessionId, sessions } = useSelectorSessionStore([
+    "openTabIds",
+    "activeSessionId",
+    "sessions",
+  ]);
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
-  const isCreating =
-    activeSessionId &&
-    (activeSession?.status === "creating" ||
-      creatingSessions.has(activeSessionId));
 
   if (!activeSession) {
     return (
@@ -36,84 +130,14 @@ export function SessionPanel() {
   }
 
   return (
-    <div className="flex-1 flex h-full overflow-hidden">
-      {/* Main Content Area */}
-      <div
-        className="flex flex-col flex-1 min-w-0"
-        style={{
-          flexDirection: position === "right" ? "row" : "column",
-        }}
-      >
-        {/* Chat Area */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0">
-          {/* Session Header */}
-          <div className="border-b px-4 py-3 flex items-center justify-between bg-muted/20 shrink-0">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="min-w-0">
-                <h2 className="font-medium text-sm truncate">
-                  {activeSession.name}
-                </h2>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <LuGitBranch className="h-3 w-3" />
-                    {activeSession.branch_name || "-"}
-                  </span>
-                  <span
-                    className="flex items-center gap-1 truncate"
-                    title={activeSession.project_path || "-"}
-                  >
-                    <VscFolderOpened className="h-3 w-3 shrink-0" />
-                    <span className="truncate">
-                      {activeSession.project_path.split("/").pop() || "-"}
-                    </span>
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {/* Action Toolbar */}
-              <ActionToolbar
-                sessionId={activeSession.id}
-                sessionCwd={activeSession.worktree_path}
-              />
-
-              <span
-                className={`px-2 py-0.5 rounded text-xs font-medium ${
-                  activeSession.status === "active"
-                    ? "bg-green-500/10 text-green-600"
-                    : isCreating
-                      ? "bg-yellow-500/10 text-yellow-600"
-                      : "bg-muted text-muted-foreground"
-                }`}
-              >
-                {activeSession.status === "active"
-                  ? "Active"
-                  : isCreating
-                    ? "Creating..."
-                    : activeSession.status}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {activeSession.provider === "claude"
-                  ? "Claude Code"
-                  : "Kimi Code"}
-              </span>
-            </div>
-          </div>
-
-          {/* Chat Window */}
-          <ChatWindow sessionId={activeSession.id} />
-        </div>
-
-        {/* Terminal Panel - render for all sessions to preserve xterm buffers */}
-        {sessions.map((session) => (
-          <TerminalPanel
-            key={session.id}
-            sessionId={session.id}
-            sessionCwd={session.worktree_path}
-            isVisible={session.id === activeSessionId}
-          />
-        ))}
-      </div>
-    </div>
+    <>
+      {openTabIds.map((tabId) => (
+        <SessionTabContent
+          key={tabId}
+          sessionId={tabId}
+          isActive={tabId === activeSessionId}
+        />
+      ))}
+    </>
   );
 }
