@@ -9,7 +9,7 @@ use tokio::sync::{mpsc, Mutex};
 
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    ClaudeProviderSettings, ModeInfo, ModelInfo, ProviderInfo, ProviderType, StreamChunk,
+    ClaudeProviderSettings, ModeInfo, ModelInfo, PromptContent, ProviderInfo, ProviderType, StreamChunk,
 };
 use crate::providers::acp_client_sdk::{
     build_clean_env_with_custom, spawn_acp_connection, spawn_acp_resume_connection,
@@ -322,7 +322,7 @@ impl ProviderAdapter for ClaudeAdapter {
         self.config_options.clone()
     }
 
-    async fn send_message(&mut self, message: &str) -> AppResult<()> {
+    async fn send_message(&mut self, content: Vec<PromptContent>) -> AppResult<()> {
         let cmd_tx = self
             .cmd_tx
             .as_ref()
@@ -333,41 +333,59 @@ impl ProviderAdapter for ClaudeAdapter {
             .as_ref()
             .ok_or_else(|| AppError::Provider("ACP session not established".to_string()))?;
 
-        let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
-
-        // Check if this is a permission response (starts with an option_id)
+        // Check if this is a permission response (single text content with option_id)
         // The frontend sends the option_id directly as the message
-        // We determine if it's a permission response by trying to send it as one first
-        let cmd = AcpCommand::PermissionResponse {
-            option_id: message.trim().to_string(),
-            reply: reply_tx,
-        };
+        if content.len() == 1 {
+            if let PromptContent::Text { text } = &content[0] {
+                let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+                let cmd = AcpCommand::PermissionResponse {
+                    option_id: text.trim().to_string(),
+                    reply: reply_tx,
+                };
 
-        cmd_tx.send(cmd).await.map_err(|e| {
-            AppError::Provider(format!("Failed to send command: {}", e))
-        })?;
+                cmd_tx.send(cmd).await.map_err(|e| {
+                    AppError::Provider(format!("Failed to send command: {}", e))
+                })?;
 
-        match reply_rx.await {
-            Ok(Ok(())) => {
-                println!(
-                    "[ClaudeAdapter] Sent permission response: option_id={}",
-                    message.trim()
-                );
-                return Ok(());
-            }
-            Ok(Err(_)) => {
-                // No pending permission - treat as a normal prompt
-            }
-            Err(_) => {
-                return Err(AppError::Provider("Command channel closed".to_string()));
+                match reply_rx.await {
+                    Ok(Ok(())) => {
+                        println!(
+                            "[ClaudeAdapter] Sent permission response: option_id={}",
+                            text.trim()
+                        );
+                        return Ok(());
+                    }
+                    Ok(Err(_)) => {
+                        // No pending permission - treat as a normal prompt
+                    }
+                    Err(_) => {
+                        return Err(AppError::Provider("Command channel closed".to_string()));
+                    }
+                }
             }
         }
+
+        // Convert PromptContent to ACP ContentBlock
+        use agent_client_protocol::{ContentBlock, ImageContent as AcpImageContent, TextContent};
+        let content_blocks: Vec<ContentBlock> = content
+            .into_iter()
+            .map(|c| match c {
+                PromptContent::Text { text } => ContentBlock::Text(TextContent::new(text)),
+                PromptContent::Image(img) => {
+                    let mut image_content = AcpImageContent::new(img.data, img.mime_type);
+                    if let Some(uri) = img.uri {
+                        image_content = image_content.uri(uri);
+                    }
+                    ContentBlock::Image(image_content)
+                }
+            })
+            .collect();
 
         // Normal message: send as prompt
         let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
         let cmd = AcpCommand::Prompt {
             session_id: acp_session_id.clone(),
-            message: message.to_string(),
+            content: content_blocks,
             reply: reply_tx,
         };
 

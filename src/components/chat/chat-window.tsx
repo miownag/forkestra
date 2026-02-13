@@ -5,7 +5,7 @@ import { ChatInput } from "./chat-input";
 import { InteractionPromptPanel } from "./interaction-prompt";
 import { Button } from "@/components/ui/button";
 import PROVIDER_ICONS_MAP from "@/constants/icons";
-import { ProviderType } from "@/types";
+import { ProviderType, PromptContent } from "@/types";
 import { Loader } from "@/components/prompt-kit/loader";
 import { VscLoading } from "react-icons/vsc";
 import {
@@ -74,10 +74,13 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
   const isWaitingForResponse =
     isLoading && lastMessage && lastMessage.role === "user";
 
-  const handleSend = async (content: string) => {
+  const handleSend = async (content: PromptContent[]) => {
     if (hasInteractionPrompt) {
-      // If there's an interaction prompt, send the content as interaction response
-      await sendInteractionResponse(sessionId, content);
+      // If there's an interaction prompt, send the first text content as interaction response
+      const textContent = content.find((c) => c.type === "text");
+      if (textContent && textContent.type === "text") {
+        await sendInteractionResponse(sessionId, textContent.text);
+      }
     } else {
       // Normal message send
       await sendMessage(sessionId, content);

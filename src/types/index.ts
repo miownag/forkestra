@@ -150,6 +150,10 @@ export interface ImageContent {
   uri?: string;
 }
 
+export type PromptContent =
+  | { type: "text"; text: string }
+  | { type: "image"; data: string; mimeType: string; uri?: string };
+
 export interface ChatMessage {
   id: string;
   session_id: string;

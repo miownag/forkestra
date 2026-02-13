@@ -2,7 +2,7 @@ use std::path::Path;
 use tauri::State;
 
 use crate::managers::{SessionManager, WorktreeManager};
-use crate::models::{ChatMessage, CreateSessionRequest, Session};
+use crate::models::{ChatMessage, CreateSessionRequest, PromptContent, Session};
 
 #[tauri::command]
 pub async fn create_session(
@@ -35,10 +35,10 @@ pub async fn get_session(
 pub async fn send_message(
     manager: State<'_, SessionManager>,
     session_id: String,
-    message: String,
+    content: Vec<PromptContent>,
 ) -> Result<(), String> {
     manager
-        .send_message(&session_id, &message)
+        .send_message(&session_id, content)
         .await
         .map_err(|e| e.to_string())
 }

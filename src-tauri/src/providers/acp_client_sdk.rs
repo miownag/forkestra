@@ -23,7 +23,7 @@ use crate::models::{
 pub enum AcpCommand {
     Prompt {
         session_id: String,
-        message: String,
+        content: Vec<ContentBlock>,
         reply: oneshot::Sender<Result<(), String>>,
     },
     Cancel {
@@ -930,7 +930,7 @@ async fn run_command_loop(
         tokio::select! {
             cmd = cmd_rx.recv() => {
                 match cmd {
-                    Some(AcpCommand::Prompt { session_id: acp_sid, message, reply }) => {
+                    Some(AcpCommand::Prompt { session_id: acp_sid, content, reply }) => {
                         {
                             let mut msg_id = current_message_id.lock().await;
                             *msg_id = uuid::Uuid::new_v4().to_string();
@@ -938,7 +938,7 @@ async fn run_command_loop(
 
                         let prompt = PromptRequest::new(
                             SessionId::new(&*acp_sid),
-                            vec![ContentBlock::Text(TextContent::new(message))],
+                            content,
                         );
 
                         // Spawn prompt in background so Cancel can be processed immediately

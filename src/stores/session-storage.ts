@@ -13,6 +13,7 @@ import type {
   AvailableCommand,
   PlanEntry,
   ConfigOption,
+  PromptContent,
 } from "@/types";
 
 interface PermissionOption {
@@ -41,7 +42,7 @@ interface SessionState {
   streamingSessions: Set<string>;
   resumingSessions: Set<string>;
   creatingSessions: Set<string>; // Track sessions currently being created
-  messageQueue: Record<string, string[]>; // Queue messages for creating sessions
+  messageQueue: Record<string, PromptContent[][]>; // Queue messages for creating sessions
   interactionPrompts: Record<string, InteractionPrompt | null>;
   error: string | null;
 
@@ -54,7 +55,7 @@ interface SessionState {
   closeOtherTabs: (sessionId: string) => void;
   reorderTab: (oldIndex: number, newIndex: number) => void;
   loadSessionMessages: (sessionId: string) => Promise<void>;
-  sendMessage: (sessionId: string, message: string) => Promise<void>;
+  sendMessage: (sessionId: string, content: PromptContent[]) => Promise<void>;
   stopStreaming: (sessionId: string) => void;
   sendInteractionResponse: (
     sessionId: string,
@@ -258,18 +259,41 @@ export const useSessionStore = create<SessionState>()(
           }
         },
 
-        sendMessage: async (sessionId, message) => {
+        sendMessage: async (sessionId, content) => {
           try {
             // Check if session is still being created
             const state = get();
             const session = state.sessions.find((s) => s.id === sessionId);
+
+            // Extract text message for display (combine all text content)
+            const textMessage = content
+              .filter((c) => c.type === "text")
+              .map((c) => (c.type === "text" ? c.text : ""))
+              .join("\n")
+              .trim();
+
+            // Convert PromptContent to MessagePart for storage
+            const parts: MessagePart[] = content.map((c) => {
+              if (c.type === "text") {
+                return { type: "text", content: c.text };
+              } else {
+                return {
+                  type: "image",
+                  content: {
+                    data: c.data,
+                    mimeType: c.mimeType,
+                    uri: c.uri,
+                  },
+                };
+              }
+            });
 
             // If session is still creating, queue the message optimistically
             if (session?.status === "creating") {
               set((state) => ({
                 messageQueue: {
                   ...state.messageQueue,
-                  [sessionId]: [...(state.messageQueue[sessionId] || []), message],
+                  [sessionId]: [...(state.messageQueue[sessionId] || []), content],
                 },
               }));
 
@@ -278,8 +302,9 @@ export const useSessionStore = create<SessionState>()(
                 id: crypto.randomUUID(),
                 session_id: sessionId,
                 role: "user",
-                content: message,
+                content: textMessage || "[Image]",
                 content_type: "text",
+                parts,
                 timestamp: new Date().toISOString(),
                 is_streaming: false,
               };
@@ -306,8 +331,9 @@ export const useSessionStore = create<SessionState>()(
               id: crypto.randomUUID(),
               session_id: sessionId,
               role: "user",
-              content: message,
+              content: textMessage || "[Image]",
               content_type: "text",
+              parts,
               timestamp: new Date().toISOString(),
               is_streaming: false,
             };
@@ -319,8 +345,8 @@ export const useSessionStore = create<SessionState>()(
             });
 
             // Auto-rename session if it's the first message and has default name
-            if (isFirstMessage && hasDefaultName) {
-              const newName = message.trim().slice(0, SESSION_NAME_MAX_LENGTH);
+            if (isFirstMessage && hasDefaultName && textMessage) {
+              const newName = textMessage.trim().slice(0, SESSION_NAME_MAX_LENGTH);
               if (newName) {
                 // Fire and forget - don't block on rename
                 get()
@@ -332,7 +358,7 @@ export const useSessionStore = create<SessionState>()(
             }
 
             // Send to backend
-            await invoke("send_message", { sessionId, message });
+            await invoke("send_message", { sessionId, content });
           } catch (error) {
             set({ error: String(error) });
           }

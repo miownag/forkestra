@@ -6,7 +6,7 @@ use tauri::AppHandle;
 use tokio::sync::mpsc;
 
 use crate::error::{AppError, AppResult};
-use crate::models::{ModeInfo, ModelInfo, ProviderInfo, ProviderType, StreamChunk};
+use crate::models::{ModeInfo, ModelInfo, PromptContent, ProviderInfo, ProviderType, StreamChunk};
 
 #[async_trait]
 pub trait ProviderAdapter: Send + Sync {
@@ -75,7 +75,7 @@ pub trait ProviderAdapter: Send + Sync {
     }
 
     /// Send a message to the CLI
-    async fn send_message(&mut self, message: &str) -> AppResult<()>;
+    async fn send_message(&mut self, content: Vec<PromptContent>) -> AppResult<()>;
 
     /// Set the model for the current session
     async fn set_model(&mut self, model_id: &str) -> AppResult<()>;

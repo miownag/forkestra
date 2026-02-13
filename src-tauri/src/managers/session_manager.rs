@@ -11,7 +11,7 @@ use crate::error::{AppError, AppResult};
 use crate::managers::settings_manager::SettingsManager;
 use crate::managers::worktree_manager::WorktreeManager;
 use crate::models::{
-    AvailableCommand, CreateSessionRequest, PlanEntry, ProviderSettings, ProviderType, Session, SessionStatus,
+    AvailableCommand, CreateSessionRequest, PlanEntry, PromptContent, ProviderSettings, ProviderType, Session, SessionStatus,
     SessionStatusEvent, StreamChunk,
 };
 use crate::providers::{ClaudeAdapter, KimiAdapter, ProviderAdapter};
@@ -330,7 +330,7 @@ impl SessionManager {
     }
 
     /// Send a message to a session
-    pub async fn send_message(&self, session_id: &str, message: &str) -> AppResult<()> {
+    pub async fn send_message(&self, session_id: &str, content: Vec<PromptContent>) -> AppResult<()> {
         // Get adapter clone
         let adapter = {
             let sessions = self.sessions.read().await;
@@ -339,7 +339,7 @@ impl SessionManager {
 
         if let Some(adapter) = adapter {
             let mut adapter = adapter.lock().await;
-            adapter.send_message(message).await?;
+            adapter.send_message(content).await?;
             Ok(())
         } else {
             Err(AppError::NotFound(format!(
@@ -640,7 +640,7 @@ impl SessionManager {
 
         if let Some(adapter) = adapter {
             let mut adapter = adapter.lock().await;
-            adapter.send_message(response).await?;
+            adapter.send_message(vec![PromptContent::Text { text: response.to_string() }]).await?;
             Ok(())
         } else {
             Err(AppError::NotFound(format!(
