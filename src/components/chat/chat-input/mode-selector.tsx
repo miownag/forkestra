@@ -6,7 +6,8 @@ import {
 import { useSelectorSessionStore } from "@/stores";
 import { Session } from "@/types";
 import { FC, useState } from "react";
-import { LuCheck, LuLayers } from "react-icons/lu";
+import { LuCheck } from "react-icons/lu";
+import { Layer } from "iconsax-reactjs";
 
 interface IProps {
   session?: Session;
@@ -40,7 +41,7 @@ const ModeSelector: FC<IProps> = ({ session }) => {
       <PopoverTrigger asChild>
         {currentMode ? (
           <button className="flex items-center gap-1 p-1.5 rounded-md cursor-pointer text-muted-foreground hover:bg-secondary-foreground/5!">
-            <LuLayers />
+            <Layer className="size-4" />
             <span className="text-xs">{currentMode.display_name}</span>
           </button>
         ) : (

@@ -3,9 +3,11 @@ import { invoke } from "@tauri-apps/api/core";
 import CodeMirror from "@uiw/react-codemirror";
 import { json } from "@codemirror/lang-json";
 import { Button } from "@/components/ui/button";
-import { VscCheck, VscClose, VscWarning, VscRefresh, VscFolder } from "react-icons/vsc";
+import { LuFolderOpen } from "react-icons/lu";
 import { Loader } from "@/components/prompt-kit/loader";
 import { useSelectorSettingsStore, useSettingsStore } from "@/stores";
+import { Refresh, Warning2 } from "iconsax-reactjs";
+import { VscCheck, VscClose } from "react-icons/vsc";
 
 export function GlobalSettingsEditor() {
   const [jsonText, setJsonText] = useState("");
@@ -102,7 +104,7 @@ export function GlobalSettingsEditor() {
         <div>
           <h3 className="text-lg font-semibold">Global Settings</h3>
           <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-            <VscFolder className="h-3 w-3" />
+            <LuFolderOpen className="h-3 w-3" />
             {settingsPath}
           </div>
         </div>
@@ -110,9 +112,10 @@ export function GlobalSettingsEditor() {
           variant="outline"
           size="sm"
           onClick={handleReload}
+          className="[&_svg]:size-3"
           disabled={isSaving}
         >
-          <VscRefresh className="h-4 w-4 mr-2" />
+          <Refresh />
           Reload from Disk
         </Button>
       </div>
@@ -153,7 +156,10 @@ export function GlobalSettingsEditor() {
       {/* Error Message */}
       {error && (
         <div className="flex items-start gap-2 p-3 rounded-lg border border-destructive/50 bg-destructive/10">
-          <VscWarning className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+          <Warning2
+            variant="Bold"
+            className="h-5 w-5 text-destructive mt-0.5 shrink-0"
+          />
           <div className="flex-1">
             <p className="text-sm font-medium text-destructive">Invalid JSON</p>
             <p className="text-xs text-destructive/80 mt-1">{error}</p>

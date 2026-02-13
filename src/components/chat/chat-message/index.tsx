@@ -14,11 +14,11 @@ export function ChatMessage({ message }: ChatMessageProps) {
       <div
         className={cn(
           "max-w-full rounded-lg px-4 py-3",
-          isUser && "bg-primary text-primary-foreground",
+          isUser && "bg-primary text-primary-foreground"
         )}
       >
         {isUser ? (
-          <div className="max-w-none">{message.content}</div>
+          <p className="max-w-none">{message.content}</p>
         ) : (
           <Steps message={message} />
         )}

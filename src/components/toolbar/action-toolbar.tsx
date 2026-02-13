@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { VscTerminal } from "react-icons/vsc";
-import { TbBrandSafari } from "react-icons/tb";
+import { HiOutlineTerminal } from "react-icons/hi";
+// import { TbBrandSafari } from "react-icons/tb";
 import { cn } from "@/lib/utils";
 import { useSelectorTerminalStore } from "@/stores/terminal-store";
 
@@ -34,18 +34,18 @@ export function ActionToolbar({ sessionId, sessionCwd }: ActionToolbarProps) {
         variant="ghost"
         size="icon"
         className={cn(
-          "w-8 h-8 shrink-0 [&_svg]:size-4 rounded-md",
+          "w-8 h-8 shrink-0 [&_svg]:size-4.5 rounded-md",
           panelOpen
             ? "bg-accent text-accent-foreground"
-            : "text-muted-foreground hover:text-foreground",
+            : "text-muted-foreground hover:text-foreground"
         )}
         onClick={handleTerminalClick}
         title="terminal"
       >
-        <VscTerminal />
+        <HiOutlineTerminal />
       </Button>
 
-      <Button
+      {/* <Button
         variant="ghost"
         size="icon"
         className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-4 rounded-md hover:text-foreground"
@@ -56,7 +56,7 @@ export function ActionToolbar({ sessionId, sessionCwd }: ActionToolbarProps) {
         title="webview"
       >
         <TbBrandSafari />
-      </Button>
+      </Button> */}
     </div>
   );
 }

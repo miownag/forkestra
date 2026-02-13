@@ -38,6 +38,7 @@
         "clsx": "^2.1.1",
         "cmdk": "^1.1.1",
         "es-toolkit": "^1.44.0",
+        "iconsax-reactjs": "^0.0.8",
         "lucide-react": "^0.563.0",
         "mermaid": "^11.12.2",
         "react": "^19.1.0",
@@ -1075,6 +1076,8 @@
     "html-url-attributes": ["html-url-attributes@3.0.1", "https://mirrors.tencent.com/npm/html-url-attributes/-/html-url-attributes-3.0.1.tgz", {}, "sha512-ol6UPyBWqsrO6EJySPz2O7ZSr856WDrEzM5zMqp+FJJLGMW35cLYmmZnl0vztAZxRUoNZJFTCohfjuIJ8I4QBQ=="],
 
     "html-void-elements": ["html-void-elements@3.0.0", "", {}, "sha512-bEqo66MRXsUGxWHV5IP0PUiAWwoEjba4VCzg0LjFJBpchPaTfyfCKTG6bc5F8ucKec3q5y6qOdGyYTSBEvhCrg=="],
+
+    "iconsax-reactjs": ["iconsax-reactjs@0.0.8", "https://mirrors.tencent.com/npm/iconsax-reactjs/-/iconsax-reactjs-0.0.8.tgz", { "peerDependencies": { "react": "*" } }, "sha512-cb+uTMxbkSFNbu8ZclX7BWQVfOWQt8+m/PsDjnsm/H+mcYrnfTYMjHxiof1FB43k7UAgt1ds+0oFeMVKdqyslw=="],
 
     "iconv-lite": ["iconv-lite@0.6.3", "", { "dependencies": { "safer-buffer": ">= 2.1.2 < 3.0.0" } }, "sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw=="],
 

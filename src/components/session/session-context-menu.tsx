@@ -1,5 +1,5 @@
 import { useState, forwardRef, useImperativeHandle } from "react";
-import { VscEdit, VscTrash, VscAdd } from "react-icons/vsc";
+import { AddSquare, Edit2, Trash } from "iconsax-reactjs";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -100,12 +100,12 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
           onClick={() => setShowQuickCreateDialog(true)}
           className="cursor-pointer"
         >
-          <VscAdd className="mr-2 h-4 w-4" />
+          <AddSquare className="mr-2 h-4 w-4" />
           Quick create
           <ContextMenuShortcut>⌘⌥N</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuItem onClick={openRenameDialog} className="cursor-pointer">
-          <VscEdit className="mr-2 h-4 w-4" />
+          <Edit2 className="mr-2 h-4 w-4" />
           Rename
           <ContextMenuShortcut>⌘⌥R</ContextMenuShortcut>
         </ContextMenuItem>
@@ -114,7 +114,7 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
           onClick={() => setShowDeleteDialog(true)}
           className="text-destructive focus:text-destructive cursor-pointer"
         >
-          <VscTrash className="mr-2 h-4 w-4" />
+          <Trash className="mr-2 h-4 w-4" />
           Delete
           <ContextMenuShortcut>⌘⌥⌫</ContextMenuShortcut>
         </ContextMenuItem>
@@ -130,14 +130,14 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
               className={cn(
                 "flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-md group relative cursor-default",
                 isActive ? "bg-muted text-foreground" : "hover:bg-muted",
-                !isSessionActive && "opacity-50",
+                !isSessionActive && "opacity-50"
               )}
             >
               <div className="flex-1 min-w-0">
                 <div
                   className={cn(
                     "font-medium truncate pr-6 text-xs flex items-center gap-1.5",
-                    session.is_local ? "text-local" : "text-worktree",
+                    session.is_local ? "text-local" : "text-worktree"
                   )}
                 >
                   <ProviderIcon.Color size={12} />
@@ -216,7 +216,7 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
         />
       </div>
     );
-  },
+  }
 );
 
 SessionItem.displayName = "SessionItem";

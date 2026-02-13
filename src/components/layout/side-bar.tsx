@@ -1,6 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { VscSettingsGear } from "react-icons/vsc";
-import { IoCreateOutline } from "react-icons/io5";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -23,8 +21,13 @@ import { cn } from "@/lib/utils";
 import type { Session } from "@/types";
 import { useStreamEvents } from "@/hooks/use-stream-events";
 import { useRouter, useLocation } from "@tanstack/react-router";
-import { PiSidebar } from "react-icons/pi";
-import { FaCaretRight, FaCaretDown } from "react-icons/fa";
+import {
+  SidebarLeft,
+  Edit,
+  ArrowRight2,
+  ArrowDown2,
+  Setting5,
+} from "iconsax-reactjs";
 
 export function Sidebar() {
   useStreamEvents();
@@ -182,18 +185,15 @@ export function Sidebar() {
       {!isFullscreen && (
         <div
           data-tauri-drag-region
-          className={cn(
-            "shrink-0 h-13 z-50 flex items-center pr-4 justify-end",
-            "pl-24"
-          )}
+          className="shrink-0 h-13 z-50 flex items-center pr-4 justify-end pl-24"
         >
           <Button
             variant="ghost"
             size="icon"
-            className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-5"
+            className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-4.5 rounded-xl"
             onClick={toggleSidebar}
           >
-            <PiSidebar />
+            <SidebarLeft />
           </Button>
         </div>
       )}
@@ -227,7 +227,7 @@ export function Sidebar() {
               className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-5 self-start"
               onClick={toggleSidebar}
             >
-              <PiSidebar />
+              <SidebarLeft />
             </Button>
           )}
         </div>
@@ -239,7 +239,7 @@ export function Sidebar() {
               <TooltipTrigger asChild>
                 <div className="w-full cursor-not-allowed">
                   <Button className="w-full select-none" size="sm" disabled>
-                    <IoCreateOutline className="-mt-0.5" />
+                    <Edit className="-mt-0.5" />
                     New Session
                     <span className="ml-auto text-xs opacity-75 select-none">
                       ⌘ N
@@ -257,7 +257,7 @@ export function Sidebar() {
               className="w-full select-none"
               size="sm"
             >
-              <IoCreateOutline className="-mt-0.5" />
+              <Edit className="-mt-0.5" />
               New Session
               <span className="ml-auto text-xs opacity-75 select-none">
                 ⌘ N
@@ -283,13 +283,19 @@ export function Sidebar() {
               return (
                 <div key={projectPath} className="pt-2">
                   <div
-                    className="flex items-center text-xs font-medium text-muted-foreground px-2 py-1 tracking-wider whitespace-nowrap mb-1 cursor-pointer select-none hover:text-foreground transition-colors"
+                    className="flex items-center text-[0.8rem] font-medium text-muted-foreground px-2 py-1 tracking-wider whitespace-nowrap mb-1 cursor-pointer select-none hover:text-foreground transition-colors"
                     onClick={() => toggleGroup(projectPath)}
                   >
                     {isCollapsed ? (
-                      <FaCaretRight className="mr-1 h-3 w-3 shrink-0" />
+                      <ArrowRight2
+                        variant="Bold"
+                        className="mr-1 h-3.5 w-3.5 shrink-0"
+                      />
                     ) : (
-                      <FaCaretDown className="mr-1 h-3 w-3 shrink-0" />
+                      <ArrowDown2
+                        variant="Bold"
+                        className="mr-1 h-3.5 w-3.5 shrink-0"
+                      />
                     )}
                     <span className="truncate" title={projectPath}>
                       {projectName}
@@ -320,7 +326,7 @@ export function Sidebar() {
             className="w-full duration-0"
             size="sm"
           >
-            <VscSettingsGear className="mr-1 h-4 w-4" />
+            <Setting5 className="mr-1 h-4 w-4" />
             Settings
           </Button>
         </div>

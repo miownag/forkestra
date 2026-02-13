@@ -2,8 +2,7 @@ import { useSelectorTerminalStore, useSelectorSessionStore } from "@/stores";
 import { ChatWindow } from "@/components/chat/chat-window";
 import { TerminalPanel } from "@/components/terminal/terminal-panel";
 import { ActionToolbar } from "@/components/toolbar/action-toolbar";
-import { VscFolderOpened } from "react-icons/vsc";
-import { LuGitBranch } from "react-icons/lu";
+import { LuGitBranch, LuFolderOpen } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 
 interface SessionTabContentProps {
@@ -54,7 +53,7 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
                     className="flex items-center gap-1 truncate"
                     title={session.project_path || "-"}
                   >
-                    <VscFolderOpened className="h-3 w-3 shrink-0" />
+                    <LuFolderOpen className="h-3 w-3 shrink-0" />
                     <span className="truncate">
                       {session.project_path.split("/").pop() || "-"}
                     </span>
@@ -83,9 +82,6 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
                   : isCreating
                     ? "Creating..."
                     : session.status}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {session.provider === "claude" ? "Claude Code" : "Kimi Code"}
               </span>
             </div>
           </div>

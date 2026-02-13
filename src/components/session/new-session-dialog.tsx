@@ -27,7 +27,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { BranchSearchSelect } from "./branch-search-select";
 import type { ProviderType } from "@/types";
-import { VscFolder } from "react-icons/vsc";
+import { LuFolderGit2 } from "react-icons/lu";
 import PROVIDER_ICONS_MAP from "@/constants/icons";
 
 interface NewSessionDialogProps {
@@ -202,7 +202,7 @@ export function NewSessionDialog({
                 size="icon"
                 onClick={handleSelectFolder}
               >
-                <VscFolder className="h-4 w-4" />
+                <LuFolderGit2 />
               </Button>
             </div>
             {!useLocal && (

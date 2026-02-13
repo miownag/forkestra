@@ -4,12 +4,12 @@ import {
   CodeBlockGroup,
 } from "@/components/prompt-kit/code-block";
 import { Button } from "@/components/ui/button";
-import { LuCheck, LuCopy } from "react-icons/lu";
 import { BiCollapseVertical, BiExpandVertical } from "react-icons/bi";
 import { useState } from "react";
 import { useSelectorSettingsStore } from "@/stores";
 import { cn } from "@/lib/utils";
 import { MermaidDiagram } from "@/components/chat/chat-message/mermaid-diagram";
+import { Copy, CopySuccess } from "iconsax-reactjs";
 
 export function CodeBlockWithHeader({
   language,
@@ -23,6 +23,7 @@ export function CodeBlockWithHeader({
   const [collapsed, setCollapsed] = useState(false);
 
   const handleCopy = () => {
+    if (copied) return;
     navigator.clipboard.writeText(children);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -35,7 +36,7 @@ export function CodeBlockWithHeader({
           <button
             className={cn(
               "flex items-center text-muted-foreground text-sm gap-1.5",
-              "hover:bg-muted/50 rounded-sm px-1.5 py-0.5 cursor-pointer",
+              "hover:bg-muted/50 rounded-sm px-1.5 py-0.5 cursor-pointer"
             )}
             onClick={() => setCollapsed((pre) => !pre)}
             title={collapsed ? "Expand" : "Collapse"}
@@ -46,14 +47,13 @@ export function CodeBlockWithHeader({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-muted-foreground"
+            className={cn(
+              "h-8 w-8 text-muted-foreground",
+              copied && "cursor-default hover:bg-transparent"
+            )}
             onClick={handleCopy}
           >
-            {copied ? (
-              <LuCheck className="h-4 w-4 text-green-500" />
-            ) : (
-              <LuCopy className="h-4 w-4" />
-            )}
+            {copied ? <CopySuccess className="text-green-500" /> : <Copy />}
           </Button>
         </CodeBlockGroup>
         {!collapsed &&

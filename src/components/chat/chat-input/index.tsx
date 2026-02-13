@@ -4,8 +4,6 @@ import {
   PromptInputActions,
   PromptInputTextarea,
 } from "@/components/prompt-kit/prompt-input";
-import { Button } from "@/components/ui/button";
-import { LuArrowUp, LuSquare } from "react-icons/lu";
 import { GrAttachment } from "react-icons/gr";
 import { useState, useCallback } from "react";
 import type { Session, AvailableCommand } from "@/types";
@@ -13,6 +11,7 @@ import { TbSlash } from "react-icons/tb";
 import { SlashCommandSelector } from "./slash-command-selector";
 import { ModelSelector } from "./model-selector";
 import { ModeSelector } from "./mode-selector";
+import { Send2, StopCircle } from "iconsax-reactjs";
 
 export function ChatInput({
   onSend,
@@ -144,7 +143,7 @@ export function ChatInput({
                 className="hidden"
                 id="select-file-path"
               />
-              <GrAttachment className="text-primary size-4" />
+              <GrAttachment className="size-4" />
             </label>
           </PromptInputAction>
           <SlashCommandSelector
@@ -160,26 +159,20 @@ export function ChatInput({
               onClick={handleSlashButtonClick}
               className="hover:bg-secondary-foreground/10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-2xl text-muted-foreground"
             >
-              <TbSlash className="text-primary size-5" />
+              <TbSlash className="size-5" />
             </button>
           </SlashCommandSelector>
-          <PromptInputAction
-            tooltip={isLoading ? "Stop generation" : "Send message"}
+          <button
+            className="h-8 w-8 hover:text-primary/70 rounded-full cursor-pointer text-primary"
+            onClick={isLoading ? onStop : handleOnSubmit}
+            disabled={!isLoading && disabled}
           >
-            <Button
-              variant="default"
-              size="icon"
-              className="h-8 w-8 rounded-full"
-              onClick={isLoading ? onStop : handleOnSubmit}
-              disabled={!isLoading && disabled}
-            >
-              {isLoading ? (
-                <LuSquare className="size-4 fill-current" />
-              ) : (
-                <LuArrowUp className="size-5" />
-              )}
-            </Button>
-          </PromptInputAction>
+            {isLoading ? (
+              <StopCircle variant="Bold" className="size-7" />
+            ) : (
+              <Send2 variant="Bold" className="size-6" />
+            )}
+          </button>
         </div>
       </PromptInputActions>
     </PromptInput>

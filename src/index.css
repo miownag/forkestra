@@ -76,20 +76,39 @@ body {
   scrollbar-width: thin;
 }
 
-img, a, button {
+img,
+a,
+button {
   -webkit-user-drag: none;
 }
 
-p, span, h1, h2, h3, h4, h5, h6,
-li, td, th, dt, dd, label,
-article, section, blockquote,
-pre, code,
+p,
+span,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+li,
+td,
+th,
+dt,
+dd,
+label,
+article,
+section,
+blockquote,
+pre,
+code,
 .selectable {
   -webkit-user-select: text;
   user-select: text;
 }
 
-input, textarea, [contenteditable="true"] {
+input,
+textarea,
+[contenteditable="true"] {
   -webkit-user-select: auto;
   user-select: auto;
   -webkit-touch-callout: default;

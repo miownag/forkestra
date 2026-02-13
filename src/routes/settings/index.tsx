@@ -17,7 +17,7 @@ import useSelectorSettingsStore from "@/stores/settings-store";
 import { ProviderSettingsCard } from "@/components/settings/provider-settings-card";
 import { GlobalSettingsEditor } from "@/components/settings/global-settings-editor";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { VscRefresh, VscArrowLeft, VscFolder } from "react-icons/vsc";
+import { VscArrowLeft, VscFolder } from "react-icons/vsc";
 import type { Theme, FontSize, AccentColor, DefaultWorkMode } from "@/types";
 import { ACCENT_COLOR_OPTIONS } from "@/constants/theme";
 import { Separator } from "@/components/ui/separator";
@@ -30,8 +30,7 @@ import {
 } from "@/components/layout/title-bar-controls";
 import { IoBuildOutline } from "react-icons/io5";
 import { TbCodeDots } from "react-icons/tb";
-
-
+import { Refresh } from "iconsax-reactjs";
 
 export const Route = createFileRoute("/settings/")({
   component: RouteComponent,
@@ -45,7 +44,8 @@ function RouteComponent() {
     "isDetecting",
     "detectProviders",
   ]);
-  const { loadSettings: loadProviderSettings } = useSelectorProviderSettingsStore(["loadSettings"]);
+  const { loadSettings: loadProviderSettings } =
+    useSelectorProviderSettingsStore(["loadSettings"]);
   const {
     theme,
     fontSize,
@@ -107,7 +107,7 @@ function RouteComponent() {
         data-tauri-drag-region
         className={cn(
           "shrink-0 h-13 z-50 flex items-center pr-4 justify-between w-full bg-muted/20",
-          isFullscreen ? "pl-4" : "pl-2",
+          isFullscreen ? "pl-4" : "pl-24"
         )}
       >
         {sidebarCollapsed ? <SidebarToggleButton /> : <div />}
@@ -276,7 +276,9 @@ function RouteComponent() {
                   {/* Accent Color Setting */}
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label className="text-sm font-medium">Accent Color</Label>
+                      <Label className="text-sm font-medium">
+                        Accent Color
+                      </Label>
                       <p className="text-xs text-muted-foreground">
                         Choose your preferred accent color theme
                       </p>
@@ -328,12 +330,11 @@ function RouteComponent() {
                   <Button
                     variant="outline"
                     size="sm"
+                    className="[&_svg]:size-3"
                     onClick={detectProviders}
                     disabled={isDetecting}
                   >
-                    <VscRefresh
-                      className={`h-4 w-4 mr-2 ${isDetecting ? "animate-spin" : ""}`}
-                    />
+                    <Refresh className={cn(isDetecting && "animate-spin")} />
                     Refresh
                   </Button>
                 </div>
@@ -350,8 +351,8 @@ function RouteComponent() {
 
                 {providers.every((p) => !p.installed) && (
                   <p className="text-xs text-muted-foreground mt-4 p-3 bg-yellow-500/10 rounded-lg">
-                    No AI CLI tools detected. Install Claude Code or Kimi Code to
-                    get started:
+                    No AI CLI tools detected. Install Claude Code or Kimi Code
+                    to get started:
                     <br />
                     <code className="text-xs mt-1 block">
                       npm install -g @anthropic-ai/claude-code

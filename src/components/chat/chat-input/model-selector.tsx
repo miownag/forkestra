@@ -36,7 +36,7 @@ const ModelSelector: FC<IProps> = ({ session }) => {
       <PopoverTrigger asChild>
         {currentModel ? (
           <button className="flex items-center gap-1 p-1.5 rounded-md cursor-pointer text-muted-foreground hover:bg-secondary-foreground/5!">
-            <TbBrain />
+            <TbBrain className="text-muted-foreground/75" />
             <span className="text-xs">{currentModel.display_name}</span>
           </button>
         ) : (

@@ -15,13 +15,11 @@ import {
 import { Markdown } from "@/components/prompt-kit/markdown";
 import { Loader } from "@/components/prompt-kit/loader";
 import {
-  LuCheck,
   LuCircleCheckBig,
   LuLoader,
   LuCircle,
   LuCircleSlash,
   LuMessageSquareText,
-  LuCopy,
   LuListTodo,
   LuImage,
 } from "react-icons/lu";
@@ -29,6 +27,7 @@ import { useState, useCallback } from "react";
 import { Components } from "react-markdown";
 import { CodeBlockWithHeader } from "./code-block";
 import { cn } from "@/lib/utils";
+import { Copy, CopySuccess } from "iconsax-reactjs";
 
 function getToolIcon(status: string) {
   switch (status) {
@@ -95,6 +94,7 @@ function TextStep({ content, isLast }: { content: string; isLast: boolean }) {
   const handleCopy = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
+      if (copied) return;
       navigator.clipboard.writeText(content);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -113,13 +113,17 @@ function TextStep({ content, isLast }: { content: string; isLast: boolean }) {
           <div>Response</div>
           <div
             onClick={handleCopy}
-            className="text-muted-foreground hover:text-foreground cursor-pointer opacity-0 group-hover:opacity-100"
+            className={cn(
+              "text-muted-foreground p-1 rounded-md opacity-0",
+              "group-hover:opacity-100",
+              !copied && "hover:bg-muted"
+            )}
             title="Copy content"
           >
             {copied ? (
-              <LuCheck className="size-3.5 text-green-500" />
+              <CopySuccess className="size-4 text-green-500" />
             ) : (
-              <LuCopy className="size-3.5" />
+              <Copy className="size-4" />
             )}
           </div>
         </div>

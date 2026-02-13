@@ -4,26 +4,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useProviderSettingsStore } from "@/stores";
-import type {
-  ProviderInfo,
-  ProviderSettings,
-} from "@/types";
+import type { ProviderInfo, ProviderSettings } from "@/types";
 import { isClaudeSettings } from "@/types";
-import { VscFolder, VscCheck, VscClose, VscTrash } from "react-icons/vsc";
+import { LuFolderOpen } from "react-icons/lu";
+import { VscCheck, VscClose } from "react-icons/vsc";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import PROVIDER_ICONS_MAP from "@/constants/icons";
+import { Trash } from "iconsax-reactjs";
 
 interface ProviderSettingsCardProps {
   provider: ProviderInfo;
   refresh: () => Promise<void>;
 }
 
-export function ProviderSettingsCard({ provider, refresh }: ProviderSettingsCardProps) {
+export function ProviderSettingsCard({
+  provider,
+  refresh,
+}: ProviderSettingsCardProps) {
   const storeSettings = useProviderSettingsStore(
-    (s) => s.settings[provider.provider_type],
+    (s) => s.settings[provider.provider_type]
   );
   const updateProviderSettings = useProviderSettingsStore(
-    (s) => s.updateProviderSettings,
+    (s) => s.updateProviderSettings
   );
   const isLoading = useProviderSettingsStore((s) => s.isLoading);
 
@@ -190,11 +192,11 @@ export function ProviderSettingsCard({ provider, refresh }: ProviderSettingsCard
               className="flex-1"
             />
             <Button variant="outline" size="icon" onClick={handleSelectCliPath}>
-              <VscFolder className="h-4 w-4" />
+              <LuFolderOpen />
             </Button>
             {localSettings.custom_cli_path && (
               <Button variant="ghost" size="icon" onClick={handleClearPath}>
-                <VscClose className="h-4 w-4" />
+                <VscClose />
               </Button>
             )}
           </div>
@@ -245,7 +247,7 @@ export function ProviderSettingsCard({ provider, refresh }: ProviderSettingsCard
                 size="icon"
                 onClick={handleSelectConfigDir}
               >
-                <VscFolder className="h-4 w-4" />
+                <LuFolderOpen />
               </Button>
               {localSettings.env_vars?.CLAUDE_CONFIG_DIR && (
                 <Button
@@ -253,7 +255,7 @@ export function ProviderSettingsCard({ provider, refresh }: ProviderSettingsCard
                   size="icon"
                   onClick={() => handleRemoveEnvVar("CLAUDE_CONFIG_DIR")}
                 >
-                  <VscClose className="h-4 w-4" />
+                  <VscClose />
                 </Button>
               )}
             </div>
@@ -301,7 +303,7 @@ export function ProviderSettingsCard({ provider, refresh }: ProviderSettingsCard
                     size="icon"
                     onClick={() => handleRemoveEnvVar(key)}
                   >
-                    <VscTrash className="h-4 w-4" />
+                    <Trash />
                   </Button>
                 </div>
               ))}
