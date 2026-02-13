@@ -366,8 +366,10 @@ export function Steps({ message }: StepsProps) {
                 isLast={isLast}
               />
             );
-          } else {
+          } else if (part.type === "tool_call") {
             return renderToolStep(part.tool_call, isLast);
+          } else {
+            return null;
           }
         })}
       </ChainOfThought>
@@ -398,8 +400,10 @@ export function Steps({ message }: StepsProps) {
                 isLast={isLast}
               />
             );
-          } else {
+          } else if (part.type === "tool_call") {
             return renderToolStep(part.tool_call, isLast);
+          } else {
+            return null;
           }
         })}
       </ChainOfThought>

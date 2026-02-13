@@ -572,3 +572,20 @@ textarea,
   background-color: var(--color-primary);
   color: var(--color-primary-foreground);
 }
+
+/* Tiptap editor styles */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--color-muted-foreground);
+  pointer-events: none;
+  height: 0;
+}
+
+.tiptap {
+  outline: none;
+}
+
+.tiptap p {
+  margin: 0;
+}

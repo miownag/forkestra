@@ -334,6 +334,14 @@ impl ProviderAdapter for KimiAdapter {
                     }
                     ContentBlock::Image(image_content)
                 }
+                PromptContent::ResourceLink(rl) => {
+                    let mut resource_link =
+                        agent_client_protocol::ResourceLink::new(rl.name, rl.uri);
+                    if let Some(mime) = rl.mime_type {
+                        resource_link = resource_link.mime_type(mime);
+                    }
+                    ContentBlock::ResourceLink(resource_link)
+                }
             })
             .collect();
 

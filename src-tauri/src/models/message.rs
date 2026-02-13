@@ -8,6 +8,31 @@ pub enum PromptContent {
     Text { text: String },
     #[serde(rename = "image")]
     Image(ImageContent),
+    #[serde(rename = "resource_link")]
+    ResourceLink(ResourceLinkContent),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceLinkContent {
+    pub uri: String,
+    pub name: String,
+    #[serde(rename = "mimeType")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mime_type: Option<String>,
+}
+
+// MessagePart is used for storing message content parts in the database
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum MessagePart {
+    #[serde(rename = "text")]
+    Text { content: String },
+    #[serde(rename = "image")]
+    Image { content: ImageContent },
+    #[serde(rename = "resource_link")]
+    ResourceLink { content: ResourceLinkContent },
+    #[serde(rename = "tool_call")]
+    ToolCall { tool_call: ToolCallInfo },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -45,6 +70,8 @@ pub struct ChatMessage {
     pub tool_use: Option<ToolUseInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<ToolCallInfo>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parts: Option<Vec<MessagePart>>,
     pub timestamp: DateTime<Utc>,
     pub is_streaming: bool,
 }
@@ -59,6 +86,7 @@ impl ChatMessage {
             content_type: MessageContentType::Text,
             tool_use: None,
             tool_calls: None,
+            parts: None,
             timestamp: Utc::now(),
             is_streaming: false,
         }
@@ -73,6 +101,7 @@ impl ChatMessage {
             content_type: MessageContentType::Text,
             tool_use: None,
             tool_calls: None,
+            parts: None,
             timestamp: Utc::now(),
             is_streaming: false,
         }
@@ -87,6 +116,7 @@ impl ChatMessage {
             content_type: MessageContentType::Text,
             tool_use: None,
             tool_calls: None,
+            parts: None,
             timestamp: Utc::now(),
             is_streaming: true,
         }

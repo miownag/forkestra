@@ -128,6 +128,7 @@ pub fn run() {
             commands::close_terminal,
             commands::send_terminal_input,
             commands::resize_terminal,
+            commands::list_directory,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

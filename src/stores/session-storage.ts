@@ -272,17 +272,41 @@ export const useSessionStore = create<SessionState>()(
               .join("\n")
               .trim();
 
+            // Build display fallback for non-text content
+            const displayFallback = (() => {
+              const hasImages = content.some((c) => c.type === "image");
+              const fileNames = content
+                .filter((c) => c.type === "resource_link")
+                .map((c) => (c.type === "resource_link" ? c.name : ""));
+              const parts: string[] = [];
+              if (hasImages) parts.push("[Image]");
+              if (fileNames.length > 0)
+                parts.push(
+                  fileNames.map((n) => `[File: ${n}]`).join(" ")
+                );
+              return parts.join(" ") || "[Attachment]";
+            })();
+
             // Convert PromptContent to MessagePart for storage
             const parts: MessagePart[] = content.map((c) => {
               if (c.type === "text") {
                 return { type: "text", content: c.text };
-              } else {
+              } else if (c.type === "image") {
                 return {
                   type: "image",
                   content: {
                     data: c.data,
                     mimeType: c.mimeType,
                     uri: c.uri,
+                  },
+                };
+              } else {
+                return {
+                  type: "resource_link",
+                  content: {
+                    uri: c.uri,
+                    name: c.name,
+                    mimeType: c.mimeType,
                   },
                 };
               }
@@ -302,7 +326,7 @@ export const useSessionStore = create<SessionState>()(
                 id: crypto.randomUUID(),
                 session_id: sessionId,
                 role: "user",
-                content: textMessage || "[Image]",
+                content: textMessage || displayFallback,
                 content_type: "text",
                 parts,
                 timestamp: new Date().toISOString(),

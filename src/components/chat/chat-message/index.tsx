@@ -9,9 +9,45 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SearchZoomIn1 } from "iconsax-reactjs";
+import { VscFile, VscFolder } from "react-icons/vsc";
 
 interface ChatMessageProps {
   message: ChatMessageType;
+}
+
+// Component to render user message content with inline file tags
+function UserMessageContent({ message }: { message: ChatMessageType }) {
+  // Render based on message parts order (text and resource_link parts are interspersed)
+  if (message.parts && message.parts.length > 0) {
+    return (
+      <p className="max-w-none whitespace-pre-wrap flex items-center">
+        {message.parts.map((part, index) => {
+          if (part.type === "text") {
+            return <span key={index}>{part.content}</span>;
+          } else if (part.type === "resource_link") {
+            const isFolder = part.content.uri.endsWith("/");
+            return (
+              <span
+                key={index}
+                className="inline-flex items-center gap-1 rounded bg-muted-foreground px-1.5 py-0.5 text-xs font-medium text-muted align-baseline mx-0.5"
+              >
+                {isFolder ? (
+                  <VscFolder className="size-3 shrink-0" />
+                ) : (
+                  <VscFile className="size-3 shrink-0" />
+                )}
+                {part.content.name}
+              </span>
+            );
+          }
+          return null;
+        })}
+      </p>
+    );
+  }
+
+  // Fallback to plain content if no parts
+  return <p className="max-w-none whitespace-pre-wrap">{message.content}</p>;
 }
 
 export function ChatMessage({ message }: ChatMessageProps) {
@@ -37,11 +73,11 @@ export function ChatMessage({ message }: ChatMessageProps) {
             <div
               className={cn(
                 "rounded-lg px-4 py-3",
-                isUser && "bg-primary text-primary-foreground"
+                isUser && "bg-primary text-primary-foreground text-sm"
               )}
             >
               {isUser ? (
-                <p className="max-w-none">{message.content}</p>
+                <UserMessageContent message={message} />
               ) : (
                 <Steps message={message} />
               )}

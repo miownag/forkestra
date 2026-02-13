@@ -142,6 +142,7 @@ export interface ToolUseInfo {
 export type MessagePart =
   | { type: "text"; content: string }
   | { type: "image"; content: ImageContent }
+  | { type: "resource_link"; content: ResourceLinkContent }
   | { type: "tool_call"; tool_call: ToolCallInfo };
 
 export interface ImageContent {
@@ -150,9 +151,24 @@ export interface ImageContent {
   uri?: string;
 }
 
+export interface ResourceLinkContent {
+  uri: string;
+  name: string;
+  mimeType?: string;
+}
+
 export type PromptContent =
   | { type: "text"; text: string }
-  | { type: "image"; data: string; mimeType: string; uri?: string };
+  | { type: "image"; data: string; mimeType: string; uri?: string }
+  | { type: "resource_link"; uri: string; name: string; mimeType?: string };
+
+// File entry from list_directory command
+export interface FileEntry {
+  name: string;
+  path: string; // relative path from project root
+  is_dir: boolean;
+  is_file: boolean;
+}
 
 export interface ChatMessage {
   id: string;
