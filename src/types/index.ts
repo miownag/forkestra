@@ -87,6 +87,13 @@ export interface ModelInfo {
   description?: string;
 }
 
+// Mode types
+export interface ModeInfo {
+  mode_id: string;
+  display_name: string;
+  description?: string;
+}
+
 export interface Session {
   id: string;
   name: string;
@@ -100,7 +107,10 @@ export interface Session {
   acp_session_id?: string | null;
   model?: string | null;
   available_models: ModelInfo[];
+  mode?: string | null;
+  available_modes: ModeInfo[];
   available_commands: AvailableCommand[];
+  config_options: ConfigOption[];
 }
 
 export interface CreateSessionRequest {
@@ -256,4 +266,24 @@ export type DefaultWorkMode = "worktree" | "local";
 // App settings from backend
 export interface AppSettings {
   provider_settings: Record<ProviderType, ProviderSettings>;
+}
+
+// ========== Session Config Options ==========
+
+export interface ConfigOption {
+  id: string;
+  name: string;
+  description?: string;
+  category?: ConfigOptionCategory;
+  type: "select"; // ACP 目前只支持 select 类型
+  currentValue: string;
+  options: ConfigOptionValue[];
+}
+
+export type ConfigOptionCategory = "mode" | "model" | "thought_level" | string; // 支持自定义 category（以 _ 开头）
+
+export interface ConfigOptionValue {
+  value: string;
+  name: string;
+  description?: string;
 }

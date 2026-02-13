@@ -3,11 +3,21 @@ use serde::{Deserialize, Serialize};
 
 use super::message::{AvailableCommand, PlanEntry};
 use super::provider::ProviderType;
+use agent_client_protocol::SessionConfigOption;
 
 /// Model information returned from ACP providers
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ModelInfo {
     pub model_id: String,
+    pub display_name: String,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+/// Mode information returned from ACP providers
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ModeInfo {
+    pub mode_id: String,
     pub display_name: String,
     #[serde(default)]
     pub description: Option<String>,
@@ -42,9 +52,15 @@ pub struct Session {
     #[serde(default)]
     pub available_models: Vec<ModelInfo>,
     #[serde(default)]
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub available_modes: Vec<ModeInfo>,
+    #[serde(default)]
     pub available_commands: Vec<AvailableCommand>,
     #[serde(default)]
     pub plan_entries: Vec<PlanEntry>,
+    #[serde(default)]
+    pub config_options: Vec<SessionConfigOption>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

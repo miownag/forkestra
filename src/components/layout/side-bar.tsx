@@ -63,14 +63,14 @@ export function Sidebar() {
       acc[key].push(session);
       return acc;
     },
-    {},
+    {}
   );
 
   // Sort sessions within each group by created_at descending
   for (const key of Object.keys(sessionsByProject)) {
     sessionsByProject[key].sort(
       (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
   }
 
@@ -86,7 +86,7 @@ export function Sidebar() {
 
   // Collapsible state for project groups
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
-    new Set(),
+    new Set()
   );
   const toggleGroup = useCallback((projectPath: string) => {
     setCollapsedGroups((prev) => {
@@ -111,7 +111,7 @@ export function Sidebar() {
         sessionItemRefs.current.delete(sessionId);
       }
     },
-    [],
+    []
   );
 
   // Register keyboard shortcuts for active session actions (window-level)
@@ -176,15 +176,15 @@ export function Sidebar() {
     <div
       className={cn(
         "h-full flex flex-col border-r bg-muted/30 shrink-0",
-        sidebarCollapsed ? "w-0 overflow-hidden" : "w-64",
+        sidebarCollapsed ? "w-0 overflow-hidden" : "w-64"
       )}
     >
       {!isFullscreen && (
         <div
           data-tauri-drag-region
           className={cn(
-            "shrink-0 h-11 z-50 flex items-center pr-4 justify-end",
-            "pl-24",
+            "shrink-0 h-13 z-50 flex items-center pr-4 justify-end",
+            "pl-24"
           )}
         >
           <Button
@@ -200,7 +200,7 @@ export function Sidebar() {
       <aside
         className={cn(
           "flex flex-col transition-all duration-300 flex-1",
-          isFullscreen ? "mt-1" : "-mt-2",
+          isFullscreen ? "mt-1" : "-mt-2"
         )}
       >
         {/* Header with Logo and Collapse Button */}

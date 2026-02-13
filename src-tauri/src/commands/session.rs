@@ -144,6 +144,31 @@ pub async fn set_session_model(
 }
 
 #[tauri::command]
+pub async fn set_session_mode(
+    manager: State<'_, SessionManager>,
+    session_id: String,
+    mode_id: String,
+) -> Result<Session, String> {
+    manager
+        .set_session_mode(&session_id, mode_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn set_session_config_option(
+    manager: State<'_, SessionManager>,
+    session_id: String,
+    config_id: String,
+    value: String,
+) -> Result<(), String> {
+    manager
+        .set_session_config_option(&session_id, config_id, value)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn cancel_generation(
     manager: State<'_, SessionManager>,
     session_id: String,

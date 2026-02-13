@@ -9,7 +9,7 @@ use tokio::sync::{mpsc, Mutex};
 
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    KimiProviderSettings, ModelInfo, ProviderInfo, ProviderType, StreamChunk,
+    KimiProviderSettings, ModeInfo, ModelInfo, ProviderInfo, ProviderType, StreamChunk,
 };
 use crate::providers::acp_client_sdk::{
     build_clean_env_with_custom, spawn_acp_connection, spawn_acp_resume_connection,
@@ -28,6 +28,9 @@ pub struct KimiAdapter {
     cli_path: String,
     available_models: Vec<ModelInfo>,
     current_model_id: Option<String>,
+    available_modes: Vec<ModeInfo>,
+    current_mode_id: Option<String>,
+    config_options: Vec<agent_client_protocol::SessionConfigOption>,
     env_vars: HashMap<String, String>,
 }
 
@@ -43,6 +46,9 @@ impl KimiAdapter {
             cli_path: "kimi".to_string(),
             available_models: vec![],
             current_model_id: None,
+            available_modes: vec![],
+            current_mode_id: None,
+            config_options: vec![],
             env_vars: HashMap::new(),
         }
     }
@@ -61,6 +67,9 @@ impl KimiAdapter {
                 .unwrap_or_else(|| "kimi".to_string()),
             available_models: vec![],
             current_model_id: None,
+            available_modes: vec![],
+            current_mode_id: None,
+            config_options: vec![],
             env_vars: settings.env_vars.clone(),
         }
     }
@@ -172,6 +181,9 @@ impl ProviderAdapter for KimiAdapter {
         );
         self.available_models = handshake.models;
         self.current_model_id = handshake.current_model_id;
+        self.available_modes = handshake.modes;
+        self.current_mode_id = handshake.current_mode_id;
+        self.config_options = handshake.config_options;
         self.is_active = true;
 
         Ok(())
@@ -235,6 +247,9 @@ impl ProviderAdapter for KimiAdapter {
         );
         self.available_models = handshake.models;
         self.current_model_id = handshake.current_model_id;
+        self.available_modes = handshake.modes;
+        self.current_mode_id = handshake.current_mode_id;
+        self.config_options = handshake.config_options;
         self.is_active = true;
 
         Ok(())
@@ -250,6 +265,18 @@ impl ProviderAdapter for KimiAdapter {
 
     fn current_model_id(&self) -> Option<&str> {
         self.current_model_id.as_deref()
+    }
+
+    fn available_modes(&self) -> Vec<ModeInfo> {
+        self.available_modes.clone()
+    }
+
+    fn current_mode_id(&self) -> Option<&str> {
+        self.current_mode_id.as_deref()
+    }
+
+    fn config_options(&self) -> Vec<agent_client_protocol::SessionConfigOption> {
+        self.config_options.clone()
     }
 
     async fn send_message(&mut self, message: &str) -> AppResult<()> {
@@ -342,6 +369,57 @@ impl ProviderAdapter for KimiAdapter {
         reply_rx
             .await
             .map_err(|_| AppError::Provider("Set model reply channel closed".to_string()))?
+            .map_err(|e| AppError::Provider(e))
+    }
+
+    async fn set_mode(&mut self, mode_id: &str) -> AppResult<()> {
+        let cmd_tx = self
+            .cmd_tx
+            .as_ref()
+            .ok_or_else(|| AppError::Provider("Session not started".to_string()))?;
+
+        let acp_session_id = self
+            .acp_session_id
+            .as_ref()
+            .ok_or_else(|| AppError::Provider("ACP session not established".to_string()))?;
+
+        let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+        let cmd = AcpCommand::SetMode {
+            session_id: acp_session_id.clone(),
+            mode_id: mode_id.to_string(),
+            reply: reply_tx,
+        };
+
+        cmd_tx.send(cmd).await.map_err(|e| {
+            AppError::Provider(format!("Failed to send set_mode command: {}", e))
+        })?;
+
+        reply_rx
+            .await
+            .map_err(|_| AppError::Provider("Set mode reply channel closed".to_string()))?
+            .map_err(|e| AppError::Provider(e))
+    }
+
+    async fn set_config_option(&mut self, config_id: &str, value: &str) -> AppResult<()> {
+        let cmd_tx = self
+            .cmd_tx
+            .as_ref()
+            .ok_or_else(|| AppError::Provider("Session not started".to_string()))?;
+
+        let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+        let cmd = AcpCommand::SetConfigOption {
+            config_id: config_id.to_string(),
+            value: value.to_string(),
+            reply: reply_tx,
+        };
+
+        cmd_tx.send(cmd).await.map_err(|e| {
+            AppError::Provider(format!("Failed to send set_config_option command: {}", e))
+        })?;
+
+        reply_rx
+            .await
+            .map_err(|_| AppError::Provider("Set config option reply channel closed".to_string()))?
             .map_err(|e| AppError::Provider(e))
     }
 

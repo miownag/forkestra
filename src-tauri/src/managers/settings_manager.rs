@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use parking_lot::RwLock;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle};
 
 use crate::error::{AppError, AppResult};
 use crate::models::{AppSettings, ProviderSettings, ProviderType};
@@ -13,7 +13,7 @@ pub struct SettingsManager {
 }
 
 impl SettingsManager {
-    pub fn new(app_handle: &AppHandle) -> AppResult<Self> {
+    pub fn new(_app_handle: &AppHandle) -> AppResult<Self> {
         // Use ~/.forkestra for settings (like VSCode uses ~/.vscode)
         let home_dir = dirs::home_dir()
             .ok_or_else(|| AppError::Io("Failed to get home directory".to_string()))?;

@@ -12,6 +12,7 @@ import type {
   MessagePart,
   AvailableCommand,
   PlanEntry,
+  ConfigOption,
 } from "@/types";
 
 interface PermissionOption {
@@ -66,6 +67,16 @@ interface SessionState {
   resumeSession: (sessionId: string) => Promise<Session>;
   renameSession: (sessionId: string, newName: string) => Promise<void>;
   setSessionModel: (sessionId: string, modelId: string) => Promise<void>;
+  setSessionMode: (sessionId: string, modeId: string) => Promise<void>;
+  setSessionConfigOption: (
+    sessionId: string,
+    configId: string,
+    value: string,
+  ) => Promise<void>;
+  updateSessionConfigOptions: (
+    sessionId: string,
+    configOptions: ConfigOption[],
+  ) => void;
   addMessage: (sessionId: string, message: ChatMessage) => void;
   handleStreamChunk: (chunk: StreamChunk) => void;
   handleSessionStatusChanged: (event: SessionStatusEvent) => void;
@@ -537,6 +548,57 @@ export const useSessionStore = create<SessionState>()(
           } catch (error) {
             set({ error: String(error) });
           }
+        },
+
+        setSessionMode: async (sessionId, modeId) => {
+          try {
+            const session = await invoke<Session>("set_session_mode", {
+              sessionId,
+              modeId,
+            });
+            console.log(
+              "[SessionStorage] Session mode set:",
+              session
+            );
+            set((state) => ({
+              sessions: state.sessions.map((s) =>
+                s.id === sessionId ? session : s,
+              ),
+            }));
+          } catch (error) {
+            set({ error: String(error) });
+          }
+        },
+
+        setSessionConfigOption: async (sessionId, configId, value) => {
+          try {
+            await invoke("set_session_config_option", {
+              sessionId,
+              configId,
+              value,
+            });
+
+            // 成功后会通过 config-options-update 事件自动更新
+            console.log(
+              `[Store] Config option ${configId} updated to ${value} for session ${sessionId}`,
+            );
+          } catch (error) {
+            console.error(`[Store] Failed to set config option:`, error);
+            throw error;
+          }
+        },
+
+        updateSessionConfigOptions: (sessionId, configOptions) => {
+          set((state) => {
+            const session = state.sessions.find((s) => s.id === sessionId);
+            if (!session) return state;
+
+            return {
+              sessions: state.sessions.map((s) =>
+                s.id === sessionId ? { ...s, config_options: configOptions } : s,
+              ),
+            };
+          });
         },
 
         addMessage: (sessionId, message) => {

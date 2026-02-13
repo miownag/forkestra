@@ -28,7 +28,6 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
     sendMessage,
     sendInteractionResponse,
     resumeSession,
-    setSessionModel,
     stopStreaming,
     streamingSessions,
     resumingSessions,
@@ -41,7 +40,6 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
     "sendMessage",
     "sendInteractionResponse",
     "resumeSession",
-    "setSessionModel",
     "stopStreaming",
     "streamingSessions",
     "resumingSessions",
@@ -166,7 +164,6 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
         isLoading={isLoading}
         disabled={isTerminated || isResuming || hasCreateError}
         session={session}
-        onModelChange={(modelId) => setSessionModel(sessionId, modelId)}
       />
     </div>
   );

@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { useSelectorSessionStore } from "@/stores";
 import { useSessionStore } from "@/stores/session-storage";
-import type { StreamChunk, InteractionPrompt, SessionStatusEvent, AvailableCommandsEvent, PlanUpdateEvent } from "@/types";
+import type { StreamChunk, InteractionPrompt, SessionStatusEvent, AvailableCommandsEvent, PlanUpdateEvent, ConfigOption } from "@/types";
 
 /**
  * Flush all currently-streaming messages to the database.
@@ -37,12 +37,13 @@ function flushStreamingMessages() {
 }
 
 export function useStreamEvents() {
-  const { handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged, setAvailableCommands, setPlanEntries } = useSelectorSessionStore([
+  const { handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged, setAvailableCommands, setPlanEntries, updateSessionConfigOptions } = useSelectorSessionStore([
     "handleStreamChunk",
     "setInteractionPrompt",
     "handleSessionStatusChanged",
     "setAvailableCommands",
     "setPlanEntries",
+    "updateSessionConfigOptions",
   ]);
 
   useEffect(() => {
@@ -53,6 +54,7 @@ export function useStreamEvents() {
     let unlistenStatusFn: (() => void) | null = null;
     let unlistenCommandsFn: (() => void) | null = null;
     let unlistenPlanFn: (() => void) | null = null;
+    let unlistenConfigOptionsFn: (() => void) | null = null;
 
     const setupListeners = async () => {
       console.log("[useStreamEvents] Starting listener setup...");
@@ -126,12 +128,32 @@ export function useStreamEvents() {
         }
       });
 
+      // Listen for config options updates
+      const unlistenConfigOptions = await listen<{
+        session_id: string;
+        config_options: ConfigOption[];
+      }>("config-options-update", (event) => {
+        console.log(
+          "[useStreamEvents] Received config-options-update:",
+          event.payload.session_id,
+          event.payload.config_options.length,
+          "config options"
+        );
+        if (isActive) {
+          updateSessionConfigOptions(
+            event.payload.session_id,
+            event.payload.config_options,
+          );
+        }
+      });
+
       if (isActive) {
         unlistenStreamFn = unlistenStream;
         unlistenPromptFn = unlistenPrompt;
         unlistenStatusFn = unlistenStatus;
         unlistenCommandsFn = unlistenCommands;
         unlistenPlanFn = unlistenPlan;
+        unlistenConfigOptionsFn = unlistenConfigOptions;
         console.log("[useStreamEvents] All listeners setup complete");
       } else {
         unlistenStream();
@@ -139,6 +161,7 @@ export function useStreamEvents() {
         unlistenStatus();
         unlistenCommands();
         unlistenPlan();
+        unlistenConfigOptions();
       }
     };
 
@@ -162,8 +185,11 @@ export function useStreamEvents() {
       if (unlistenPlanFn) {
         unlistenPlanFn();
       }
+      if (unlistenConfigOptionsFn) {
+        unlistenConfigOptionsFn();
+      }
     };
-  }, [handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged, setAvailableCommands, setPlanEntries]);
+  }, [handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged, setAvailableCommands, setPlanEntries, updateSessionConfigOptions]);
 
   // Flush streaming messages to DB on window close / refresh
   useEffect(() => {

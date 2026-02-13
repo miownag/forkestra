@@ -7,7 +7,7 @@ use agent_client_protocol::{
     RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
     ResumeSessionRequest, SelectedPermissionOutcome, SessionConfigKind,
     SessionConfigOptionCategory, SessionConfigSelectOptions, SessionId, SessionNotification,
-    SessionUpdate, SetSessionModelRequest, TextContent, ToolCallStatus,
+    SessionUpdate, SetSessionModelRequest, SetSessionModeRequest, TextContent, ToolCallStatus,
 };
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::{mpsc, oneshot, Mutex};
@@ -15,7 +15,7 @@ use tokio::sync::{mpsc, oneshot, Mutex};
 use crate::managers::SessionManager;
 use crate::models::{
     AvailableCommand, AvailableCommandInput, AvailableCommandsEvent, ImageContent,
-    InteractionPrompt, ModelInfo, PermissionOptionInfo, PlanEntry, PlanEntryPriority,
+    InteractionPrompt, ModeInfo, ModelInfo, PermissionOptionInfo, PlanEntry, PlanEntryPriority,
     PlanEntryStatus, PlanUpdateEvent, StreamChunk, StreamChunkType, ToolCallInfo,
 };
 
@@ -35,6 +35,16 @@ pub enum AcpCommand {
         model_id: String,
         reply: oneshot::Sender<Result<(), String>>,
     },
+    SetMode {
+        session_id: String,
+        mode_id: String,
+        reply: oneshot::Sender<Result<(), String>>,
+    },
+    SetConfigOption {
+        config_id: String,
+        value: String,
+        reply: oneshot::Sender<Result<(), String>>,
+    },
     PermissionResponse {
         option_id: String,
         reply: oneshot::Sender<Result<(), String>>,
@@ -47,7 +57,10 @@ pub struct AcpHandshakeResult {
     pub session_id: String,
     pub models: Vec<ModelInfo>,
     pub current_model_id: Option<String>,
+    pub modes: Vec<ModeInfo>,
+    pub current_mode_id: Option<String>,
     pub supports_load_session: bool,
+    pub config_options: Vec<acp::SessionConfigOption>,
 }
 
 /// Shared context passed to the Client implementation.
@@ -399,6 +412,25 @@ async fn handle_session_update(
                     option.name, option.category
                 );
             }
+
+            // 发送 Tauri 事件到前端
+            #[derive(serde::Serialize, Clone)]
+            struct ConfigOptionsUpdatePayload {
+                session_id: String,
+                config_options: Vec<acp::SessionConfigOption>,
+            }
+
+            let payload = ConfigOptionsUpdatePayload {
+                session_id: session_id.to_string(),
+                config_options: config_update.config_options.clone(),
+            };
+
+            if let Err(e) = app_handle.emit("config-options-update", &payload) {
+                eprintln!("[ACP] Failed to emit config-options-update event: {}", e);
+            }
+
+            // TODO: 可选 - 更新 SessionManager 中的 session.config_options 并持久化到数据库
+            // 这需要在 SessionManager 中添加一个方法 update_session_config_options
         }
         _ => {
             println!("[ACP] Received unknown session update type");
@@ -708,11 +740,23 @@ async fn run_acp_connection(
             session_response.config_options.as_deref(),
         );
 
+        let (modes, current_mode_id) = extract_modes(
+            session_response.modes.as_ref(),
+            session_response.config_options.as_deref(),
+        );
+
+        let config_options = session_response
+            .config_options
+            .unwrap_or_default();
+
         Ok(AcpHandshakeResult {
             session_id: acp_session_id,
             models,
             current_model_id,
+            modes,
+            current_mode_id,
             supports_load_session: supports_load,
+            config_options,
         })
     }
     .await;
@@ -789,7 +833,7 @@ async fn run_acp_resume_connection(
         println!("[ACP] Attempting to restore session: {} (cwd: {})", acp_session_id, cwd);
         println!("[ACP] Agent supports loadSession: {}", supports_load);
 
-        let (model_state, config_options) = if supports_load {
+        let (model_state, mode_state, config_options) = if supports_load {
             println!("[ACP] Trying session/load for {}", acp_session_id);
             match conn
                 .load_session(LoadSessionRequest::new(acp_session_id.clone(), cwd.clone()))
@@ -797,7 +841,7 @@ async fn run_acp_resume_connection(
             {
                 Ok(response) => {
                     println!("[ACP] Session loaded via session/load for {}", acp_session_id);
-                    (response.models, response.config_options)
+                    (response.models, response.modes, response.config_options)
                 }
                 Err(e) => {
                     println!(
@@ -810,7 +854,7 @@ async fn run_acp_resume_connection(
                         .await
                         .map_err(|e| format!("session/resume failed: {:?}", e))?;
                     println!("[ACP] Session resumed via session/resume for {}", acp_session_id);
-                    (resume_response.models, resume_response.config_options)
+                    (resume_response.models, resume_response.modes, resume_response.config_options)
                 }
             }
         } else {
@@ -822,7 +866,7 @@ async fn run_acp_resume_connection(
                 .resume_session(ResumeSessionRequest::new(acp_session_id.clone(), cwd.clone()))
                 .await
                 .map_err(|e| format!("session/resume failed: {:?}", e))?;
-            (resume_response.models, resume_response.config_options)
+            (resume_response.models, resume_response.modes, resume_response.config_options)
         };
 
         println!("[ACP] Session restored: {}", acp_session_id);
@@ -832,11 +876,21 @@ async fn run_acp_resume_connection(
             config_options.as_deref(),
         );
 
+        let (modes, current_mode_id) = extract_modes(
+            mode_state.as_ref(),
+            config_options.as_deref(),
+        );
+
+        let config_opts = config_options.unwrap_or_default();
+
         Ok(AcpHandshakeResult {
             session_id: acp_session_id.clone(),
             models,
             current_model_id,
+            modes,
+            current_mode_id,
             supports_load_session: supports_load,
+            config_options: config_opts,
         })
     }
     .await;
@@ -952,6 +1006,57 @@ async fn run_command_loop(
                             }
                             Err(e) => {
                                 let _ = reply.send(Err(format!("set_model failed: {:?}", e)));
+                            }
+                        }
+                    }
+                    Some(AcpCommand::SetMode { session_id: acp_sid, mode_id, reply }) => {
+                        let result = conn
+                            .set_session_mode(
+                                SetSessionModeRequest::new(
+                                    SessionId::new(&*acp_sid),
+                                    acp::SessionModeId::new(&*mode_id),
+                                )
+                            )
+                            .await;
+
+                        match result {
+                            Ok(_) => {
+                                println!("[ACP] Session mode set to: {} for session {}", mode_id, acp_sid);
+                                let _ = reply.send(Ok(()));
+                            }
+                            Err(e) => {
+                                let _ = reply.send(Err(format!("set_mode failed: {:?}", e)));
+                            }
+                        }
+                    }
+                    Some(AcpCommand::SetConfigOption { config_id, value, reply }) => {
+                        println!(
+                            "[ACP] Setting config option '{}' to '{}'",
+                            config_id, value
+                        );
+
+                        let result = conn
+                            .set_session_config_option(
+                                acp::SetSessionConfigOptionRequest::new(
+                                    SessionId::new(&*session_id),
+                                    acp::SessionConfigId::new(&*config_id),
+                                    acp::SessionConfigValueId::new(&*value),
+                                )
+                            )
+                            .await;
+
+                        match result {
+                            Ok(response) => {
+                                println!(
+                                    "[ACP] Config option updated, received {} config options",
+                                    response.config_options.len()
+                                );
+
+                                let _ = reply.send(Ok(()));
+                            }
+                            Err(e) => {
+                                eprintln!("[ACP] Failed to set config option: {:?}", e);
+                                let _ = reply.send(Err(format!("Failed to set config option: {:?}", e)));
                             }
                         }
                     }
@@ -1127,6 +1232,75 @@ fn extract_models(
     );
 
     (models, current_model_id)
+}
+
+/// Extract modes from the session response. Prefers the `modes` (SessionModeState)
+/// field when available, falls back to extracting from `config_options`.
+fn extract_modes(
+    mode_state: Option<&acp::SessionModeState>,
+    config_options: Option<&[acp::SessionConfigOption]>,
+) -> (Vec<ModeInfo>, Option<String>) {
+    // Prefer the dedicated `modes` field
+    if let Some(state) = mode_state {
+        let modes: Vec<ModeInfo> = state
+            .available_modes
+            .iter()
+            .map(|m| ModeInfo {
+                mode_id: m.id.to_string(),
+                display_name: m.name.clone(),
+                description: m.description.clone(),
+            })
+            .collect();
+        let current_mode_id = Some(state.current_mode_id.to_string());
+
+        println!(
+            "[ACP] Extracted {} modes from SessionModeState, current_mode_id = {:?}",
+            modes.len(), current_mode_id
+        );
+
+        if !modes.is_empty() {
+            return (modes, current_mode_id);
+        }
+    }
+
+    // Fallback: extract from config_options
+    let mut modes = Vec::new();
+    let mut current_mode_id = None;
+
+    println!(
+        "[ACP] Extracting modes from config_options: {} options",
+        config_options.map_or(0, |opts| opts.len())
+    );
+
+    if let Some(options) = config_options {
+        for option in options {
+            if option.category == Some(SessionConfigOptionCategory::Mode) {
+                if let SessionConfigKind::Select(select) = &option.kind {
+                    current_mode_id = Some(select.current_value.to_string());
+
+                    match &select.options {
+                        SessionConfigSelectOptions::Ungrouped(opts) => {
+                            for opt in opts {
+                                modes.push(ModeInfo {
+                                    mode_id: opt.value.to_string(),
+                                    display_name: opt.name.clone(),
+                                    description: opt.description.clone(),
+                                });
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+
+    println!(
+        "[ACP] Extracted {} modes from config_options, current_mode_id = {:?}",
+        modes.len(), current_mode_id
+    );
+
+    (modes, current_mode_id)
 }
 
 // ========================

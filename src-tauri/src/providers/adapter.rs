@@ -1,11 +1,12 @@
 use std::path::Path;
 
+use agent_client_protocol::SessionConfigOption;
 use async_trait::async_trait;
 use tauri::AppHandle;
 use tokio::sync::mpsc;
 
 use crate::error::{AppError, AppResult};
-use crate::models::{ModelInfo, ProviderInfo, ProviderType, StreamChunk};
+use crate::models::{ModeInfo, ModelInfo, ProviderInfo, ProviderType, StreamChunk};
 
 #[async_trait]
 pub trait ProviderAdapter: Send + Sync {
@@ -58,11 +59,32 @@ pub trait ProviderAdapter: Send + Sync {
         None
     }
 
+    /// Get available modes reported by the ACP provider
+    fn available_modes(&self) -> Vec<ModeInfo> {
+        vec![]
+    }
+
+    /// Get the current mode ID if available
+    fn current_mode_id(&self) -> Option<&str> {
+        None
+    }
+
+    /// Get session config options from the ACP provider
+    fn config_options(&self) -> Vec<SessionConfigOption> {
+        vec![]
+    }
+
     /// Send a message to the CLI
     async fn send_message(&mut self, message: &str) -> AppResult<()>;
 
     /// Set the model for the current session
     async fn set_model(&mut self, model_id: &str) -> AppResult<()>;
+
+    /// Set the mode for the current session
+    async fn set_mode(&mut self, mode_id: &str) -> AppResult<()>;
+
+    /// Set a config option for the current session
+    async fn set_config_option(&mut self, config_id: &str, value: &str) -> AppResult<()>;
 
     /// Check if the session is active
     fn is_active(&self) -> bool;

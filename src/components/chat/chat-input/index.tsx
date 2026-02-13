@@ -4,18 +4,15 @@ import {
   PromptInputActions,
   PromptInputTextarea,
 } from "@/components/prompt-kit/prompt-input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { LuArrowUp, LuSquare, LuCheck } from "react-icons/lu";
+import { LuArrowUp, LuSquare } from "react-icons/lu";
 import { GrAttachment } from "react-icons/gr";
 import { useState, useCallback } from "react";
 import type { Session, AvailableCommand } from "@/types";
-import { TbBrain, TbSlash } from "react-icons/tb";
+import { TbSlash } from "react-icons/tb";
 import { SlashCommandSelector } from "./slash-command-selector";
+import { ModelSelector } from "./model-selector";
+import { ModeSelector } from "./mode-selector";
 
 export function ChatInput({
   onSend,
@@ -23,26 +20,19 @@ export function ChatInput({
   isLoading,
   disabled,
   session,
-  onModelChange,
 }: {
   onSend: (content: string) => Promise<void>;
   onStop: () => void;
   isLoading: boolean;
   disabled?: boolean;
   session?: Session;
-  onModelChange?: (modelId: string) => void;
 }) {
   const [input, setInput] = useState("");
-  const [modelPopoverOpen, setModelPopoverOpen] = useState(false);
   const [inlineSlashOpen, setInlineSlashOpen] = useState(false);
   const [inlineSlashQuery, setInlineSlashQuery] = useState("");
   const [buttonSlashOpen, setButtonSlashOpen] = useState(false);
 
   const commands = session?.available_commands ?? [];
-  const availableModels = session?.available_models ?? [];
-  const currentModel = availableModels.find(
-    (m) => m.model_id === session?.model
-  );
 
   const handleInputChange = useCallback(
     (value: string) => {
@@ -106,11 +96,6 @@ export function ChatInput({
     }
   };
 
-  const handleModelSelect = (modelId: string) => {
-    onModelChange?.(modelId);
-    setModelPopoverOpen(false);
-  };
-
   const handleSlashButtonClick = () => {
     if (commands.length > 0) {
       setButtonSlashOpen(!buttonSlashOpen);
@@ -142,45 +127,10 @@ export function ChatInput({
       </SlashCommandSelector>
 
       <PromptInputActions className="flex items-center justify-between gap-2 pt-2">
-        <Popover open={modelPopoverOpen} onOpenChange={setModelPopoverOpen}>
-          <PopoverTrigger asChild>
-            {currentModel ? (
-              <button className="flex items-center gap-1 p-1.5 rounded-md cursor-pointer text-muted-foreground hover:bg-secondary-foreground/5!">
-                <TbBrain />
-                <span className="text-xs">{currentModel.display_name}</span>
-              </button>
-            ) : (
-              <span />
-            )}
-          </PopoverTrigger>
-          <PopoverContent
-            className="w-lg p-1"
-            align="start"
-            side="top"
-            sideOffset={8}
-          >
-            {availableModels.map((m) => (
-              <button
-                key={m.model_id}
-                type="button"
-                className="w-full flex justify-between items-center rounded-md px-2 py-1.5 hover:bg-accent cursor-pointer"
-                onClick={() => handleModelSelect(m.model_id)}
-              >
-                <div className="flex flex-col justify-between">
-                  <span className="text-xs flex-1 text-left">
-                    {m.display_name}
-                  </span>
-                  <p className="text-xs text-muted-foreground">
-                    {m.description}
-                  </p>
-                </div>
-                {session?.model === m.model_id && (
-                  <LuCheck className="size-4 text-primary" />
-                )}
-              </button>
-            ))}
-          </PopoverContent>
-        </Popover>
+        <div className="flex items-center gap-2">
+          <ModelSelector session={session} />
+          <ModeSelector session={session} />
+        </div>
 
         <div className="flex items-center gap-2">
           <PromptInputAction tooltip="Choose Files">

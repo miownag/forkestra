@@ -109,6 +109,27 @@ impl Database {
             })?;
         }
 
+        // Migration for config_options column
+        let has_config_options_col: bool = conn
+            .prepare("PRAGMA table_info(sessions)")
+            .and_then(|mut stmt| {
+                let cols: Vec<String> = stmt
+                    .query_map([], |row| row.get::<_, String>(1))
+                    .unwrap()
+                    .filter_map(|r| r.ok())
+                    .collect();
+                Ok(cols.contains(&"config_options".to_string()))
+            })
+            .unwrap_or(false);
+
+        if !has_config_options_col {
+            conn.execute_batch("ALTER TABLE sessions ADD COLUMN config_options TEXT DEFAULT '[]'")
+                .map_err(|e| {
+                    AppError::Database(format!("Failed to add config_options column: {}", e))
+                })?;
+            println!("[Database] Migrated: added config_options column to sessions");
+        }
+
         // Migration for tool_calls column in messages
         let has_tool_calls_col: bool = conn
             .prepare("PRAGMA table_info(messages)")
@@ -140,11 +161,15 @@ impl Database {
             .conn
             .lock()
             .map_err(|e| AppError::Database(format!("Database lock poisoned: {}", e)))?;
+
+        let config_options_json = serde_json::to_string(&session.config_options)
+            .unwrap_or_else(|_| "[]".to_string());
+
         conn.execute(
             "INSERT OR REPLACE INTO sessions
              (id, name, provider, status, worktree_path, branch_name,
-              project_path, is_local, created_at, acp_session_id, model)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+              project_path, is_local, created_at, acp_session_id, model, config_options)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
                 session.id,
                 session.name,
@@ -157,6 +182,7 @@ impl Database {
                 session.created_at.to_rfc3339(),
                 session.acp_session_id,
                 session.model.as_deref(),
+                config_options_json,
             ],
         )
         .map_err(|e| AppError::Database(format!("Failed to save session: {}", e)))?;
@@ -240,7 +266,7 @@ impl Database {
             .prepare(
                 "SELECT id, name, provider, status, worktree_path,
                         branch_name, project_path, is_local, created_at,
-                        acp_session_id, model
+                        acp_session_id, model, config_options
                  FROM sessions ORDER BY created_at DESC",
             )
             .map_err(|e| AppError::Database(format!("Failed to prepare query: {}", e)))?;
@@ -251,6 +277,11 @@ impl Database {
                 let status_str: String = row.get(3)?;
                 let created_at_str: String = row.get(8)?;
                 let model_str: Option<String> = row.get(10)?;
+                let config_options_str: Option<String> = row.get(11)?;
+
+                let config_options = config_options_str
+                    .and_then(|s| serde_json::from_str(&s).ok())
+                    .unwrap_or_default();
 
                 Ok(Session {
                     id: row.get(0)?,
@@ -267,8 +298,11 @@ impl Database {
                     acp_session_id: row.get(9)?,
                     model: model_str,
                     available_models: vec![],
+                    mode: None,
+                    available_modes: vec![],
                     available_commands: vec![],
                     plan_entries: vec![],
+                    config_options,
                 })
             })
             .map_err(|e| AppError::Database(format!("Failed to query sessions: {}", e)))?;

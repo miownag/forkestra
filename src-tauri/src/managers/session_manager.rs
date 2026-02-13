@@ -124,8 +124,11 @@ impl SessionManager {
             acp_session_id: None,
             model: None,
             available_models: vec![],
+            mode: None,
+            available_modes: vec![],
             available_commands: vec![],
             plan_entries: vec![],
+            config_options: vec![],
         };
 
         // Store session in memory
@@ -234,6 +237,10 @@ impl SessionManager {
                         entry.session.available_models = available_models;
                         entry.session.model =
                             adapter.current_model_id().map(|s| s.to_string());
+                        entry.session.available_modes = adapter.available_modes();
+                        entry.session.mode =
+                            adapter.current_mode_id().map(|s| s.to_string());
+                        entry.session.config_options = adapter.config_options();
                         entry.adapter = Some(Arc::new(tokio::sync::Mutex::new(adapter)));
 
                         let updated_session = entry.session.clone();
@@ -508,6 +515,7 @@ impl SessionManager {
         let new_acp_session_id = adapter.acp_session_id().map(|s| s.to_string());
         let new_available_models = adapter.available_models();
         let new_current_model_id = adapter.current_model_id().map(|s| s.to_string());
+        let new_config_options = adapter.config_options();
         println!(
             "[SessionManager] Resume session '{}': available_models from adapter = {:?}",
             session_id, new_available_models
@@ -525,6 +533,11 @@ impl SessionManager {
                 if entry.session.model.is_none() {
                     entry.session.model = new_current_model_id;
                 }
+                entry.session.available_modes = adapter.available_modes();
+                if entry.session.mode.is_none() {
+                    entry.session.mode = adapter.current_mode_id().map(|s| s.to_string());
+                }
+                entry.session.config_options = new_config_options;
                 entry.adapter = Some(Arc::new(tokio::sync::Mutex::new(adapter)));
                 entry.session.clone()
             } else {
@@ -690,6 +703,75 @@ impl SessionManager {
                 Err(AppError::NotFound(format!("Session '{}' not found", session_id)))
             }
         }
+    }
+
+    /// Set the mode for an active session
+    pub async fn set_session_mode(&self, session_id: &str, mode_id: String) -> AppResult<Session> {
+        // Validate mode is available for this session
+        {
+            let sessions = self.sessions.read().await;
+            let entry = sessions.get(session_id).ok_or_else(|| {
+                AppError::NotFound(format!("Session '{}' not found", session_id))
+            })?;
+
+            if !entry.session.available_modes.is_empty()
+                && !entry.session.available_modes.iter().any(|m| m.mode_id == mode_id)
+            {
+                return Err(AppError::InvalidOperation(format!(
+                    "Mode '{}' is not available for this session",
+                    mode_id
+                )));
+            }
+        }
+
+        // Get adapter and call set_mode
+        let adapter = {
+            let sessions = self.sessions.read().await;
+            sessions.get(session_id).and_then(|e| e.adapter.clone())
+        };
+
+        if let Some(adapter) = adapter {
+            let mut adapter = adapter.lock().await;
+            adapter.set_mode(&mode_id).await?;
+        } else {
+            return Err(AppError::InvalidOperation(
+                "Session is not active".to_string(),
+            ));
+        }
+
+        // Update session in memory
+        {
+            let mut sessions = self.sessions.write().await;
+            if let Some(entry) = sessions.get_mut(session_id) {
+                entry.session.mode = Some(mode_id);
+                Ok(entry.session.clone())
+            } else {
+                Err(AppError::NotFound(format!("Session '{}' not found", session_id)))
+            }
+        }
+    }
+
+    /// Set a config option for an active session
+    pub async fn set_session_config_option(
+        &self,
+        session_id: &str,
+        config_id: String,
+        value: String,
+    ) -> AppResult<()> {
+        // Get adapter
+        let adapter = {
+            let sessions = self.sessions.read().await;
+            sessions.get(session_id).and_then(|e| e.adapter.clone())
+        };
+
+        let adapter = adapter.ok_or_else(|| {
+            AppError::InvalidOperation("Session is not active".to_string())
+        })?;
+
+        let mut adapter = adapter.lock().await;
+        adapter.set_config_option(&config_id, &value).await?;
+
+        Ok(())
     }
 
     /// Cancel the current ongoing generation for a session

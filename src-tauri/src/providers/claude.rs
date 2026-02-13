@@ -9,7 +9,7 @@ use tokio::sync::{mpsc, Mutex};
 
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    ClaudeProviderSettings, ModelInfo, ProviderInfo, ProviderType, StreamChunk,
+    ClaudeProviderSettings, ModeInfo, ModelInfo, ProviderInfo, ProviderType, StreamChunk,
 };
 use crate::providers::acp_client_sdk::{
     build_clean_env_with_custom, spawn_acp_connection, spawn_acp_resume_connection,
@@ -29,6 +29,9 @@ pub struct ClaudeAdapter {
     disable_login_prompt: bool,
     available_models: Vec<ModelInfo>,
     current_model_id: Option<String>,
+    available_modes: Vec<ModeInfo>,
+    current_mode_id: Option<String>,
+    config_options: Vec<agent_client_protocol::SessionConfigOption>,
     env_vars: HashMap<String, String>,
 }
 
@@ -45,6 +48,9 @@ impl ClaudeAdapter {
             disable_login_prompt: false,
             available_models: vec![],
             current_model_id: None,
+            available_modes: vec![],
+            current_mode_id: None,
+            config_options: vec![],
             env_vars: HashMap::new(),
         }
     }
@@ -64,6 +70,9 @@ impl ClaudeAdapter {
             disable_login_prompt: settings.disable_login_prompt,
             available_models: vec![],
             current_model_id: None,
+            available_modes: vec![],
+            current_mode_id: None,
+            config_options: vec![],
             env_vars: settings.env_vars.clone(),
         }
     }
@@ -210,11 +219,14 @@ impl ProviderAdapter for ClaudeAdapter {
         self.acp_session_id = Some(handshake.session_id);
         self.session_id = Some(session_id.to_string());
         println!(
-            "[ClaudeAdapter] Handshake complete: available_models = {:?}, current_model = {:?}",
-            handshake.models, handshake.current_model_id
+            "[ClaudeAdapter] Handshake complete: available_models = {:?}, current_model = {:?}, available_modes = {:?}, current_mode = {:?}",
+            handshake.models, handshake.current_model_id, handshake.modes, handshake.current_mode_id
         );
         self.available_models = handshake.models;
         self.current_model_id = handshake.current_model_id;
+        self.available_modes = handshake.modes;
+        self.current_mode_id = handshake.current_mode_id;
+        self.config_options = handshake.config_options;
         self.is_active = true;
 
         Ok(())
@@ -273,11 +285,14 @@ impl ProviderAdapter for ClaudeAdapter {
         self.acp_session_id = Some(handshake.session_id);
         self.session_id = Some(session_id.to_string());
         println!(
-            "[ClaudeAdapter] Handshake complete: available_models = {:?}, current_model = {:?}",
-            handshake.models, handshake.current_model_id
+            "[ClaudeAdapter] Handshake complete: available_models = {:?}, current_model = {:?}, available_modes = {:?}, current_mode = {:?}",
+            handshake.models, handshake.current_model_id, handshake.modes, handshake.current_mode_id
         );
         self.available_models = handshake.models;
         self.current_model_id = handshake.current_model_id;
+        self.available_modes = handshake.modes;
+        self.current_mode_id = handshake.current_mode_id;
+        self.config_options = handshake.config_options;
         self.is_active = true;
 
         Ok(())
@@ -293,6 +308,18 @@ impl ProviderAdapter for ClaudeAdapter {
 
     fn current_model_id(&self) -> Option<&str> {
         self.current_model_id.as_deref()
+    }
+
+    fn available_modes(&self) -> Vec<ModeInfo> {
+        self.available_modes.clone()
+    }
+
+    fn current_mode_id(&self) -> Option<&str> {
+        self.current_mode_id.as_deref()
+    }
+
+    fn config_options(&self) -> Vec<agent_client_protocol::SessionConfigOption> {
+        self.config_options.clone()
     }
 
     async fn send_message(&mut self, message: &str) -> AppResult<()> {
@@ -392,6 +419,57 @@ impl ProviderAdapter for ClaudeAdapter {
         reply_rx
             .await
             .map_err(|_| AppError::Provider("Set model reply channel closed".to_string()))?
+            .map_err(|e| AppError::Provider(e))
+    }
+
+    async fn set_mode(&mut self, mode_id: &str) -> AppResult<()> {
+        let cmd_tx = self
+            .cmd_tx
+            .as_ref()
+            .ok_or_else(|| AppError::Provider("Session not started".to_string()))?;
+
+        let acp_session_id = self
+            .acp_session_id
+            .as_ref()
+            .ok_or_else(|| AppError::Provider("ACP session not established".to_string()))?;
+
+        let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+        let cmd = AcpCommand::SetMode {
+            session_id: acp_session_id.clone(),
+            mode_id: mode_id.to_string(),
+            reply: reply_tx,
+        };
+
+        cmd_tx.send(cmd).await.map_err(|e| {
+            AppError::Provider(format!("Failed to send set_mode command: {}", e))
+        })?;
+
+        reply_rx
+            .await
+            .map_err(|_| AppError::Provider("Set mode reply channel closed".to_string()))?
+            .map_err(|e| AppError::Provider(e))
+    }
+
+    async fn set_config_option(&mut self, config_id: &str, value: &str) -> AppResult<()> {
+        let cmd_tx = self
+            .cmd_tx
+            .as_ref()
+            .ok_or_else(|| AppError::Provider("Session not started".to_string()))?;
+
+        let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+        let cmd = AcpCommand::SetConfigOption {
+            config_id: config_id.to_string(),
+            value: value.to_string(),
+            reply: reply_tx,
+        };
+
+        cmd_tx.send(cmd).await.map_err(|e| {
+            AppError::Provider(format!("Failed to send set_config_option command: {}", e))
+        })?;
+
+        reply_rx
+            .await
+            .map_err(|_| AppError::Provider("Set config option reply channel closed".to_string()))?
             .map_err(|e| AppError::Provider(e))
     }
 
