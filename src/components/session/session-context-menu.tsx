@@ -34,6 +34,7 @@ import type { Session } from "@/types";
 import { cn } from "@/lib/utils";
 import { NewSessionDialog } from "./new-session-dialog";
 import PROVIDER_ICONS_MAP from "@/constants/icons";
+import { SessionStatusIcon } from "./session-status-icon";
 
 export interface SessionItemRef {
   openQuickCreate: () => void;
@@ -46,10 +47,26 @@ interface SessionItemProps {
   isActive: boolean;
   isSessionActive: boolean;
   onClick: () => void;
+  isStreaming?: boolean;
+  isResuming?: boolean;
+  isCreating?: boolean;
+  hasPendingPermission?: boolean;
 }
 
 export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
-  ({ session, isActive, isSessionActive, onClick }, ref) => {
+  (
+    {
+      session,
+      isActive,
+      isSessionActive,
+      onClick,
+      isStreaming = false,
+      isResuming = false,
+      isCreating = false,
+      hasPendingPermission = false,
+    },
+    ref
+  ) => {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showRenameDialog, setShowRenameDialog] = useState(false);
     const [showQuickCreateDialog, setShowQuickCreateDialog] = useState(false);
@@ -147,6 +164,13 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
                   {worktreeName}
                 </div>
               </div>
+              <SessionStatusIcon
+                status={session.status}
+                isStreaming={isStreaming}
+                isResuming={isResuming}
+                isCreating={isCreating}
+                hasPendingPermission={hasPendingPermission}
+              />
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent className="w-48">{menuItems}</ContextMenuContent>

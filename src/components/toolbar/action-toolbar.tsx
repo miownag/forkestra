@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { HiOutlineTerminal } from "react-icons/hi";
 // import { TbBrandSafari } from "react-icons/tb";
 import { cn } from "@/lib/utils";
 import { useSelectorTerminalStore } from "@/stores/terminal-store";
+import { Code1 } from "iconsax-reactjs";
 
 interface ActionToolbarProps {
   sessionId: string;
@@ -42,7 +42,7 @@ export function ActionToolbar({ sessionId, sessionCwd }: ActionToolbarProps) {
         onClick={handleTerminalClick}
         title="terminal"
       >
-        <HiOutlineTerminal />
+        <Code1 />
       </Button>
 
       {/* <Button

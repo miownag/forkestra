@@ -35,13 +35,25 @@ export function Sidebar() {
   const [showNewSession, setShowNewSession] = useState(false);
   const router = useRouter();
   const location = useLocation();
-  const { sessions, activeSessionId, openTab, fetchSessions } =
-    useSelectorSessionStore([
-      "sessions",
-      "activeSessionId",
-      "openTab",
-      "fetchSessions",
-    ]);
+  const {
+    sessions,
+    activeSessionId,
+    openTab,
+    fetchSessions,
+    streamingSessions,
+    resumingSessions,
+    creatingSessions,
+    interactionPrompts,
+  } = useSelectorSessionStore([
+    "sessions",
+    "activeSessionId",
+    "openTab",
+    "fetchSessions",
+    "streamingSessions",
+    "resumingSessions",
+    "creatingSessions",
+    "interactionPrompts",
+  ]);
   const { providers } = useSelectorProviderStore(["providers"]);
   const { resolvedTheme, isFullscreen, sidebarCollapsed, toggleSidebar } =
     useSelectorSettingsStore([
@@ -310,6 +322,10 @@ export function Sidebar() {
                         isActive={activeSessionId === session.id}
                         isSessionActive={isSessionActive(session)}
                         onClick={() => openTab(session.id)}
+                        isStreaming={streamingSessions.has(session.id)}
+                        isResuming={resumingSessions.has(session.id)}
+                        isCreating={creatingSessions.has(session.id)}
+                        hasPendingPermission={!!interactionPrompts[session.id]}
                       />
                     ))}
                 </div>

@@ -30,6 +30,38 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
+import { STATUS_BG_COLORS_MAP } from "../session/session-status-icon";
+
+const getStatusColor = (
+  status: Session["status"],
+  isStreaming: boolean,
+  isResuming: boolean,
+  isCreating: boolean,
+  hasPendingPermission: boolean
+) => {
+  if (hasPendingPermission) {
+    return STATUS_BG_COLORS_MAP.pending_permission;
+  }
+  if (isCreating) {
+    return STATUS_BG_COLORS_MAP.creating;
+  }
+  if (isResuming) {
+    return STATUS_BG_COLORS_MAP.resuming;
+  }
+  if (isStreaming) {
+    return STATUS_BG_COLORS_MAP.streaming;
+  }
+  if (status === "terminated") {
+    return STATUS_BG_COLORS_MAP.terminated;
+  }
+  if (status === "paused") {
+    return STATUS_BG_COLORS_MAP.paused;
+  }
+  if (status === "active") {
+    return STATUS_BG_COLORS_MAP.completed;
+  }
+  return STATUS_BG_COLORS_MAP.completed;
+};
 
 export function SessionTabBar() {
   const { sidebarCollapsed, isFullscreen } = useSelectorSettingsStore([
@@ -44,6 +76,10 @@ export function SessionTabBar() {
     closeTab,
     closeOtherTabs,
     reorderTab,
+    streamingSessions,
+    resumingSessions,
+    creatingSessions,
+    interactionPrompts,
   } = useSelectorSessionStore([
     "sessions",
     "activeSessionId",
@@ -52,6 +88,10 @@ export function SessionTabBar() {
     "closeTab",
     "closeOtherTabs",
     "reorderTab",
+    "streamingSessions",
+    "resumingSessions",
+    "creatingSessions",
+    "interactionPrompts",
   ]);
 
   // Cmd+W to close active tab
@@ -150,6 +190,10 @@ export function SessionTabBar() {
                     onClose={() => closeTab(tabId)}
                     onCloseOthers={() => closeOtherTabs(tabId)}
                     onCloseAll={handleCloseAll}
+                    isStreaming={streamingSessions.has(tabId)}
+                    isResuming={resumingSessions.has(tabId)}
+                    isCreating={creatingSessions.has(tabId)}
+                    hasPendingPermission={!!interactionPrompts[tabId]}
                   />
                 );
               })}
@@ -175,6 +219,10 @@ interface SortableTabItemProps {
   onClose: () => void;
   onCloseOthers: () => void;
   onCloseAll: () => void;
+  isStreaming?: boolean;
+  isResuming?: boolean;
+  isCreating?: boolean;
+  hasPendingPermission?: boolean;
 }
 
 function SortableTabItem({
@@ -183,6 +231,10 @@ function SortableTabItem({
   onClose,
   onCloseOthers,
   onCloseAll,
+  isStreaming = false,
+  isResuming = false,
+  isCreating = false,
+  hasPendingPermission = false,
 }: SortableTabItemProps) {
   const {
     attributes,
@@ -213,7 +265,7 @@ function SortableTabItem({
           {...listeners}
           value={session.id}
           className={cn(
-            "group/tab h-8 px-3 pr-1.5 text-xs gap-1.5 flex-1 basis-0 max-w-[180px]",
+            "group/tab h-8 px-3 pr-1.5 text-xs gap-1.5 flex-1 basis-0 max-w-45",
             "cursor-pointer select-none rounded-md rounded-b-none border border-b-0 border-border/30!",
             isDragging && "opacity-40",
             isActive ? "font-semibold border-primary/30!" : "hover:bg-muted/50",
@@ -223,9 +275,18 @@ function SortableTabItem({
         >
           <ProviderIcon.Color size={14} />
           <span className="truncate">{session.name}</span>
-          {session.status === "creating" && (
-            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 shrink-0" />
-          )}
+          <span
+            className={cn(
+              "w-1.5 h-1.5 rounded-full mr-1",
+              getStatusColor(
+                session.status,
+                isStreaming,
+                isResuming,
+                isCreating,
+                hasPendingPermission
+              )
+            )}
+          />
           <span
             role="button"
             onClick={(e) => {
