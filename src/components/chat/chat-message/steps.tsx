@@ -21,9 +21,6 @@ import {
   LuLoader,
   LuCircle,
   LuCircleSlash,
-  LuMessageSquareText,
-  LuListTodo,
-  LuImage,
   LuFileText,
   LuPencil,
   LuTrash,
@@ -35,7 +32,14 @@ import { Components } from "react-markdown";
 import { CodeBlockWithHeader } from "./code-block";
 import { DiffViewer } from "./diff-viewer";
 import { cn } from "@/lib/utils";
-import { Copy, CopySuccess } from "iconsax-reactjs";
+import {
+  Copy,
+  CopySuccess,
+  MessageText,
+  TaskSquare,
+  Image,
+  CloseSquare,
+} from "iconsax-reactjs";
 
 function getToolIcon(status: string, kind?: ToolKind) {
   // Status-based icons take precedence
@@ -45,7 +49,7 @@ function getToolIcon(status: string, kind?: ToolKind) {
     case "completed":
       return <LuCircleCheckBig className="size-4 text-green-500" />;
     case "error":
-      return <LuCircle className="size-4 text-red-500" />;
+      return <CloseSquare className="size-4 text-red-500" />;
     case "interrupted":
       return <LuCircleSlash className="size-4 text-yellow-500" />;
   }
@@ -128,7 +132,7 @@ function TextStep({ content, isLast }: { content: string; isLast: boolean }) {
   return (
     <ChainOfThoughtStep defaultOpen className="group" isLast={isLast}>
       <ChainOfThoughtTrigger
-        leftIcon={<LuMessageSquareText className="size-4 text-foreground" />}
+        leftIcon={<MessageText className="size-4 text-foreground" />}
         swapIconOnHover={false}
         className="flex-1"
       >
@@ -174,7 +178,7 @@ function ImageStep({
   return (
     <ChainOfThoughtStep defaultOpen isLast={isLast}>
       <ChainOfThoughtTrigger
-        leftIcon={<LuImage className="size-4 text-foreground" />}
+        leftIcon={<Image className="size-4 text-foreground" />}
         swapIconOnHover={false}
       >
         Image
@@ -202,24 +206,32 @@ function ImageStep({
 function getPlanStatusIcon(status: PlanEntry["status"]) {
   switch (status) {
     case "completed":
-      return <LuCircleCheckBig className="size-3.5 text-green-500" />;
+      return (
+        <LuCircleCheckBig className="size-3.5 text-green-500 dark:text-green-400" />
+      );
     case "in_progress":
-      return <LuLoader className="size-3.5 animate-spin text-blue-500" />;
+      return (
+        <LuLoader className="size-3.5 animate-spin text-blue-500 dark:text-blue-400" />
+      );
     case "pending":
-      return <LuCircle className="size-3.5 text-muted-foreground" />;
+      return (
+        <LuCircle className="size-3.5 text-muted-foreground dark:text-muted-foreground" />
+      );
     default:
-      return <LuCircle className="size-3.5 text-muted-foreground" />;
+      return (
+        <LuCircle className="size-3.5 text-muted-foreground dark:text-muted-foreground" />
+      );
   }
 }
 
 function getPriorityColor(priority: PlanEntry["priority"]) {
   switch (priority) {
     case "high":
-      return "text-red-500";
+      return "text-red-500 dark:text-red-400";
     case "medium":
-      return "text-yellow-500";
+      return "text-yellow-500 dark:text-yellow-400";
     case "low":
-      return "text-blue-500";
+      return "text-blue-500 dark:text-blue-400";
     default:
       return "text-muted-foreground";
   }
@@ -236,9 +248,9 @@ function PlanStep({
   const totalCount = entries.length;
 
   return (
-    <ChainOfThoughtStep defaultOpen={false} isLast={isLast}>
+    <ChainOfThoughtStep isLast={isLast}>
       <ChainOfThoughtTrigger
-        leftIcon={<LuListTodo className="size-4 text-foreground" />}
+        leftIcon={<TaskSquare className="size-4 text-foreground" />}
         swapIconOnHover={false}
       >
         <div className="flex items-center gap-2">
@@ -363,7 +375,10 @@ function renderToolStep(tc: ToolCallInfo, isLast: boolean) {
   return (
     <ChainOfThoughtStep
       key={tc.tool_call_id}
-      defaultOpen={tc.status === "error"}
+      defaultOpen={
+        tc.status === "error" ||
+        tc.content?.some((item) => item.type === "diff")
+      }
       isLast={isLast}
     >
       <ChainOfThoughtTrigger

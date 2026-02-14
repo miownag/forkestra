@@ -4,7 +4,7 @@ import { createTwoFilesPatch } from "diff";
 import "react-diff-view/style/index.css";
 import { useSelectorSettingsStore } from "@/stores";
 import { cn } from "@/lib/utils";
-import { Copy, TickCircle } from "iconsax-reactjs";
+import { Copy, Maximize2, TickCircle } from "iconsax-reactjs";
 
 interface DiffViewerProps {
   path: string;
@@ -111,6 +111,7 @@ export function DiffViewer({ path, oldText, newText }: DiffViewerProps) {
   const [copied, setCopied] = useState(false);
   const { resolvedTheme } = useSelectorSettingsStore(["resolvedTheme"]);
   const [viewType, setViewType] = useState<"split" | "unified">("unified");
+  const [expanded, setExpanded] = useState(false);
 
   // Guard against undefined/null values
   const safeNewText = newText || "";
@@ -249,23 +250,41 @@ export function DiffViewer({ path, oldText, newText }: DiffViewerProps) {
       {/* Diff Content */}
       <div
         className={cn(
-          "diff-viewer overflow-x-auto max-h-150",
-          resolvedTheme === "dark" ? "diff-theme-dark" : "diff-theme-light"
+          "diff-viewer overflow-x-auto relative ",
+          resolvedTheme === "dark" ? "diff-theme-dark" : "diff-theme-light",
+          !expanded && "max-h-60 overflow-y-hidden"
         )}
       >
         {files.length > 0 ? (
-          files.map((file, idx) => (
-            <Diff
-              key={idx}
-              viewType={viewType}
-              diffType={file.type}
-              hunks={file.hunks || []}
-            >
-              {(hunks) =>
-                hunks.map((hunk) => <Hunk key={hunk.content} hunk={hunk} />)
-              }
-            </Diff>
-          ))
+          <>
+            {files.map((file, idx) => (
+              <Diff
+                key={idx}
+                viewType={viewType}
+                diffType={file.type}
+                hunks={file.hunks || []}
+              >
+                {(hunks) =>
+                  hunks.map((hunk) => <Hunk key={hunk.content} hunk={hunk} />)
+                }
+              </Diff>
+            ))}
+            {
+              <div
+                className={cn(
+                  "flex items-center gap-2 cursor-pointer",
+                  "absolute bottom-2 right-2",
+                  "rounded-md p-2",
+                  "text-xs font-semibold text-muted-foreground",
+                  "bg-muted hover:bg-muted/50 "
+                )}
+                onClick={() => setExpanded((pre) => !pre)}
+              >
+                <Maximize2 className="size-4" />
+                {expanded ? "Collapse" : "Expand"}
+              </div>
+            }
+          </>
         ) : (
           <div className="p-3 text-xs text-muted-foreground">
             No changes to display
