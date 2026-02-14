@@ -277,7 +277,7 @@ function SortableTabItem({
           <span className="truncate">{session.name}</span>
           <span
             className={cn(
-              "w-1.5 h-1.5 rounded-full mr-1",
+              "w-1.5 h-1.5 rounded-full mr-1 shrink-0",
               getStatusColor(
                 session.status,
                 isStreaming,

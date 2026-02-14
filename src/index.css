@@ -589,3 +589,90 @@ textarea,
 .tiptap p {
   margin: 0;
 }
+
+/* Diff viewer styles */
+.diff-viewer {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.diff-theme-light {
+  --diff-add-bg: rgba(34, 197, 94, 0.1);
+  --diff-add-border: rgba(34, 197, 94, 0.3);
+  --diff-add-gutter-bg: rgba(34, 197, 94, 0.15);
+  --diff-remove-bg: rgba(239, 68, 68, 0.1);
+  --diff-remove-border: rgba(239, 68, 68, 0.3);
+  --diff-remove-gutter-bg: rgba(239, 68, 68, 0.15);
+  --diff-gutter-bg: var(--color-muted);
+  --diff-gutter-text: var(--color-muted-foreground);
+  --diff-line-text: var(--color-foreground);
+}
+
+.diff-theme-dark {
+  --diff-add-bg: rgba(34, 197, 94, 0.15);
+  --diff-add-border: rgba(34, 197, 94, 0.4);
+  --diff-add-gutter-bg: rgba(34, 197, 94, 0.2);
+  --diff-remove-bg: rgba(239, 68, 68, 0.15);
+  --diff-remove-border: rgba(239, 68, 68, 0.4);
+  --diff-remove-gutter-bg: rgba(239, 68, 68, 0.2);
+  --diff-gutter-bg: var(--color-muted);
+  --diff-gutter-text: var(--color-muted-foreground);
+  --diff-line-text: var(--color-foreground);
+}
+
+.diff-viewer .diff-gutter {
+  background-color: var(--diff-gutter-bg);
+  color: var(--diff-gutter-text);
+  -webkit-user-select: none;
+  user-select: none;
+  min-width: 3rem;
+  padding: 0 0.5rem;
+  text-align: right;
+}
+
+.diff-viewer .diff-gutter-insert {
+  background-color: var(--diff-add-gutter-bg);
+}
+
+.diff-viewer .diff-gutter-delete {
+  background-color: var(--diff-remove-gutter-bg);
+}
+
+.diff-viewer .diff-code {
+  color: var(--diff-line-text);
+  padding: 0 0.75rem;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.diff-viewer .diff-code-insert {
+  background-color: var(--diff-add-bg);
+  border-left: 2px solid var(--diff-add-border);
+}
+
+.diff-viewer .diff-code-delete {
+  background-color: var(--diff-remove-bg);
+  border-left: 2px solid var(--diff-remove-border);
+}
+
+.diff-viewer table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.diff-viewer tbody {
+  display: table-row-group;
+}
+
+.diff-viewer tr {
+  display: table-row;
+}
+
+.diff-viewer td {
+  display: table-cell;
+  vertical-align: top;
+}

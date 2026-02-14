@@ -7,7 +7,7 @@ use agent_client_protocol::{
     RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
     ResumeSessionRequest, SelectedPermissionOutcome, SessionConfigKind,
     SessionConfigOptionCategory, SessionConfigSelectOptions, SessionId, SessionNotification,
-    SessionUpdate, SetSessionModelRequest, SetSessionModeRequest, TextContent, ToolCallStatus,
+    SessionUpdate, SetSessionModelRequest, SetSessionModeRequest, ToolCallStatus,
 };
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::{mpsc, oneshot, Mutex};
@@ -246,21 +246,43 @@ async fn handle_session_update(
                 status_str
             };
 
-            let content_str = if has_tool_response {
+            // Always extract content from standard ACP content field first
+            // This ensures we get proper diff formatting for Edit tools
+            let content_items = extract_tool_call_content(&tool_call.content);
+
+            // If no standard content, fallback to legacy claudeCode metadata
+            let content_items = if content_items.is_none() && has_tool_response {
                 tool_response.and_then(|tr| {
                     if let Some(file) = tr.get("file") {
                         file.get("content")
                             .and_then(|c| c.as_str())
-                            .map(|s| s.to_string())
+                            .map(|s| {
+                                vec![crate::models::ToolCallContentItem::Content {
+                                    content: crate::models::ContentBlock::Text {
+                                        text: s.to_string(),
+                                    },
+                                }]
+                            })
                     } else {
-                        tr.get("text")
-                            .and_then(|t| t.as_str())
-                            .map(|s| s.to_string())
+                        tr.get("text").and_then(|t| t.as_str()).map(|s| {
+                            vec![crate::models::ToolCallContentItem::Content {
+                                content: crate::models::ContentBlock::Text {
+                                    text: s.to_string(),
+                                },
+                            }]
+                        })
                     }
                 })
             } else {
-                extract_tool_call_content(&tool_call.content)
+                content_items
             };
+
+            // Extract kind from metadata (if available in this ACP version)
+            let kind: Option<String> = None; // TODO: Extract when ACP SDK exposes kind field
+
+            // Extract locations (if available in this ACP version)
+            let locations: Option<Vec<crate::models::ToolCallLocation>> = None; // TODO: Extract when ACP SDK exposes locations field
+
 
             let _ = stream_tx
                 .send(StreamChunk {
@@ -274,8 +296,11 @@ async fn handle_session_update(
                         tool_name: resolved_tool_name,
                         status: effective_status.to_string(),
                         title: tool_call.title.clone(),
-                        content: content_str,
+                        content: content_items,
+                        kind,
+                        locations,
                         raw_input: tool_call.raw_input.clone(),
+                        raw_output: tool_call.raw_output.clone(),
                     }),
                     image_content: None,
                 })
@@ -290,11 +315,18 @@ async fn handle_session_update(
                 _ => "running",
             };
 
-            let content_str = tool_call_update
+            let content_items = tool_call_update
                 .fields
                 .content
                 .as_ref()
                 .and_then(|c| extract_tool_call_content(c));
+
+            // Extract kind from update (if available in this ACP version)
+            let kind: Option<String> = None; // TODO: Extract when ACP SDK exposes kind field
+
+            // Extract locations from update (if available in this ACP version)
+            let locations: Option<Vec<crate::models::ToolCallLocation>> = None; // TODO: Extract when ACP SDK exposes locations field
+
 
             let _ = stream_tx
                 .send(StreamChunk {
@@ -307,9 +339,12 @@ async fn handle_session_update(
                         tool_call_id: tool_call_update.tool_call_id.to_string(),
                         tool_name: None,
                         status: status_str.to_string(),
-                        title: String::new(),
-                        content: content_str,
-                        raw_input: None,
+                        title: tool_call_update.fields.title.clone().unwrap_or_default(),
+                        content: content_items,
+                        kind,
+                        locations,
+                        raw_input: tool_call_update.fields.raw_input.clone(),
+                        raw_output: tool_call_update.fields.raw_output.clone(),
                     }),
                     image_content: None,
                 })
@@ -480,22 +515,64 @@ async fn handle_content_chunk(
     }
 }
 
-fn extract_tool_call_content(content: &[acp::ToolCallContent]) -> Option<String> {
-    let texts: Vec<String> = content
+fn extract_tool_call_content(
+    content: &[acp::ToolCallContent],
+) -> Option<Vec<crate::models::ToolCallContentItem>> {
+    let items: Vec<crate::models::ToolCallContentItem> = content
         .iter()
         .filter_map(|c| match c {
-            acp::ToolCallContent::Content(content_wrapper) => match &content_wrapper.content {
-                ContentBlock::Text(t) => Some(t.text.clone()),
-                _ => None,
-            },
-            _ => None,
+            acp::ToolCallContent::Content(content_wrapper) => {
+                Some(crate::models::ToolCallContentItem::Content {
+                    content: convert_acp_content_block(&content_wrapper.content),
+                })
+            }
+            acp::ToolCallContent::Diff(diff) => Some(crate::models::ToolCallContentItem::Diff {
+                path: diff.path.to_string_lossy().to_string(),
+                old_text: diff.old_text.clone(),
+                new_text: diff.new_text.clone(),
+            }),
+            acp::ToolCallContent::Terminal(terminal) => {
+                Some(crate::models::ToolCallContentItem::Terminal {
+                    terminal_id: terminal.terminal_id.to_string(),
+                })
+            }
+            _ => None, // Handle other variants that may be added in future ACP versions
         })
         .collect();
 
-    if texts.is_empty() {
+    if items.is_empty() {
         None
     } else {
-        Some(texts.join("\n"))
+        Some(items)
+    }
+}
+
+fn convert_acp_content_block(block: &ContentBlock) -> crate::models::ContentBlock {
+    match block {
+        ContentBlock::Text(t) => crate::models::ContentBlock::Text {
+            text: t.text.clone(),
+        },
+        ContentBlock::Image(img) => {
+            crate::models::ContentBlock::Image(crate::models::ImageContent {
+                data: img.data.clone(),
+                mime_type: img.mime_type.clone(),
+                uri: img.uri.clone(),
+            })
+        }
+        ContentBlock::Resource(_res) => {
+            // TODO: Properly extract resource information when ACP SDK provides accessors
+            crate::models::ContentBlock::ResourceLink(crate::models::ResourceLinkContent {
+                uri: "resource".to_string(),
+                name: "Resource".to_string(),
+                mime_type: None,
+            })
+        }
+        _ => {
+            // Handle other content block types that may be added in future ACP versions
+            crate::models::ContentBlock::Text {
+                text: "[Unsupported content type]".to_string(),
+            }
+        }
     }
 }
 

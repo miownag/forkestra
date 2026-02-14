@@ -20,7 +20,7 @@ interface SessionStatusIconProps {
 export const STATUS_BG_COLORS_MAP = {
   creating: "bg-yellow-600 dark:bg-yellow-500",
   resuming: "bg-yellow-600 dark:bg-yellow-500",
-  pending_permission: "bg-orange-600 dark:bg-orange-500",
+  pending_permission: "bg-amber-600 dark:bg-amber-500",
   streaming: "bg-blue-600 dark:bg-blue-500",
   completed: "bg-green-600 dark:bg-green-500",
   terminated: "bg-gray-500 dark:bg-gray-400",
@@ -53,11 +53,7 @@ export function SessionStatusIcon({
     return (
       <Alarm
         size={16}
-        variant="Bold"
-        className={cn(
-          "shrink-0 text-orange-600 dark:text-orange-500",
-          className
-        )}
+        className={cn("shrink-0 text-amber-600 dark:text-amber-500", className)}
       />
     );
   }

@@ -4,6 +4,8 @@ import type {
   ToolCallInfo,
   PlanEntry,
   ImageContent,
+  ToolCallContentItem,
+  ToolKind,
 } from "@/types";
 import {
   ChainOfThought,
@@ -22,14 +24,21 @@ import {
   LuMessageSquareText,
   LuListTodo,
   LuImage,
+  LuFileText,
+  LuPencil,
+  LuTrash,
+  LuSearch,
+  LuTerminal,
 } from "react-icons/lu";
 import { useState, useCallback } from "react";
 import { Components } from "react-markdown";
 import { CodeBlockWithHeader } from "./code-block";
+import { DiffViewer } from "./diff-viewer";
 import { cn } from "@/lib/utils";
 import { Copy, CopySuccess } from "iconsax-reactjs";
 
-function getToolIcon(status: string) {
+function getToolIcon(status: string, kind?: ToolKind) {
+  // Status-based icons take precedence
   switch (status) {
     case "running":
       return <LuLoader className="size-4 animate-spin text-blue-500" />;
@@ -39,6 +48,20 @@ function getToolIcon(status: string) {
       return <LuCircle className="size-4 text-red-500" />;
     case "interrupted":
       return <LuCircleSlash className="size-4 text-yellow-500" />;
+  }
+
+  // Fallback to kind-based icons
+  switch (kind) {
+    case "read":
+      return <LuFileText className="size-4 text-blue-500" />;
+    case "edit":
+      return <LuPencil className="size-4 text-yellow-500" />;
+    case "delete":
+      return <LuTrash className="size-4 text-red-500" />;
+    case "search":
+      return <LuSearch className="size-4 text-purple-500" />;
+    case "execute":
+      return <LuTerminal className="size-4 text-green-500" />;
     default:
       return <LuLoader className="size-4 animate-spin text-blue-500" />;
   }
@@ -262,8 +285,81 @@ function PlanStep({
   );
 }
 
+function renderToolCallContent(
+  content: ToolCallContentItem[] | null,
+  tcId: string
+) {
+  if (!content || content.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      {content.map((item, idx) => {
+        switch (item.type) {
+          case "content":
+            return (
+              <div key={`${tcId}-content-${idx}`}>
+                {item.content.type === "text" ? (
+                  <pre className="whitespace-pre-wrap p-3 font-mono text-xs leading-relaxed text-foreground rounded-md border border-border bg-background">
+                    {item.content.text}
+                  </pre>
+                ) : item.content.type === "image" ? (
+                  <img
+                    src={`data:${item.content.mimeType};base64,${item.content.data}`}
+                    alt="Tool output"
+                    className="max-w-full rounded-md border border-border"
+                  />
+                ) : item.content.type === "resource_link" ? (
+                  <a
+                    href={item.content.uri}
+                    className="text-blue-500 hover:underline text-sm"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {item.content.name}
+                  </a>
+                ) : null}
+              </div>
+            );
+
+          case "diff":
+            return (
+              <DiffViewer
+                key={`${tcId}-diff-${idx}`}
+                path={item.path}
+                oldText={item.oldText}
+                newText={item.newText}
+              />
+            );
+
+          case "terminal":
+            return (
+              <div
+                key={`${tcId}-terminal-${idx}`}
+                className="rounded-md border border-border bg-muted/30 p-3"
+              >
+                <div className="text-xs text-muted-foreground">
+                  Terminal output: {item.terminalId}
+                </div>
+                {/* TODO: Integrate with terminal viewer when implemented */}
+              </div>
+            );
+
+          default:
+            return null;
+        }
+      })}
+    </div>
+  );
+}
+
 function renderToolStep(tc: ToolCallInfo, isLast: boolean) {
   const hasContent = tc.content || tc.raw_input;
+
+  console.log("renderToolStep", tc);
+
+  // Check if content contains diff type - if so, don't show raw_input
+  const hasDiffContent = tc.content?.some((item) => item.type === "diff");
+
   return (
     <ChainOfThoughtStep
       key={tc.tool_call_id}
@@ -271,7 +367,7 @@ function renderToolStep(tc: ToolCallInfo, isLast: boolean) {
       isLast={isLast}
     >
       <ChainOfThoughtTrigger
-        leftIcon={getToolIcon(tc.status)}
+        leftIcon={getToolIcon(tc.status, tc.kind)}
         swapIconOnHover={false}
       >
         {getToolTitle(tc)}
@@ -279,7 +375,8 @@ function renderToolStep(tc: ToolCallInfo, isLast: boolean) {
       {hasContent && (
         <ChainOfThoughtContent>
           <ChainOfThoughtItem className="gap-2">
-            {tc.raw_input && (
+            {/* Only show raw_input if there's no diff content */}
+            {tc.raw_input && !hasDiffContent && (
               <div className="rounded-md border border-border bg-muted/50">
                 <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
                   <span className="text-xs font-medium text-muted-foreground">
@@ -292,15 +389,38 @@ function renderToolStep(tc: ToolCallInfo, isLast: boolean) {
               </div>
             )}
             {tc.content && (
-              <div className="rounded-md border border-border bg-background">
-                <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Output
-                  </span>
+              <div
+                className={
+                  hasDiffContent
+                    ? ""
+                    : "rounded-md border border-border bg-background mt-2"
+                }
+              >
+                {!hasDiffContent && (
+                  <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Output
+                    </span>
+                  </div>
+                )}
+                <div className={hasDiffContent ? "" : "p-3"}>
+                  {renderToolCallContent(tc.content, tc.tool_call_id)}
                 </div>
-                <pre className="max-h-64 overflow-auto whitespace-pre-wrap p-3 font-mono text-xs leading-relaxed text-foreground">
-                  {tc.content}
-                </pre>
+              </div>
+            )}
+            {tc.locations && tc.locations.length > 0 && (
+              <div className="rounded-md border border-border bg-muted/30 p-2 mt-2">
+                <div className="text-xs font-medium text-muted-foreground mb-2">
+                  Affected Files:
+                </div>
+                <div className="space-y-1">
+                  {tc.locations.map((loc, i) => (
+                    <div key={i} className="text-xs text-foreground font-mono">
+                      {loc.path}
+                      {loc.line ? `:${loc.line}` : ""}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </ChainOfThoughtItem>

@@ -161,9 +161,55 @@ pub struct ToolCallInfo {
     pub tool_name: Option<String>,
     pub status: String,
     pub title: String,
-    pub content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<Vec<ToolCallContentItem>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub locations: Option<Vec<ToolCallLocation>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub raw_input: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub raw_output: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum ToolCallContentItem {
+    #[serde(rename = "content")]
+    Content { content: ContentBlock },
+    #[serde(rename = "diff")]
+    Diff {
+        path: String,
+        #[serde(rename = "oldText")]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        old_text: Option<String>,
+        #[serde(rename = "newText")]
+        new_text: String,
+    },
+    #[serde(rename = "terminal")]
+    Terminal {
+        #[serde(rename = "terminalId")]
+        terminal_id: String,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCallLocation {
+    pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum ContentBlock {
+    #[serde(rename = "text")]
+    Text { text: String },
+    #[serde(rename = "image")]
+    Image(ImageContent),
+    #[serde(rename = "resource_link")]
+    ResourceLink(ResourceLinkContent),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

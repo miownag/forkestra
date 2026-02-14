@@ -193,9 +193,38 @@ export interface ToolCallInfo {
   tool_name: string | null;
   status: string;
   title: string;
-  content: string | null;
+  content: ToolCallContentItem[] | null;
+  kind?: ToolKind;
+  locations?: ToolCallLocation[];
   raw_input?: Record<string, unknown>;
+  raw_output?: Record<string, unknown>;
 }
+
+export type ToolKind =
+  | "read"
+  | "edit"
+  | "delete"
+  | "move"
+  | "search"
+  | "execute"
+  | "think"
+  | "fetch"
+  | "other";
+
+export type ToolCallContentItem =
+  | { type: "content"; content: ContentBlock }
+  | { type: "diff"; path: string; oldText?: string; newText: string }
+  | { type: "terminal"; terminalId: string };
+
+export interface ToolCallLocation {
+  path: string;
+  line?: number;
+}
+
+export type ContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image"; data: string; mimeType: string; uri?: string }
+  | { type: "resource_link"; uri: string; name: string; mimeType?: string };
 
 export interface StreamChunk {
   session_id: string;
