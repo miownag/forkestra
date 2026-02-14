@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import PROVIDER_ICONS_MAP from "@/constants/icons";
 import { ProviderType, PromptContent } from "@/types";
 import { Loader } from "@/components/prompt-kit/loader";
-import { VscLoading } from "react-icons/vsc";
 import {
   ChatContainerRoot,
   ChatContainerContent,
@@ -15,6 +14,7 @@ import {
 } from "@/components/prompt-kit/chat-container";
 import { ScrollButton } from "../prompt-kit/scroll-button";
 import { Typewriter } from "@/components/ui/typewriter";
+import { Spinner } from "../ui/spinner";
 
 const EMPTY_MESSAGES: never[] = [];
 
@@ -145,7 +145,7 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
           {/* Resuming state */}
           {isResuming && (
             <div className="flex items-center justify-center mx-auto gap-2 px-4 py-3 mb-4 rounded-lg border border-border bg-muted/50">
-              <VscLoading className="text-foreground animate-spin" />
+              <Spinner className="text-foreground" />
               <p className="text-sm text-muted-foreground">
                 Resuming session...
               </p>
@@ -212,7 +212,7 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
           {/* Resuming state */}
           {isResuming && (
             <div className="flex items-center justify-center mx-auto gap-2 px-4 py-3 rounded-lg border border-border bg-muted/50">
-              <VscLoading className="text-foreground animate-spin" />
+              <Spinner className="text-foreground" />
               <p className="text-sm text-muted-foreground">
                 Resuming session...
               </p>
