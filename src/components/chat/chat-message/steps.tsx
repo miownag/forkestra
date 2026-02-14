@@ -20,7 +20,6 @@ import {
   LuCircleCheckBig,
   LuLoader,
   LuCircle,
-  LuCircleSlash,
   LuFileText,
   LuPencil,
   LuTrash,
@@ -37,8 +36,9 @@ import {
   CopySuccess,
   MessageText,
   TaskSquare,
-  Image,
   CloseSquare,
+  Forbidden,
+  Gallery,
 } from "iconsax-reactjs";
 
 function getToolIcon(status: string, kind?: ToolKind) {
@@ -51,7 +51,7 @@ function getToolIcon(status: string, kind?: ToolKind) {
     case "error":
       return <CloseSquare className="size-4 text-red-500" />;
     case "interrupted":
-      return <LuCircleSlash className="size-4 text-yellow-500" />;
+      return <Forbidden className="size-4 text-yellow-500" />;
   }
 
   // Fallback to kind-based icons
@@ -178,7 +178,7 @@ function ImageStep({
   return (
     <ChainOfThoughtStep defaultOpen isLast={isLast}>
       <ChainOfThoughtTrigger
-        leftIcon={<Image className="size-4 text-foreground" />}
+        leftIcon={<Gallery className="size-4 text-foreground" />}
         swapIconOnHover={false}
       >
         Image

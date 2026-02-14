@@ -4,7 +4,8 @@ import { createTwoFilesPatch } from "diff";
 import "react-diff-view/style/index.css";
 import { useSelectorSettingsStore } from "@/stores";
 import { cn } from "@/lib/utils";
-import { Copy, Maximize2, TickCircle } from "iconsax-reactjs";
+import { Copy, CopySuccess } from "iconsax-reactjs";
+import { LuMaximize, LuMinimize } from "react-icons/lu";
 
 interface DiffViewerProps {
   path: string;
@@ -234,12 +235,12 @@ export function DiffViewer({ path, oldText, newText }: DiffViewerProps) {
             onClick={handleCopy}
             className={cn(
               "text-muted-foreground p-1 rounded-md",
-              !copied && "hover:bg-muted"
+              !copied && "hover:bg-muted cursor-pointer"
             )}
             title="Copy new content"
           >
             {copied ? (
-              <TickCircle className="size-4 text-green-500" />
+              <CopySuccess className="size-4 text-green-500" />
             ) : (
               <Copy className="size-4" />
             )}
@@ -280,7 +281,11 @@ export function DiffViewer({ path, oldText, newText }: DiffViewerProps) {
                 )}
                 onClick={() => setExpanded((pre) => !pre)}
               >
-                <Maximize2 className="size-4" />
+                {expanded ? (
+                  <LuMinimize className="size-4" />
+                ) : (
+                  <LuMaximize className="size-4" />
+                )}
                 {expanded ? "Collapse" : "Expand"}
               </div>
             }
