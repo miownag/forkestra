@@ -15,6 +15,7 @@ import {
 import { ScrollButton } from "../prompt-kit/scroll-button";
 import { Typewriter } from "@/components/ui/typewriter";
 import { Spinner } from "../ui/spinner";
+import { FiAlertCircle } from "react-icons/fi";
 
 const EMPTY_MESSAGES: never[] = [];
 
@@ -31,11 +32,13 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
     sendInteractionResponse,
     resumeSession,
     stopStreaming,
+    terminateSession,
     streamingSessions,
     resumingSessions,
     creatingSessions,
     interactionPrompts,
     error: storeError,
+    clearError,
   } = useSelectorSessionStore([
     "messages",
     "sessions",
@@ -43,11 +46,13 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
     "sendInteractionResponse",
     "resumeSession",
     "stopStreaming",
+    "terminateSession",
     "streamingSessions",
     "resumingSessions",
     "creatingSessions",
     "interactionPrompts",
     "error",
+    "clearError",
   ]);
   const isLoading = streamingSessions.has(sessionId);
   const hasInteractionPrompt = !!interactionPrompts[sessionId];
@@ -61,6 +66,7 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
   const canResume = isTerminated && !!session?.acp_session_id;
   const isResuming = resumingSessions.has(sessionId);
   const hasCreateError = !!storeError && isCreating;
+  const hasResumeError = !!storeError && canResume && !isResuming;
 
   const messages = useMemo(
     () => messagesMap[sessionId] ?? EMPTY_MESSAGES,
@@ -94,10 +100,20 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
   };
 
   const handleResume = async () => {
+    clearError();
     try {
       await resumeSession(sessionId);
     } catch (error) {
       console.error("Failed to resume session:", error);
+      // Error is already set in store, no need to handle here
+    }
+  };
+
+  const handleDeleteSession = async () => {
+    try {
+      await terminateSession(sessionId, true);
+    } catch (error) {
+      console.error("Failed to delete session:", error);
     }
   };
 
@@ -133,12 +149,36 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
           )}
 
           {/* Resume Banner */}
-          {canResume && !isResuming && !isCreating && (
+          {canResume && !isResuming && !isCreating && !hasResumeError && (
             <div className="flex items-center justify-center mx-auto gap-3 px-4 py-3 mb-4 rounded-lg border border-border bg-muted/50">
               <p className="text-sm text-muted-foreground">Session paused</p>
               <Button size="sm" variant="default" onClick={handleResume}>
                 Resume
               </Button>
+            </div>
+          )}
+
+          {/* Resume error state */}
+          {hasResumeError && (
+            <div className="flex flex-col items-center justify-center mx-auto gap-3 px-4 py-3 mb-4 rounded-lg border border-destructive/50 bg-destructive/10">
+              <div className="flex items-center gap-2 text-destructive">
+                <FiAlertCircle className="shrink-0" />
+                <p className="text-sm">
+                  Failed to resume session: {storeError}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={handleResume}>
+                  Retry
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleDeleteSession}
+                >
+                  Delete Session
+                </Button>
+              </div>
             </div>
           )}
 
@@ -200,12 +240,36 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
           )}
 
           {/* Resume Banner */}
-          {canResume && !isResuming && !isCreating && (
+          {canResume && !isResuming && !isCreating && !hasResumeError && (
             <div className="flex items-center justify-center mx-auto gap-3 px-4 py-3 rounded-lg border border-border bg-muted/50">
               <p className="text-sm text-muted-foreground">Session paused</p>
               <Button size="sm" variant="default" onClick={handleResume}>
                 Resume
               </Button>
+            </div>
+          )}
+
+          {/* Resume error state */}
+          {hasResumeError && (
+            <div className="flex flex-col items-center justify-center mx-auto gap-3 px-4 py-3 rounded-lg border border-destructive/50 bg-destructive/10">
+              <div className="flex items-center gap-2 text-destructive">
+                <FiAlertCircle className="shrink-0" />
+                <p className="text-sm">
+                  Failed to resume session: {storeError}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={handleResume}>
+                  Retry
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleDeleteSession}
+                >
+                  Delete Session
+                </Button>
+              </div>
             </div>
           )}
 

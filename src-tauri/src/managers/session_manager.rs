@@ -43,9 +43,18 @@ impl SessionManager {
                     if session.status == SessionStatus::Active
                         || session.status == SessionStatus::Creating
                     {
-                        session.status = SessionStatus::Paused;
-                        let _ =
-                            db.update_session_status(&session.id, &SessionStatus::Paused);
+                        // Check if session has acp_session_id - sessions without it are invalid
+                        if session.acp_session_id.is_none() {
+                            println!(
+                                "[SessionManager] Marking session {} as error (no ACP session ID)",
+                                session.id
+                            );
+                            session.status = SessionStatus::Error;
+                            let _ = db.update_session_status(&session.id, &SessionStatus::Error);
+                        } else {
+                            session.status = SessionStatus::Paused;
+                            let _ = db.update_session_status(&session.id, &SessionStatus::Paused);
+                        }
                     }
                     initial_sessions.insert(
                         session.id.clone(),
@@ -447,9 +456,10 @@ impl SessionManager {
             entry.session.clone()
         };
 
+        // Check if session has ACP session ID - if not, it was never successfully connected
         let acp_session_id = session.acp_session_id.as_ref().ok_or_else(|| {
             AppError::InvalidOperation(
-                "Session has no ACP session ID and cannot be resumed".to_string(),
+                "Session was never successfully initialized. The session may have been created but the connection failed or was interrupted before completion. Please delete this session and create a new one.".to_string(),
             )
         })?;
 
