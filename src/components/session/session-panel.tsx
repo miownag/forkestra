@@ -43,7 +43,12 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
           <div className="border-b px-4 py-3 flex items-center justify-between bg-muted/20 shrink-0">
             <div className="flex items-center gap-3 min-w-0">
               <div className="min-w-0">
-                <h2 className="font-medium text-sm truncate">{session.name}</h2>
+                <h2
+                  className="font-medium text-sm truncate"
+                  title={session.name}
+                >
+                  {session.name}
+                </h2>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <LuGitBranch className="h-3 w-3" />
@@ -54,7 +59,10 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
                     title={session.project_path || "-"}
                   >
                     <LuFolderOpen className="h-3 w-3 shrink-0" />
-                    <span className="truncate">
+                    <span
+                      className="truncate"
+                      title={session.project_path.split("/").pop()}
+                    >
                       {session.project_path.split("/").pop() || "-"}
                     </span>
                   </span>
@@ -87,7 +95,7 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
           </div>
 
           {/* Chat Window */}
-          <ChatWindow sessionId={session.id} />
+          <ChatWindow sessionId={session.id} isActive={isActive} />
         </div>
 
         {/* Terminal Panel */}

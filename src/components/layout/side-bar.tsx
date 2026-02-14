@@ -28,6 +28,7 @@ import {
   ArrowDown2,
   Setting5,
 } from "iconsax-reactjs";
+import { RiGitRepositoryLine } from "react-icons/ri";
 
 export function Sidebar() {
   useStreamEvents();
@@ -224,7 +225,7 @@ export function Sidebar() {
               className="h-6 w-6 shrink-0 select-none pointer-events-none -mt-0.5"
             />
             <div className="flex flex-col gap-1">
-              <h1 className="text-lg font-semibold leading-none whitespace-nowrap select-none cursor-default">
+              <h1 className="text-lg font-semibold leading-none whitespace-nowrap select-none! cursor-default">
                 Forkestra
               </h1>
               <p className="text-xs text-muted-foreground whitespace-nowrap">
@@ -309,9 +310,15 @@ export function Sidebar() {
                         className="mr-1 h-3.5 w-3.5 shrink-0"
                       />
                     )}
-                    <span className="truncate" title={projectPath}>
-                      {projectName}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <RiGitRepositoryLine />
+                      <span
+                        className="truncate select-none!"
+                        title={projectName}
+                      >
+                        {projectName}
+                      </span>
+                    </div>
                   </div>
                   {!isCollapsed &&
                     projectSessions.map((session) => (

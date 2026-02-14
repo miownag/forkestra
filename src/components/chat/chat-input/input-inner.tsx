@@ -291,13 +291,15 @@ export function ChatInputInner({
             onSelect={handleCommandSelect}
             align="end"
           >
-            <button
-              type="button"
-              onClick={handleSlashButtonClick}
-              className="hover:bg-secondary-foreground/10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-2xl text-muted-foreground"
-            >
-              <TbSlash className="size-5" />
-            </button>
+            <PromptInputAction tooltip="Slash Command">
+              <button
+                type="button"
+                onClick={handleSlashButtonClick}
+                className="hover:bg-secondary-foreground/10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-2xl text-muted-foreground"
+              >
+                <TbSlash className="size-5" />
+              </button>
+            </PromptInputAction>
           </SlashCommandSelector>
           <button
             className="h-8 w-8 hover:text-primary/70 rounded-full cursor-pointer text-primary"

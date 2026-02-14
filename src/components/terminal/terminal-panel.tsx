@@ -20,7 +20,11 @@ interface TerminalPanelProps {
   isVisible?: boolean;
 }
 
-export function TerminalPanel({ sessionId, sessionCwd, isVisible = true }: TerminalPanelProps) {
+export function TerminalPanel({
+  sessionId,
+  sessionCwd,
+  isVisible = true,
+}: TerminalPanelProps) {
   const {
     terminals,
     activeTerminalId,
@@ -56,7 +60,7 @@ export function TerminalPanel({ sessionId, sessionCwd, isVisible = true }: Termi
 
   const handleCloseTerminal = async (
     e: React.MouseEvent,
-    terminalId: string,
+    terminalId: string
   ) => {
     e.stopPropagation();
     await closeTerminal(terminalId);
@@ -71,7 +75,7 @@ export function TerminalPanel({ sessionId, sessionCwd, isVisible = true }: Termi
       className={cn(
         "bg-background border-border flex flex-col",
         position === "right" ? "border-l h-full" : "border-t w-full",
-        (!panelOpen || !isVisible) && "hidden",
+        (!panelOpen || !isVisible) && "hidden"
       )}
       style={{
         [position === "right" ? "width" : "height"]: panelSize,
@@ -99,10 +103,12 @@ export function TerminalPanel({ sessionId, sessionCwd, isVisible = true }: Termi
                     className={cn(
                       "h-full pr-1 text-xs data-[state=active]:text-foreground flex items-center gap-1.5 max-w-[120px]",
                       "transition-colors hover:bg-muted data-[state=active]:bg-transparent!",
-                      "border-b-2 border-b-transparent! data-[state=active]:border-b-primary! rounded-none cursor-pointer",
+                      "border-b-2 border-b-transparent! data-[state=active]:border-b-primary! rounded-none cursor-pointer"
                     )}
                   >
-                    <span className="truncate">{terminal.name}</span>
+                    <span className="truncate" title={terminal.name}>
+                      {terminal.name}
+                    </span>
                     <span
                       onClick={(e) => handleCloseTerminal(e, terminal.id)}
                       className="rounded p-0.5 cursor-pointer hover:bg-muted-foreground/20"
@@ -233,7 +239,7 @@ function TerminalInstance({ terminal, isActive }: TerminalInstanceProps) {
               xtermWriteRef.current(filtered);
             }
           }
-        },
+        }
       );
     };
 
@@ -251,7 +257,7 @@ function TerminalInstance({ terminal, isActive }: TerminalInstanceProps) {
     async (data: string) => {
       await sendInput(terminal.id, data);
     },
-    [terminal.id, sendInput],
+    [terminal.id, sendInput]
   );
 
   const handleClear = useCallback(() => {
@@ -264,7 +270,7 @@ function TerminalInstance({ terminal, isActive }: TerminalInstanceProps) {
       xtermWriteRef.current = write;
       xtermClearRef.current = clear;
     },
-    [],
+    []
   );
 
   return (
@@ -320,7 +326,7 @@ function ResizeHandle({ position, panelSize, onResize }: ResizeHandleProps) {
       startPosRef.current = position === "right" ? e.clientX : e.clientY;
       startSizeRef.current = panelSize;
     },
-    [position, panelSize],
+    [position, panelSize]
   );
 
   useEffect(() => {
@@ -356,7 +362,7 @@ function ResizeHandle({ position, panelSize, onResize }: ResizeHandleProps) {
         "hover:bg-primary/20 transition-colors",
         position === "right"
           ? "absolute left-0 top-0 bottom-0 w-1 cursor-col-resize"
-          : "absolute top-0 left-0 right-0 h-1 cursor-row-resize",
+          : "absolute top-0 left-0 right-0 h-1 cursor-row-resize"
       )}
       onMouseDown={handleMouseDown}
     />

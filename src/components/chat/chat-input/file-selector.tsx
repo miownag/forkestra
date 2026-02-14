@@ -265,7 +265,10 @@ export function FileSelector({
                       ) : (
                         <VscFile className="size-4 shrink-0 text-muted-foreground" />
                       )}
-                      <span className="text-sm truncate flex-1">
+                      <span
+                        className="text-sm truncate flex-1"
+                        title={entry.name}
+                      >
                         {entry.name}
                       </span>
                       {entry.is_dir && (

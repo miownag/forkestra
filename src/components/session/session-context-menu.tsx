@@ -35,6 +35,7 @@ import { cn, formatTimeAgo } from "@/lib/utils";
 import { NewSessionDialog } from "./new-session-dialog";
 import PROVIDER_ICONS_MAP from "@/constants/icons";
 import { SessionStatusIcon } from "./session-status-icon";
+import { LuGitBranch } from "react-icons/lu";
 
 export interface SessionItemRef {
   openQuickCreate: () => void;
@@ -156,11 +157,16 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
                     "font-medium truncate pr-6 text-xs flex items-center gap-1.5",
                     session.is_local ? "text-local" : "text-worktree"
                   )}
+                  title={session.name}
                 >
                   <ProviderIcon.Color size={12} />
                   {session.name}
                 </div>
-                <div className="text-[0.7rem] truncate text-muted-foreground pl-4.5">
+                <div
+                  className="flex items-center gap-1 text-xs truncate text-muted-foreground pl-4.5"
+                  title={worktreeName}
+                >
+                  <LuGitBranch className="size-3" />
                   {worktreeName}
                 </div>
               </div>

@@ -17,7 +17,6 @@ import useSelectorSettingsStore from "@/stores/settings-store";
 import { ProviderSettingsCard } from "@/components/settings/provider-settings-card";
 import { GlobalSettingsEditor } from "@/components/settings/global-settings-editor";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { VscArrowLeft, VscFolder } from "react-icons/vsc";
 import type { Theme, FontSize, AccentColor, DefaultWorkMode } from "@/types";
 import { ACCENT_COLOR_OPTIONS } from "@/constants/theme";
 import { Separator } from "@/components/ui/separator";
@@ -28,9 +27,9 @@ import {
   SidebarToggleButton,
   ThemeToggleButton,
 } from "@/components/layout/title-bar-controls";
-import { IoBuildOutline } from "react-icons/io5";
 import { TbCodeDots } from "react-icons/tb";
-import { Refresh } from "iconsax-reactjs";
+import { ArrowLeft2, Refresh, Setting2 } from "iconsax-reactjs";
+import { LuFolderOpen } from "react-icons/lu";
 
 export const Route = createFileRoute("/settings/")({
   component: RouteComponent,
@@ -116,8 +115,12 @@ function RouteComponent() {
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-8 sm:w-2xl md:w-3xl mx-auto py-12">
           <div className="flex items-center justify-between">
-            <Button variant="ghost" onClick={() => router.history.back()}>
-              <VscArrowLeft />
+            <Button
+              variant="ghost"
+              onClick={() => router.history.back()}
+              className="[&_svg]:size-5 -ml-3 pl-2 text-base"
+            >
+              <ArrowLeft2 />
               Back
             </Button>
 
@@ -128,7 +131,7 @@ function RouteComponent() {
                 size="sm"
                 onClick={() => setActiveTab("ui")}
               >
-                <IoBuildOutline />
+                <Setting2 />
                 UI Settings
               </Button>
               <Button
@@ -182,7 +185,7 @@ function RouteComponent() {
                         size="icon"
                         onClick={handleSelectDefaultPath}
                       >
-                        <VscFolder className="h-4 w-4" />
+                        <LuFolderOpen className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>

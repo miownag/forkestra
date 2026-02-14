@@ -14,14 +14,16 @@ import {
   ChatContainerScrollAnchor,
 } from "@/components/prompt-kit/chat-container";
 import { ScrollButton } from "../prompt-kit/scroll-button";
+import { Typewriter } from "@/components/ui/typewriter";
 
 const EMPTY_MESSAGES: never[] = [];
 
 interface ChatWindowProps {
   sessionId: string;
+  isActive: boolean;
 }
 
-export function ChatWindow({ sessionId }: ChatWindowProps) {
+export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
   const {
     messages: messagesMap,
     sessions,
@@ -100,74 +102,135 @@ export function ChatWindow({ sessionId }: ChatWindowProps) {
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden sm:w-3xl md:w-4xl mx-auto gap-4">
-      {/* Messages */}
-      <ChatContainerRoot className="flex-1 relative">
-        <ChatContainerContent className="p-4 space-y-4 min-h-full">
-          {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center text-muted-foreground h-128">
-              <ProviderIcon.Combine
-                size={48}
-                type="color"
-                className="flex items-center justify-center"
+    <div className="flex-1 flex flex-col overflow-hidden sm:w-3xl md:w-4xl mx-auto">
+      {messages.length === 0 ? (
+        /* Empty state - centered layout with input below icon */
+        <div className="flex-1 flex flex-col items-center justify-center px-8">
+          <div className="flex flex-col items-center text-muted-foreground mb-8">
+            <ProviderIcon.Combine
+              size={48}
+              type="color"
+              className="flex items-center justify-center"
+            />
+            <p className="text-base mt-4">
+              <Typewriter
+                className="font-mono"
+                text="How can I assist you with your code today?"
+                speed={30}
+                delay={300}
+                deps={[isActive]}
               />
-              <p className="text-sm mt-4">
-                Send a message to start the conversation...
+            </p>
+          </div>
+
+          {/* Create error state */}
+          {hasCreateError && (
+            <div className="flex items-center justify-start mx-auto gap-3 px-4 py-3 mb-4 rounded-lg border border-destructive/50 bg-destructive/10">
+              <p className="text-sm text-destructive">
+                Failed to create session: {storeError}
               </p>
             </div>
-          ) : (
-            messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
-            ))
           )}
-          {isWaitingForResponse && <Loader variant="dots" className="ml-1" />}
-          <ChatContainerScrollAnchor ref={scrollAnchorRef} />
-        </ChatContainerContent>
-        <div className="absolute right-1/2 translate-x-1/2 bottom-4 z-10">
-          <ScrollButton className="shadow-sm" variant="secondary" size="icon" />
+
+          {/* Resume Banner */}
+          {canResume && !isResuming && !isCreating && (
+            <div className="flex items-center justify-center mx-auto gap-3 px-4 py-3 mb-4 rounded-lg border border-border bg-muted/50">
+              <p className="text-sm text-muted-foreground">Session paused</p>
+              <Button size="sm" variant="default" onClick={handleResume}>
+                Resume
+              </Button>
+            </div>
+          )}
+
+          {/* Resuming state */}
+          {isResuming && (
+            <div className="flex items-center justify-center mx-auto gap-2 px-4 py-3 mb-4 rounded-lg border border-border bg-muted/50">
+              <VscLoading className="text-foreground animate-spin" />
+              <p className="text-sm text-muted-foreground">
+                Resuming session...
+              </p>
+            </div>
+          )}
+
+          {/* Input */}
+          <div className="w-full">
+            <ChatInput
+              onSend={handleSend}
+              onStop={handleStop}
+              isLoading={isLoading}
+              disabled={isTerminated || isResuming || hasCreateError}
+              session={session}
+            />
+          </div>
         </div>
-      </ChatContainerRoot>
+      ) : (
+        /* Messages view - scrollable with input at bottom */
+        <>
+          <ChatContainerRoot className="flex-1 relative">
+            <ChatContainerContent className="p-4 space-y-4 min-h-full">
+              {messages.map((message) => (
+                <ChatMessage key={message.id} message={message} />
+              ))}
+              {isWaitingForResponse && (
+                <Loader variant="dots" className="ml-1" />
+              )}
+              <ChatContainerScrollAnchor ref={scrollAnchorRef} />
+            </ChatContainerContent>
+            <div className="absolute right-1/2 translate-x-1/2 bottom-4 z-10">
+              <ScrollButton
+                className="shadow-sm"
+                variant="secondary"
+                size="icon"
+              />
+            </div>
+          </ChatContainerRoot>
 
-      {/* Interaction Prompt */}
-      {hasInteractionPrompt && isLoading && (
-        <InteractionPromptPanel sessionId={sessionId} />
+          {/* Interaction Prompt */}
+          {hasInteractionPrompt && isLoading && (
+            <InteractionPromptPanel sessionId={sessionId} />
+          )}
+
+          {/* Create error state */}
+          {hasCreateError && (
+            <div className="flex items-center justify-start mx-auto gap-3 px-4 py-3 rounded-lg border border-destructive/50 bg-destructive/10">
+              <p className="text-sm text-destructive">
+                Failed to create session: {storeError}
+              </p>
+            </div>
+          )}
+
+          {/* Resume Banner */}
+          {canResume && !isResuming && !isCreating && (
+            <div className="flex items-center justify-center mx-auto gap-3 px-4 py-3 rounded-lg border border-border bg-muted/50">
+              <p className="text-sm text-muted-foreground">Session paused</p>
+              <Button size="sm" variant="default" onClick={handleResume}>
+                Resume
+              </Button>
+            </div>
+          )}
+
+          {/* Resuming state */}
+          {isResuming && (
+            <div className="flex items-center justify-center mx-auto gap-2 px-4 py-3 rounded-lg border border-border bg-muted/50">
+              <VscLoading className="text-foreground animate-spin" />
+              <p className="text-sm text-muted-foreground">
+                Resuming session...
+              </p>
+            </div>
+          )}
+
+          {/* Input */}
+          <div className="px-8">
+            <ChatInput
+              onSend={handleSend}
+              onStop={handleStop}
+              isLoading={isLoading}
+              disabled={isTerminated || isResuming || hasCreateError}
+              session={session}
+            />
+          </div>
+        </>
       )}
-
-      {/* Create error state */}
-      {hasCreateError && (
-        <div className="flex items-center justify-start mx-auto gap-3 px-4 py-3 rounded-lg border border-destructive/50 bg-destructive/10">
-          <p className="text-sm text-destructive">
-            Failed to create session: {storeError}
-          </p>
-        </div>
-      )}
-
-      {/* Resume Banner */}
-      {canResume && !isResuming && !isCreating && (
-        <div className="flex items-center justify-center mx-auto gap-3 px-4 py-3 rounded-lg border border-border bg-muted/50">
-          <p className="text-sm text-muted-foreground">Session paused</p>
-          <Button size="sm" variant="default" onClick={handleResume}>
-            Resume
-          </Button>
-        </div>
-      )}
-
-      {/* Resuming state */}
-      {isResuming && (
-        <div className="flex items-center justify-center mx-auto gap-2 px-4 py-3 rounded-lg border border-border bg-muted/50">
-          <VscLoading className="text-foreground animate-spin" />
-          <p className="text-sm text-muted-foreground">Resuming session...</p>
-        </div>
-      )}
-
-      {/* Input */}
-      <ChatInput
-        onSend={handleSend}
-        onStop={handleStop}
-        isLoading={isLoading}
-        disabled={isTerminated || isResuming || hasCreateError}
-        session={session}
-      />
     </div>
   );
 }

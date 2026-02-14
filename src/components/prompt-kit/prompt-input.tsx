@@ -25,7 +25,10 @@ type PromptInputContextType = {
   // Legacy: plain text value for compatibility with slash command detection etc.
   value: string;
   setValue: (value: string) => void;
+  placeholderRef: React.RefObject<string>;
 };
+
+const defaultPlaceholderRef = { current: "" };
 
 const PromptInputContext = createContext<PromptInputContextType>({
   isLoading: false,
@@ -35,6 +38,7 @@ const PromptInputContext = createContext<PromptInputContextType>({
   disabled: false,
   value: "",
   setValue: () => {},
+  placeholderRef: defaultPlaceholderRef,
 });
 
 function usePromptInput() {
@@ -69,6 +73,7 @@ function PromptInput({
   ...props
 }: PromptInputProps) {
   const isComposingRef = useRef(false);
+  const placeholderRef = useRef("");
 
   const editor = useEditor(
     {
@@ -80,7 +85,7 @@ function PromptInput({
         History,
         FileTag,
         Placeholder.configure({
-          placeholder: "", // Will be set via props on the editor element
+          placeholder: () => placeholderRef.current,
         }),
       ],
       content: "",
@@ -146,6 +151,7 @@ function PromptInput({
           maxHeight,
           onSubmit,
           disabled,
+          placeholderRef,
           value: value ?? editor?.getText() ?? "",
           setValue: (v: string) => {
             if (editor) {
@@ -187,22 +193,20 @@ function PromptInputEditor({
   onKeyDown,
   onPaste,
 }: PromptInputEditorProps) {
-  const { editor, maxHeight } = usePromptInput();
+  const { editor, maxHeight, placeholderRef } = usePromptInput();
+
+  // Update the placeholder ref so the Placeholder extension picks it up
+  React.useEffect(() => {
+    if (placeholder !== undefined) {
+      placeholderRef.current = placeholder;
+      // Dispatch an empty transaction to trigger decoration re-render
+      if (editor) {
+        editor.view.dispatch(editor.state.tr);
+      }
+    }
+  }, [editor, placeholder, placeholderRef]);
 
   if (!editor) return null;
-
-  // Update placeholder dynamically
-  React.useEffect(() => {
-    if (editor && placeholder) {
-      editor.extensionManager.extensions.forEach((ext) => {
-        if (ext.name === "placeholder") {
-          (ext.options as { placeholder: string }).placeholder = placeholder;
-          // Force re-render of decorations
-          editor.view.dispatch(editor.state.tr);
-        }
-      });
-    }
-  }, [editor, placeholder]);
 
   return (
     <div

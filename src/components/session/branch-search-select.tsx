@@ -68,7 +68,7 @@ export function BranchSearchSelect({
           className="w-full justify-between font-normal"
           disabled={!projectPath}
         >
-          <span className="flex items-center gap-2 truncate">
+          <span className="flex items-center gap-2 truncate" title={value}>
             <GitBranch className="h-4 w-4 shrink-0 opacity-50" />
             {value || placeholder}
           </span>
@@ -95,7 +95,7 @@ export function BranchSearchSelect({
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      value === branch ? "opacity-100" : "opacity-0",
+                      value === branch ? "opacity-100" : "opacity-0"
                     )}
                   />
                   {branch}

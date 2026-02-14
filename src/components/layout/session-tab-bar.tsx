@@ -268,13 +268,18 @@ function SortableTabItem({
             "group/tab h-8 px-3 pr-1.5 text-xs gap-1.5 flex-1 basis-0 max-w-45",
             "cursor-pointer select-none rounded-md rounded-b-none border border-b-0 border-border/30!",
             isDragging && "opacity-40",
-            isActive ? "font-semibold border-primary/30!" : "hover:bg-muted/50",
+            isActive
+              ? "font-semibold bg-linear-to-b from-primary/20 to-primary/2"
+              : "hover:bg-linear-to-b hover:from-muted/50 hover:to-muted/10",
             session.is_local ? "text-local/75" : "text-worktree/75",
-            isActive && (session.is_local ? "text-local" : "text-worktree")
+            isActive && (session.is_local ? "text-local" : "text-worktree"),
+            "transition-none"
           )}
         >
           <ProviderIcon.Color size={14} />
-          <span className="truncate">{session.name}</span>
+          <span className="truncate" title={session.name}>
+            {session.name}
+          </span>
           <span
             className={cn(
               "w-1.5 h-1.5 rounded-full mr-1 shrink-0",
@@ -336,7 +341,9 @@ function TabOverlay({ session, width }: { session: Session; width: number }) {
       )}
     >
       <ProviderIcon.Color size={14} />
-      <span className="truncate">{session.name}</span>
+      <span className="truncate" title={session.name}>
+        {session.name}
+      </span>
     </div>
   );
 }
