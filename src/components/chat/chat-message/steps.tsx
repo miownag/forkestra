@@ -248,7 +248,7 @@ function PlanStep({
   const totalCount = entries.length;
 
   return (
-    <ChainOfThoughtStep isLast={isLast}>
+    <ChainOfThoughtStep defaultOpen isLast={isLast}>
       <ChainOfThoughtTrigger
         leftIcon={<TaskSquare className="size-4 text-foreground" />}
         swapIconOnHover={false}
@@ -375,17 +375,14 @@ function renderToolStep(tc: ToolCallInfo, isLast: boolean) {
   return (
     <ChainOfThoughtStep
       key={tc.tool_call_id}
-      defaultOpen={
-        tc.status === "error" ||
-        tc.content?.some((item) => item.type === "diff")
-      }
+      defaultOpen={tc.content?.some((item) => item.type === "diff")}
       isLast={isLast}
     >
       <ChainOfThoughtTrigger
         leftIcon={getToolIcon(tc.status, tc.kind)}
         swapIconOnHover={false}
       >
-        {getToolTitle(tc)}
+        <Markdown>{getToolTitle(tc)}</Markdown>
       </ChainOfThoughtTrigger>
       {hasContent && (
         <ChainOfThoughtContent>
@@ -452,8 +449,6 @@ interface StepsProps {
 export function Steps({ message }: StepsProps) {
   const parts = message.parts;
   const planEntries = message.plan_entries;
-
-  console.log("message", message);
 
   // If no parts yet (legacy or loading), fall back to content + tool_calls
   if (!parts || parts.length === 0) {

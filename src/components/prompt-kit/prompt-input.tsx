@@ -162,7 +162,7 @@ function PromptInput({
           className={cn(
             "bg-background cursor-text rounded-3xl border border-input p-2 shadow-xs transition-all focus-within:border-transparent! focus-within:ring-2 focus-within:ring-ring/20",
             disabled && "cursor-not-allowed opacity-60",
-            className,
+            className
           )}
           {...props}
         >
@@ -287,7 +287,11 @@ function PromptInputActions({
   ...props
 }: PromptInputActionsProps) {
   return (
-    <div data-prompt-actions="" className={cn("flex items-center gap-2", className)} {...props}>
+    <div
+      data-prompt-actions=""
+      className={cn("flex items-center gap-2", className)}
+      {...props}
+    >
       {children}
     </div>
   );

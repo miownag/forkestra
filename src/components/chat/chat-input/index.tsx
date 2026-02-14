@@ -90,7 +90,7 @@ export function ChatInput({
       onValueChange={handleInputChange}
       isLoading={isLoading}
       onSubmit={undefined}
-      className="w-full max-w-(--breakpoint-md) mx-auto mb-4"
+      className="w-full mx-auto mb-4"
       disabled={disabled}
     >
       <ChatInputInner

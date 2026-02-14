@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::Arc;
 
-use portable_pty::{native_pty_system, CommandBuilder, PtySize};
+use portable_pty::{native_pty_system, ChildKiller, CommandBuilder, PtySize};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -15,6 +15,8 @@ pub struct TerminalInstance {
     pub name: String,
     pub cwd: String,
     writer: Arc<Mutex<Box<dyn Write + Send>>>,
+    killer: Arc<Mutex<Box<dyn ChildKiller + Send + Sync>>>,
+    pid: Option<u32>,
 }
 
 pub struct TerminalManager {
@@ -60,10 +62,14 @@ impl TerminalManager {
         cmd.env("TERM", "xterm-256color");
         cmd.env("TERM_PROGRAM", "Forkestra");
 
-        let mut child = pty_pair
+        let child = pty_pair
             .slave
             .spawn_command(cmd)
             .map_err(|e| AppError::Internal(format!("Failed to spawn shell: {}", e)))?;
+
+        // Extract killer and pid before moving child into the reader task
+        let killer = child.clone_killer();
+        let pid = child.process_id();
 
         // Get the writer for sending input
         let writer = pty_pair
@@ -82,6 +88,7 @@ impl TerminalManager {
 
         // Spawn a task to read output and emit events
         tokio::task::spawn_blocking(move || {
+            let mut child = child;
             let mut reader = reader;
             let mut buffer = [0u8; 1024];
 
@@ -131,6 +138,8 @@ impl TerminalManager {
             name,
             cwd,
             writer: Arc::new(Mutex::new(writer)),
+            killer: Arc::new(Mutex::new(killer)),
+            pid,
         };
 
         self.terminals.lock().await.insert(terminal_id.clone(), instance);
@@ -142,14 +151,20 @@ impl TerminalManager {
     pub async fn close_terminal(&self, terminal_id: &str) -> AppResult<()> {
         let mut terminals = self.terminals.lock().await;
 
-        if let Some(terminal) = terminals.get(terminal_id) {
-            // Send exit command to gracefully close the shell
-            let writer = terminal.writer.clone();
-            let mut writer = writer.lock().await;
-            let _ = writeln!(writer, "exit");
-        }
+        if let Some(terminal) = terminals.remove(terminal_id) {
+            // Kill the entire process group so child processes (e.g. node servers) also die
+            if let Some(pid) = terminal.pid {
+                unsafe {
+                    // Send SIGKILL to the process group (negative pid)
+                    libc::killpg(pid as i32, libc::SIGKILL);
+                }
+            }
 
-        terminals.remove(terminal_id);
+            // Also call kill() on the child via the stored killer as a fallback
+            let killer = terminal.killer.clone();
+            let mut killer = killer.lock().await;
+            let _ = killer.kill();
+        }
 
         Ok(())
     }

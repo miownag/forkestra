@@ -6,10 +6,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { BiCollapseVertical, BiExpandVertical } from "react-icons/bi";
 import { useState } from "react";
-import { useSelectorSettingsStore } from "@/stores";
+import {
+  useSelectorSettingsStore,
+  useSelectorSessionStore,
+  useSelectorTerminalStore,
+} from "@/stores";
 import { cn } from "@/lib/utils";
 import { MermaidDiagram } from "@/components/chat/chat-message/mermaid-diagram";
-import { Copy, CopySuccess } from "iconsax-reactjs";
+import { Copy, CopySuccess, Code1 } from "iconsax-reactjs";
+
+const BASH_LANGUAGES = new Set(["bash", "sh", "shell", "zsh"]);
 
 export function CodeBlockWithHeader({
   language,
@@ -21,6 +27,17 @@ export function CodeBlockWithHeader({
   const [copied, setCopied] = useState(false);
   const { resolvedTheme } = useSelectorSettingsStore(["resolvedTheme"]);
   const [collapsed, setCollapsed] = useState(false);
+  const { activeSessionId, sessions } = useSelectorSessionStore([
+    "activeSessionId",
+    "sessions",
+  ]);
+  const { createTerminal, sendInput, openPanel } = useSelectorTerminalStore([
+    "createTerminal",
+    "sendInput",
+    "openPanel",
+  ]);
+
+  const isBash = BASH_LANGUAGES.has(language);
 
   const handleCopy = () => {
     if (copied) return;
@@ -29,10 +46,22 @@ export function CodeBlockWithHeader({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleRunInTerminal = async () => {
+    if (!activeSessionId) return;
+    const session = sessions.find((s) => s.id === activeSessionId);
+    if (!session) return;
+
+    const cwd = session.worktree_path || session.project_path;
+    const terminalId = await createTerminal(activeSessionId, cwd);
+    openPanel(activeSessionId);
+    // Send the command with a newline to execute it
+    await sendInput(terminalId, children.trim() + "\n");
+  };
+
   return (
     <div className="w-full max-w-3xl">
       <CodeBlock>
-        <CodeBlockGroup className="border-border border-b px-4 py-1.5">
+        <CodeBlockGroup className="border-border border-b px-4 py-1.5 bg-muted/50">
           <button
             className={cn(
               "flex items-center text-muted-foreground text-sm gap-1.5",
@@ -44,17 +73,30 @@ export function CodeBlockWithHeader({
             {collapsed ? <BiExpandVertical /> : <BiCollapseVertical />}
             {language}
           </button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "h-8 w-8 text-muted-foreground",
-              copied && "cursor-default hover:bg-transparent"
+          <div className="flex items-center">
+            {isBash && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground"
+                onClick={handleRunInTerminal}
+                title="Run in Terminal"
+              >
+                <Code1 />
+              </Button>
             )}
-            onClick={handleCopy}
-          >
-            {copied ? <CopySuccess className="text-green-500" /> : <Copy />}
-          </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-8 w-8 text-muted-foreground",
+                copied && "cursor-default hover:bg-transparent"
+              )}
+              onClick={handleCopy}
+            >
+              {copied ? <CopySuccess className="text-green-500" /> : <Copy />}
+            </Button>
+          </div>
         </CodeBlockGroup>
         {!collapsed &&
           (language === "mermaid" ? (
