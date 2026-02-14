@@ -31,7 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSessionStore } from "@/stores";
 import type { Session } from "@/types";
-import { cn } from "@/lib/utils";
+import { cn, formatTimeAgo } from "@/lib/utils";
 import { NewSessionDialog } from "./new-session-dialog";
 import PROVIDER_ICONS_MAP from "@/constants/icons";
 import { SessionStatusIcon } from "./session-status-icon";
@@ -164,13 +164,20 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
                   {worktreeName}
                 </div>
               </div>
-              <SessionStatusIcon
-                status={session.status}
-                isStreaming={isStreaming}
-                isResuming={isResuming}
-                isCreating={isCreating}
-                hasPendingPermission={hasPendingPermission}
-              />
+              <div className="flex flex-col items-end gap-0.5">
+                <SessionStatusIcon
+                  status={session.status}
+                  isStreaming={isStreaming}
+                  isResuming={isResuming}
+                  isCreating={isCreating}
+                  hasPendingPermission={hasPendingPermission}
+                />
+                {session.updated_at && (
+                  <div className="text-[0.65rem] text-muted-foreground/70">
+                    {formatTimeAgo(session.updated_at)}
+                  </div>
+                )}
+              </div>
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent className="w-48">{menuItems}</ContextMenuContent>

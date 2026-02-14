@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     project_path TEXT NOT NULL,
     is_local INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
+    updated_at TEXT,
     acp_session_id TEXT,
     config_options TEXT DEFAULT '[]'
 );

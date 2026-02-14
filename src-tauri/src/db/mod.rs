@@ -172,6 +172,27 @@ impl Database {
             println!("[Database] Migrated: added parts column to messages");
         }
 
+        // Migration for updated_at column in sessions
+        let has_updated_at_col: bool = conn
+            .prepare("PRAGMA table_info(sessions)")
+            .and_then(|mut stmt| {
+                let cols: Vec<String> = stmt
+                    .query_map([], |row| row.get::<_, String>(1))
+                    .unwrap()
+                    .filter_map(|r| r.ok())
+                    .collect();
+                Ok(cols.contains(&"updated_at".to_string()))
+            })
+            .unwrap_or(false);
+
+        if !has_updated_at_col {
+            conn.execute_batch("ALTER TABLE sessions ADD COLUMN updated_at TEXT")
+                .map_err(|e| {
+                    AppError::Database(format!("Failed to add updated_at column: {}", e))
+                })?;
+            println!("[Database] Migrated: added updated_at column to sessions");
+        }
+
         Ok(())
     }
 
@@ -189,8 +210,8 @@ impl Database {
         conn.execute(
             "INSERT OR REPLACE INTO sessions
              (id, name, provider, status, worktree_path, branch_name,
-              project_path, is_local, created_at, acp_session_id, model, config_options)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+              project_path, is_local, created_at, updated_at, acp_session_id, model, config_options)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 session.id,
                 session.name,
@@ -201,6 +222,7 @@ impl Database {
                 session.project_path,
                 session.is_local as i32,
                 session.created_at.to_rfc3339(),
+                session.updated_at.as_ref().map(|dt| dt.to_rfc3339()),
                 session.acp_session_id,
                 session.model.as_deref(),
                 config_options_json,
@@ -286,7 +308,7 @@ impl Database {
         let mut stmt = conn
             .prepare(
                 "SELECT id, name, provider, status, worktree_path,
-                        branch_name, project_path, is_local, created_at,
+                        branch_name, project_path, is_local, created_at, updated_at,
                         acp_session_id, model, config_options
                  FROM sessions ORDER BY created_at DESC",
             )
@@ -297,8 +319,9 @@ impl Database {
                 let provider_str: String = row.get(2)?;
                 let status_str: String = row.get(3)?;
                 let created_at_str: String = row.get(8)?;
-                let model_str: Option<String> = row.get(10)?;
-                let config_options_str: Option<String> = row.get(11)?;
+                let updated_at_str: Option<String> = row.get(9)?;
+                let model_str: Option<String> = row.get(11)?;
+                let config_options_str: Option<String> = row.get(12)?;
 
                 let config_options = config_options_str
                     .and_then(|s| serde_json::from_str(&s).ok())
@@ -316,7 +339,12 @@ impl Database {
                     created_at: chrono::DateTime::parse_from_rfc3339(&created_at_str)
                         .unwrap_or_else(|_| chrono::Utc::now().into())
                         .with_timezone(&chrono::Utc),
-                    acp_session_id: row.get(9)?,
+                    updated_at: updated_at_str.and_then(|s| {
+                        chrono::DateTime::parse_from_rfc3339(&s)
+                            .ok()
+                            .map(|dt| dt.with_timezone(&chrono::Utc))
+                    }),
+                    acp_session_id: row.get(10)?,
                     model: model_str,
                     available_models: vec![],
                     mode: None,
@@ -345,6 +373,20 @@ impl Database {
             .map_err(|e| AppError::Database(format!("Database lock poisoned: {}", e)))?;
         conn.execute("DELETE FROM sessions WHERE id = ?1", params![session_id])
             .map_err(|e| AppError::Database(format!("Failed to delete session: {}", e)))?;
+        Ok(())
+    }
+
+    pub fn update_session_updated_at(&self, session_id: &str) -> AppResult<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Database(format!("Database lock poisoned: {}", e)))?;
+        let now = chrono::Utc::now().to_rfc3339();
+        conn.execute(
+            "UPDATE sessions SET updated_at = ?1 WHERE id = ?2",
+            params![now, session_id],
+        )
+        .map_err(|e| AppError::Database(format!("Failed to update session updated_at: {}", e)))?;
         Ok(())
     }
 
@@ -390,6 +432,15 @@ impl Database {
             ],
         )
         .map_err(|e| AppError::Database(format!("Failed to save message: {}", e)))?;
+
+        // Update session's updated_at timestamp
+        let now = chrono::Utc::now().to_rfc3339();
+        conn.execute(
+            "UPDATE sessions SET updated_at = ?1 WHERE id = ?2",
+            params![now, &message.session_id],
+        )
+        .map_err(|e| AppError::Database(format!("Failed to update session updated_at: {}", e)))?;
+
         Ok(())
     }
 

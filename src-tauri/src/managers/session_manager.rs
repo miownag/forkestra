@@ -111,6 +111,7 @@ impl SessionManager {
         };
 
         // Create session with status=Creating (branch_name is already populated)
+        let now = Utc::now();
         let session = Session {
             id: session_id.clone(),
             name: request.name,
@@ -118,7 +119,8 @@ impl SessionManager {
             status: SessionStatus::Creating,
             worktree_path: worktree_path.to_string_lossy().to_string(),
             branch_name,
-            created_at: Utc::now(),
+            created_at: now,
+            updated_at: Some(now),
             project_path: request.project_path,
             is_local: request.use_local,
             acp_session_id: None,

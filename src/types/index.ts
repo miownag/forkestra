@@ -102,6 +102,7 @@ export interface Session {
   worktree_path: string;
   branch_name: string;
   created_at: string;
+  updated_at?: string | null;
   project_path: string;
   is_local: boolean;
   acp_session_id?: string | null;

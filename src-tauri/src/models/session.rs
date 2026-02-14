@@ -42,6 +42,8 @@ pub struct Session {
     pub worktree_path: String,
     pub branch_name: String,
     pub created_at: DateTime<Utc>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
     pub project_path: String,
     #[serde(default)]
     pub is_local: bool,
