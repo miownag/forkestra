@@ -308,7 +308,12 @@ function SortableTabItem({
           />
           <span
             role="button"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
             onClick={(e) => {
+              e.preventDefault();
               e.stopPropagation();
               onClose();
             }}
