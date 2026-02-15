@@ -24,7 +24,6 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { homeDir } from "@tauri-apps/api/path";
 import { cn } from "@/lib/utils";
 import {
-  SidebarToggleButton,
   ThemeToggleButton,
 } from "@/components/layout/title-bar-controls";
 import { TbCodeDots } from "react-icons/tb";
@@ -106,10 +105,10 @@ function RouteComponent() {
         data-tauri-drag-region
         className={cn(
           "shrink-0 h-13 z-50 flex items-center pr-4 justify-between w-full bg-muted/20",
-          isFullscreen ? "pl-4" : "pl-24"
+          isFullscreen ? "pl-4" : sidebarCollapsed ? "pl-6" : "pl-4"
         )}
       >
-        {sidebarCollapsed ? <SidebarToggleButton /> : <div />}
+        <div />
         <ThemeToggleButton />
       </div>
       <div className="flex-1 overflow-y-auto">

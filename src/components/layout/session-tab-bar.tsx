@@ -9,7 +9,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SidebarToggleButton, ThemeToggleButton } from "./title-bar-controls";
+import { ThemeToggleButton } from "./title-bar-controls";
 import { cn } from "@/lib/utils";
 import type { Session } from "@/types";
 import PROVIDER_ICONS_MAP from "@/constants/icons";
@@ -31,6 +31,9 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
 import { STATUS_BG_COLORS_MAP } from "../session/session-status-icon";
+import { useSidebar } from "../ui/sidebar";
+import { Button } from "../ui/button";
+import { SidebarRight } from "iconsax-reactjs";
 
 const getStatusColor = (
   status: Session["status"],
@@ -64,10 +67,12 @@ const getStatusColor = (
 };
 
 export function SessionTabBar() {
-  const { sidebarCollapsed, isFullscreen } = useSelectorSettingsStore([
-    "sidebarCollapsed",
-    "isFullscreen",
-  ]);
+  const { sidebarCollapsed, isFullscreen, toggleSidebar } =
+    useSelectorSettingsStore([
+      "sidebarCollapsed",
+      "isFullscreen",
+      "toggleSidebar",
+    ]);
   const {
     sessions,
     activeSessionId,
@@ -120,6 +125,8 @@ export function SessionTabBar() {
     })
   );
 
+  const { state: sidebarState } = useSidebar();
+
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [draggingWidth, setDraggingWidth] = useState(0);
 
@@ -152,12 +159,19 @@ export function SessionTabBar() {
       data-tauri-drag-region
       className={cn(
         "shrink-0 h-13 z-50 flex items-center pr-2 w-full bg-muted/20",
-        isFullscreen ? "pl-2" : sidebarCollapsed ? "pl-24" : "pl-2"
+        isFullscreen ? "pl-2" : sidebarCollapsed ? "pl-6" : "pl-2"
       )}
     >
-      {/* Left: sidebar toggle when collapsed */}
-      {sidebarCollapsed && <SidebarToggleButton className="ml-1 mr-1" />}
-
+      {sidebarState === "collapsed" && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-4.5 rounded-xl ml-4 mr-2"
+          onClick={toggleSidebar}
+        >
+          <SidebarRight />
+        </Button>
+      )}
       {/* Center: tabs */}
       <Tabs
         value={activeSessionId ?? undefined}

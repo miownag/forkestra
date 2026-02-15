@@ -5,8 +5,8 @@ import {
   useSelectorSessionStore,
   useSelectorSettingsStore,
 } from "@/stores";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Sidebar } from "@/components/layout/side-bar";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/layout/side-bar";
 import { listen } from "@tauri-apps/api/event";
 
 export const Route = createRootRoute({
@@ -16,13 +16,21 @@ export const Route = createRootRoute({
 function RootComponent() {
   const { fetchSessions } = useSelectorSessionStore(["fetchSessions"]);
   const { detectProviders } = useSelectorProviderStore(["detectProviders"]);
-  const { resolvedTheme, fontSize, accentColor, loadSettings } =
-    useSelectorSettingsStore([
-      "resolvedTheme",
-      "fontSize",
-      "accentColor",
-      "loadSettings",
-    ]);
+  const {
+    resolvedTheme,
+    fontSize,
+    accentColor,
+    loadSettings,
+    sidebarCollapsed,
+    setSidebarCollapsed,
+  } = useSelectorSettingsStore([
+    "resolvedTheme",
+    "fontSize",
+    "accentColor",
+    "loadSettings",
+    "sidebarCollapsed",
+    "setSidebarCollapsed",
+  ]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -76,13 +84,15 @@ function RootComponent() {
   }, [accentColor]);
 
   return (
-    <TooltipProvider delayDuration={300}>
-      <div className="flex h-screen bg-background">
-        <Sidebar />
-        <main className="flex-1 flex flex-col h-full">
-          <Outlet />
-        </main>
-      </div>
-    </TooltipProvider>
+    <SidebarProvider
+      open={!sidebarCollapsed}
+      onOpenChange={(open) => setSidebarCollapsed(!open)}
+      className="h-screen bg-background"
+    >
+      <AppSidebar />
+      <main className="flex-1 flex flex-col h-full">
+        <Outlet />
+      </main>
+    </SidebarProvider>
   );
 }

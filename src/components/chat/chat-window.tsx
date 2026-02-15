@@ -121,8 +121,8 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
     <div className="flex-1 flex flex-col overflow-hidden sm:w-3xl md:w-4xl mx-auto">
       {messages.length === 0 ? (
         /* Empty state - centered layout with input below icon */
-        <div className="flex-1 flex flex-col items-center justify-center px-8">
-          <div className="flex flex-col items-center text-muted-foreground mb-8">
+        <div className="flex-1 flex flex-col items-center justify-center px-8 -mt-24">
+          <div className="flex flex-col items-center text-muted-foreground mb-12">
             <ProviderIcon.Combine
               size={48}
               type="color"
