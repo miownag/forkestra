@@ -1,7 +1,15 @@
 import { PromptInput } from "@/components/prompt-kit/prompt-input";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import type { Session, AvailableCommand, PromptContent } from "@/types";
 import { ChatInputInner } from "./input-inner";
+import { RotatingTip, TipItem } from "@/components/ui/rotating-tip";
+import {
+  Command,
+  DocumentText1,
+  Flashy,
+  GalleryAdd,
+  Keyboard,
+} from "iconsax-reactjs";
 
 export function ChatInput({
   onSend,
@@ -9,12 +17,14 @@ export function ChatInput({
   isLoading,
   disabled,
   session,
+  hasMessage,
 }: {
   onSend: (content: PromptContent[]) => Promise<void>;
   onStop: () => void;
   isLoading: boolean;
   disabled?: boolean;
   session?: Session;
+  hasMessage?: boolean;
 }) {
   const [input, setInput] = useState("");
   const [inlineSlashOpen, setInlineSlashOpen] = useState(false);
@@ -84,39 +94,114 @@ export function ChatInput({
     setButtonFileOpen(!buttonFileOpen);
   };
 
+  // Mock tips for the rotating tip component
+  const tips: TipItem[] = useMemo(
+    () => [
+      {
+        id: "1",
+        content: (
+          <span className="flex items-center gap-1.5">
+            <Keyboard className="size-4" />
+            Press <kbd className="px-1 bg-muted font-mono rounded">
+              Enter
+            </kbd>{" "}
+            to send,{" "}
+            <kbd className="px-1 bg-muted font-mono rounded">Shift + Enter</kbd>{" "}
+            for new line
+          </span>
+        ),
+      },
+      {
+        id: "2",
+        content: (
+          <span className="flex items-center gap-1.5">
+            <GalleryAdd className="size-3.5" />
+            <kbd className="px-1 bg-muted font-mono rounded">⌘ + V</kbd> to
+            attach images in context
+          </span>
+        ),
+      },
+      {
+        id: "3",
+        content: (
+          <span className="flex items-center gap-1.5">
+            <DocumentText1 className="size-3.5" />
+            Type <span className="text-primary/90 font-medium">@</span> to
+            reference files in your project
+          </span>
+        ),
+      },
+      {
+        id: "4",
+        content: (
+          <span className="flex items-center gap-1.5">
+            <Flashy className="size-3.5" />
+            Use <span className="text-primary/90 font-medium">/</span> commands
+            for quick actions like /init
+          </span>
+        ),
+      },
+      {
+        id: "5",
+        content: (
+          <span className="flex items-center gap-1.5">
+            <Command className="size-3" />
+            Use{" "}
+            <kbd className="px-1 py-0.5 bg-muted font-mono rounded">
+              ⌘ + ⌥ + N
+            </kbd>{" "}
+            to quickly create a new session based on the current one
+          </span>
+        ),
+      },
+    ],
+    []
+  );
+
   return (
-    <PromptInput
-      value={input}
-      onValueChange={handleInputChange}
-      isLoading={isLoading}
-      onSubmit={undefined}
-      className="w-full mx-auto mb-4"
-      disabled={disabled}
-    >
-      <ChatInputInner
-        input={input}
-        setInput={setInput}
-        onSend={onSend}
-        disabled={disabled}
-        isLoading={isLoading}
-        onStop={onStop}
-        inlineSlashOpen={inlineSlashOpen}
-        setInlineSlashOpen={setInlineSlashOpen}
-        inlineSlashQuery={inlineSlashQuery}
-        setInlineSlashQuery={setInlineSlashQuery}
-        inlineFileOpen={inlineFileOpen}
-        setInlineFileOpen={setInlineFileOpen}
-        buttonFileOpen={buttonFileOpen}
-        setButtonFileOpen={setButtonFileOpen}
-        buttonSlashOpen={buttonSlashOpen}
-        setButtonSlashOpen={setButtonSlashOpen}
-        commands={commands}
-        projectPath={projectPath}
-        session={session}
-        handleCommandSelect={handleCommandSelect}
-        handleSlashButtonClick={handleSlashButtonClick}
-        handleAttachButtonClick={handleAttachButtonClick}
+    <div className="w-full mx-auto mb-4 space-y-3">
+      <RotatingTip
+        tips={tips}
+        interval={5000}
+        showNavigation={false}
+        showBgAndBorder={hasMessage}
+        showCloseButton={hasMessage}
+        showIndicator={hasMessage}
       />
-    </PromptInput>
+      <PromptInput
+        value={input}
+        onValueChange={handleInputChange}
+        isLoading={isLoading}
+        onSubmit={undefined}
+        className="w-full"
+        disabled={disabled}
+        autoFocus
+      >
+        <ChatInputInner
+          input={input}
+          setInput={setInput}
+          onSend={onSend}
+          disabled={disabled}
+          isLoading={isLoading}
+          onStop={onStop}
+          inlineSlashOpen={inlineSlashOpen}
+          setInlineSlashOpen={setInlineSlashOpen}
+          inlineSlashQuery={inlineSlashQuery}
+          setInlineSlashQuery={setInlineSlashQuery}
+          inlineFileOpen={inlineFileOpen}
+          setInlineFileOpen={setInlineFileOpen}
+          buttonFileOpen={buttonFileOpen}
+          setButtonFileOpen={setButtonFileOpen}
+          buttonSlashOpen={buttonSlashOpen}
+          setButtonSlashOpen={setButtonSlashOpen}
+          commands={commands}
+          projectPath={projectPath}
+          session={session}
+          handleCommandSelect={handleCommandSelect}
+          handleSlashButtonClick={handleSlashButtonClick}
+          handleAttachButtonClick={handleAttachButtonClick}
+        />
+      </PromptInput>
+    </div>
   );
 }

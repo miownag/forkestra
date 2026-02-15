@@ -568,7 +568,7 @@ export function AppSidebar() {
             <SidebarMenuItem>
               <button
                 className={cn(
-                  "flex items-center gap-1 cursor-pointer py-1 text-xs text-muted-foreground",
+                  "flex items-center gap-1 cursor-pointer pt-1 text-xs text-muted-foreground",
                   groupByProject ? "text-primary" : ""
                 )}
                 onClick={() => setGroupByProject(!groupByProject)}
@@ -607,7 +607,7 @@ export function AppSidebar() {
                         <div className="flex items-center gap-1">
                           <RiGitRepositoryLine className="shrink-0" />
                           <span
-                            className="truncate text-sm"
+                            className="truncate text-xs"
                             title={projectName}
                           >
                             {projectName}

@@ -16,6 +16,7 @@ import {
   ResizableHandle,
 } from "@/components/ui/resizable";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
 interface SessionTabContentProps {
   sessionId: string;
@@ -77,12 +78,12 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
                   {/* File Tree Toggle Button */}
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 shrink-0"
+                    size="icon"
+                    className="w-8 h-8 shrink-0 [&_svg]:size-4.5 rounded-md opacity-60"
                     onClick={() => toggleFileTree(session.id)}
                     title="Toggle file tree"
                   >
-                    <LuFolderTree className="h-4 w-4" />
+                    <LuFolderTree />
                   </Button>
 
                   <div className="min-w-0">

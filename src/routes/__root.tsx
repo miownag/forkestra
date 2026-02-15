@@ -8,6 +8,7 @@ import {
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/side-bar";
 import { listen } from "@tauri-apps/api/event";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -84,15 +85,17 @@ function RootComponent() {
   }, [accentColor]);
 
   return (
-    <SidebarProvider
-      open={!sidebarCollapsed}
-      onOpenChange={(open) => setSidebarCollapsed(!open)}
-      className="h-screen w-screen bg-background"
-    >
-      <AppSidebar />
-      <main className="flex-1 flex flex-col h-full min-w-0">
-        <Outlet />
-      </main>
-    </SidebarProvider>
+    <TooltipProvider>
+      <SidebarProvider
+        open={!sidebarCollapsed}
+        onOpenChange={(open) => setSidebarCollapsed(!open)}
+        className="h-screen w-screen bg-background"
+      >
+        <AppSidebar />
+        <main className="flex-1 flex flex-col h-full min-w-0">
+          <Outlet />
+        </main>
+      </SidebarProvider>
+    </TooltipProvider>
   );
 }

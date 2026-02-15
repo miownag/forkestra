@@ -36,6 +36,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { RiGitRepositoryLine } from "react-icons/ri";
 
 interface FileTreeProps {
   projectPath: string;
@@ -521,8 +522,13 @@ export function FileTree({ projectPath, sessionId }: FileTreeProps) {
 
   return (
     <div className="flex flex-col h-full w-full overflow-auto file-tree-container">
-      <div className="border-b px-3 py-2 shrink-0 flex items-center justify-between">
-        <h3 className="text-sm font-medium">Files</h3>
+      <div className="px-3 py-2 shrink-0 flex items-center justify-between border-b border-dashed">
+        <h3 className="flex items-center gap-2 text-xs font-medium">
+          <RiGitRepositoryLine className="size-4 opacity-75 shrink-0" />
+          <span className="truncate" title={projectPath}>
+            {projectPath}
+          </span>
+        </h3>
         <Button
           variant="ghost"
           size="sm"
@@ -531,7 +537,7 @@ export function FileTree({ projectPath, sessionId }: FileTreeProps) {
           disabled={isRefreshing}
         >
           <RefreshCwIcon
-            className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")}
+            className={cn("opacity-75", isRefreshing && "animate-spin")}
           />
         </Button>
       </div>
