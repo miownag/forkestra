@@ -135,6 +135,7 @@ pub fn run() {
             commands::delete_item,
             commands::rename_item,
             commands::move_item,
+            commands::write_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

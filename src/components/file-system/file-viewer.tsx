@@ -1,59 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { CodeBlockCode } from "@/components/prompt-kit/code-block";
-import { useSelectorSettingsStore } from "@/stores";
 import { invoke } from "@tauri-apps/api/core";
-import { LuX, LuFileText, LuMonitor } from "react-icons/lu";
+import { LuX, LuFileText, LuEye, LuRefreshCw } from "react-icons/lu";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { categorizeFile } from "@/lib/file-types";
+import { CodeEditor } from "./code-editor";
+import { FilePreview } from "./file-preview";
 
 interface FileViewerProps {
   sessionId: string;
   projectPath: string;
   filePath: string;
-  mode: "view" | "preview";
-  onModeChange: (mode: "view" | "preview") => void;
+  mode: "edit" | "preview";
+  onModeChange: (mode: "edit" | "preview") => void;
   onClose: () => void;
-}
-
-// Language detection from file extension
-function detectLanguage(filePath: string): string {
-  const ext = filePath.split(".").pop()?.toLowerCase();
-  const languageMap: Record<string, string> = {
-    js: "javascript",
-    jsx: "jsx",
-    ts: "typescript",
-    tsx: "tsx",
-    py: "python",
-    rb: "ruby",
-    rs: "rust",
-    go: "go",
-    java: "java",
-    c: "c",
-    cpp: "cpp",
-    cc: "cpp",
-    cxx: "cpp",
-    cs: "csharp",
-    php: "php",
-    sh: "bash",
-    bash: "bash",
-    zsh: "bash",
-    yaml: "yaml",
-    yml: "yaml",
-    json: "json",
-    xml: "xml",
-    html: "html",
-    css: "css",
-    scss: "scss",
-    sass: "sass",
-    md: "markdown",
-    sql: "sql",
-    dockerfile: "dockerfile",
-    toml: "toml",
-    ini: "ini",
-    txt: "plaintext",
-  };
-
-  return languageMap[ext || ""] || "plaintext";
 }
 
 export function FileViewer({
@@ -64,84 +25,161 @@ export function FileViewer({
   onClose,
 }: FileViewerProps) {
   const [content, setContent] = useState<string>("");
+  const [editedContent, setEditedContent] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { resolvedTheme } = useSelectorSettingsStore(["resolvedTheme"]);
+  const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    async function loadFile() {
-      if (!filePath || !projectPath) {
-        setError("Invalid file path");
-        setIsLoading(false);
-        return;
-      }
+  const isDirty = editedContent !== content;
+  const fileCategory = categorizeFile(filePath);
+  const fileName = filePath.split("/").pop() || filePath;
 
-      setIsLoading(true);
-      setError(null);
-      try {
-        const fileContent = await invoke<string>("read_file", {
-          projectPath,
-          relativePath: filePath,
-        });
-        setContent(fileContent);
-      } catch (err) {
-        console.error("Failed to read file:", err);
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setIsLoading(false);
-      }
+  const loadFile = useCallback(async () => {
+    if (!filePath || !projectPath) {
+      setError("Invalid file path");
+      setIsLoading(false);
+      return;
     }
 
-    loadFile();
+    // Binary files (images, videos, etc.) don't need text content loading
+    if (categorizeFile(filePath) === "binary") {
+      setContent("");
+      setEditedContent("");
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      const fileContent = await invoke<string>("read_file", {
+        projectPath,
+        relativePath: filePath,
+      });
+      setContent(fileContent);
+      setEditedContent(fileContent);
+    } catch (err) {
+      console.error("Failed to read file:", err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsLoading(false);
+    }
   }, [filePath, projectPath]);
 
-  const fileName = filePath.split("/").pop() || filePath;
-  const language = detectLanguage(filePath);
-  const theme = resolvedTheme === "dark" ? "one-dark-pro" : "github-light";
+  useEffect(() => {
+    loadFile();
+  }, [loadFile]);
+
+  // Force mode to "preview" for binary files, "edit" for code files
+  useEffect(() => {
+    if (fileCategory === "binary" && mode !== "preview") {
+      onModeChange("preview");
+    } else if (fileCategory === "code" && mode !== "edit") {
+      onModeChange("edit");
+    }
+  }, [fileCategory, mode, onModeChange]);
+
+  const handleSave = useCallback(async () => {
+    if (!isDirty || isSaving) return;
+    setIsSaving(true);
+    try {
+      await invoke("write_file", {
+        projectPath,
+        relativePath: filePath,
+        content: editedContent,
+      });
+      setContent(editedContent);
+      toast.success("File saved");
+    } catch (err) {
+      toast.error(
+        `Save failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }, [editedContent, isDirty, isSaving, projectPath, filePath]);
+
+  const handleRefresh = useCallback(() => {
+    if (isDirty) {
+      const confirmed = window.confirm(
+        "You have unsaved changes. Refreshing will discard them. Continue?"
+      );
+      if (!confirmed) return;
+    }
+    loadFile();
+  }, [isDirty, loadFile]);
+
+  const showModeToggle = fileCategory === "previewable";
+  const showRefresh = fileCategory !== "binary";
+  const showDirtyIndicator = fileCategory !== "binary";
 
   return (
     <div className="flex flex-col h-full w-full overflow-auto">
       {/* Header */}
       <div className="border-b px-3 py-2 shrink-0 flex items-center justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-medium truncate" title={filePath}>
-            {fileName}
-          </h3>
-          <p
-            className="text-xs text-muted-foreground truncate"
-            title={filePath}
-          >
-            {filePath}
-          </p>
+        <div className="flex-1 min-w-0 flex items-center gap-2">
+          <div className="min-w-0">
+            <h3 className="text-sm font-medium truncate" title={filePath}>
+              {fileName}
+            </h3>
+            <p
+              className="text-xs text-muted-foreground truncate"
+              title={filePath}
+            >
+              {filePath}
+            </p>
+          </div>
+          {showDirtyIndicator && isDirty && (
+            <span
+              className="h-2 w-2 rounded-full bg-yellow-500 shrink-0"
+              title="Unsaved changes"
+            />
+          )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          {/* Mode Toggle */}
-          <div className="flex items-center gap-0.5 bg-muted rounded-md p-0.5">
+          {/* Mode Toggle - only for previewable files */}
+          {showModeToggle && (
+            <div className="flex items-center gap-0.5 bg-muted rounded-md p-0.5">
+              <Button
+                variant={mode === "edit" ? "secondary" : "ghost"}
+                size="sm"
+                className={cn(
+                  "h-7 px-2 gap-1",
+                  mode === "edit" && "bg-background shadow-sm"
+                )}
+                onClick={() => onModeChange("edit")}
+              >
+                <LuFileText className="h-3.5 w-3.5" />
+                <span className="text-xs">Edit</span>
+              </Button>
+              <Button
+                variant={mode === "preview" ? "secondary" : "ghost"}
+                size="sm"
+                className={cn(
+                  "h-7 px-2 gap-1",
+                  mode === "preview" && "bg-background shadow-sm"
+                )}
+                onClick={() => onModeChange("preview")}
+              >
+                <LuEye className="h-3.5 w-3.5" />
+                <span className="text-xs">Preview</span>
+              </Button>
+            </div>
+          )}
+
+          {/* Refresh Button */}
+          {showRefresh && (
             <Button
-              variant={mode === "view" ? "secondary" : "ghost"}
+              variant="ghost"
               size="sm"
-              className={cn(
-                "h-7 px-2 gap-1",
-                mode === "view" && "bg-background shadow-sm"
-              )}
-              onClick={() => onModeChange("view")}
+              className="h-7 w-7 p-0"
+              onClick={handleRefresh}
+              title="Refresh from disk"
             >
-              <LuFileText className="h-3.5 w-3.5" />
-              <span className="text-xs">View</span>
+              <LuRefreshCw className="h-3.5 w-3.5" />
             </Button>
-            <Button
-              variant={mode === "preview" ? "secondary" : "ghost"}
-              size="sm"
-              className={cn(
-                "h-7 px-2 gap-1",
-                mode === "preview" && "bg-background shadow-sm"
-              )}
-              onClick={() => onModeChange("preview")}
-            >
-              <LuMonitor className="h-3.5 w-3.5" />
-              <span className="text-xs">Preview</span>
-            </Button>
-          </div>
+          )}
 
           {/* Close Button */}
           <Button
@@ -156,7 +194,7 @@ export function FileViewer({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
             Loading file...
@@ -168,25 +206,26 @@ export function FileViewer({
               <p className="text-xs mt-1">{error}</p>
             </div>
           </div>
-        ) : mode === "view" ? (
-          <div className="h-full overflow-auto">
-            <CodeBlockCode
-              code={content}
-              language={language}
-              theme={theme}
-              className="[&_pre]:bg-background! h-full"
-            />
-          </div>
+        ) : fileCategory === "binary" ? (
+          <FilePreview
+            content={content}
+            filePath={filePath}
+            projectPath={projectPath}
+          />
+        ) : mode === "preview" ? (
+          <FilePreview
+            content={editedContent}
+            filePath={filePath}
+            projectPath={projectPath}
+          />
         ) : (
-          <div className="flex items-center justify-center h-full text-sm text-muted-foreground p-4">
-            <div className="text-center">
-              <LuMonitor className="h-12 w-12 mx-auto mb-3 opacity-20" />
-              <p className="font-medium">Preview Coming Soon</p>
-              <p className="text-xs mt-1">
-                File preview functionality will be available in a future update
-              </p>
-            </div>
-          </div>
+          <CodeEditor
+            value={editedContent}
+            filePath={filePath}
+            onChange={setEditedContent}
+            onSave={handleSave}
+            className="h-full text-xs"
+          />
         )}
       </div>
     </div>

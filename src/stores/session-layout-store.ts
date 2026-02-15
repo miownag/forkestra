@@ -5,7 +5,7 @@ interface SessionLayout {
   showFileTree: boolean;
   showFileViewer: boolean;
   selectedFile: string | null;
-  fileViewerMode: "view" | "preview";
+  fileViewerMode: "edit" | "preview";
 }
 
 interface SessionLayoutState {
@@ -23,14 +23,14 @@ interface SessionLayoutState {
   selectFile: (sessionId: string, filePath: string) => void;
   closeFileViewer: (sessionId: string) => void;
 
-  setFileViewerMode: (sessionId: string, mode: "view" | "preview") => void;
+  setFileViewerMode: (sessionId: string, mode: "edit" | "preview") => void;
 }
 
 const DEFAULT_LAYOUT: SessionLayout = {
   showFileTree: false,
   showFileViewer: false,
   selectedFile: null,
-  fileViewerMode: "view",
+  fileViewerMode: "edit",
 };
 
 export const useSessionLayoutStore = create<SessionLayoutState>((set, get) => ({
@@ -128,7 +128,7 @@ export const useSessionLayoutStore = create<SessionLayoutState>((set, get) => ({
     });
   },
 
-  setFileViewerMode: (sessionId: string, mode: "view" | "preview") => {
+  setFileViewerMode: (sessionId: string, mode: "edit" | "preview") => {
     set((state) => {
       const layout = state.layouts[sessionId] || DEFAULT_LAYOUT;
       return {

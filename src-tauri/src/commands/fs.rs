@@ -140,6 +140,36 @@ pub async fn read_file(
     }
 }
 
+#[tauri::command]
+pub async fn write_file(
+    project_path: String,
+    relative_path: String,
+    content: String,
+) -> Result<(), String> {
+    let project = PathBuf::from(&project_path);
+    let full_path = project.join(&relative_path);
+
+    // Security: ensure path is within project directory
+    if !full_path.starts_with(&project) {
+        return Err("Invalid path: outside project directory".to_string());
+    }
+
+    // Check if file exists and is actually a file
+    if !full_path.exists() {
+        return Err(format!("File not found: {}", relative_path));
+    }
+
+    if !full_path.is_file() {
+        return Err(format!("Not a file: {}", relative_path));
+    }
+
+    tokio::fs::write(&full_path, content)
+        .await
+        .map_err(|e| format!("Failed to write file: {}", e))?;
+
+    Ok(())
+}
+
 // Helper function to validate file names
 fn validate_file_name(name: &str) -> Result<(), String> {
     if name.is_empty() {
