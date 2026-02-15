@@ -87,10 +87,10 @@ function RootComponent() {
     <SidebarProvider
       open={!sidebarCollapsed}
       onOpenChange={(open) => setSidebarCollapsed(!open)}
-      className="h-screen bg-background"
+      className="h-screen w-screen bg-background"
     >
       <AppSidebar />
-      <main className="flex-1 flex flex-col h-full">
+      <main className="flex-1 flex flex-col h-full min-w-0">
         <Outlet />
       </main>
     </SidebarProvider>

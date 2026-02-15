@@ -118,7 +118,7 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden sm:w-3xl md:w-4xl mx-auto">
+    <div className="flex-1 flex flex-col overflow-hidden mx-auto w-4/5 max-w-4xl">
       {messages.length === 0 ? (
         /* Empty state - centered layout with input below icon */
         <div className="flex-1 flex flex-col items-center justify-center px-8 -mt-24">

@@ -4,3 +4,5 @@ export { useSettingsStore, default as useSelectorSettingsStore } from "./setting
 export { useProviderSettingsStore, default as useSelectorProviderSettingsStore } from "./provider-settings-store";
 export { useTerminalStore, useSelectorTerminalStore } from "./terminal-store";
 export type { TerminalPosition, TerminalInstance } from "./terminal-store";
+export { useSessionLayoutStore } from "./session-layout-store";
+export { useFileOperationsStore, storeFileContentForUndo } from "./file-operations-store";

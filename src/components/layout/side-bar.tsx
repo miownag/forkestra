@@ -71,7 +71,7 @@ import {
 import { RiGitRepositoryLine } from "react-icons/ri";
 import PROVIDER_ICONS_MAP from "@/constants/icons";
 import { SessionStatusIcon } from "@/components/session/session-status-icon";
-import { LuChevronDown, LuGitBranch } from "react-icons/lu";
+import { LuChevronDown, LuGitBranch, LuMenu } from "react-icons/lu";
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -313,6 +313,7 @@ export function AppSidebar() {
   useStreamEvents();
 
   const [showNewSession, setShowNewSession] = useState(false);
+  const [groupByProject, setGroupByProject] = useState(false);
   const router = useRouter();
   const location = useLocation();
   const { state: sidebarState } = useSidebar();
@@ -352,6 +353,12 @@ export function AppSidebar() {
   useEffect(() => {
     fetchSessions();
   }, [fetchSessions]);
+
+  // Sort all sessions by created_at descending for ungrouped view
+  const sortedSessions = [...sessions].sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
 
   // Group sessions by project path
   const sessionsByProject = sessions.reduce<Record<string, Session[]>>(
@@ -537,7 +544,8 @@ export function AppSidebar() {
                 className={cn(
                   "cursor-pointer px-3",
                   !isIconMode &&
-                    "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground/90"
+                    "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground/90",
+                  "active:bg-primary/90 active:text-primary-foreground/90"
                 )}
               >
                 <Edit className="shrink-0" />
@@ -553,6 +561,26 @@ export function AppSidebar() {
 
       <SidebarSeparator />
 
+      {/* Group by Project Toggle Button */}
+      {!isIconMode && sessions.length > 0 && (
+        <SidebarGroup className="py-0 px-3 mb-2 mt-2">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <button
+                className={cn(
+                  "flex items-center gap-1 cursor-pointer py-1 text-xs text-muted-foreground",
+                  groupByProject ? "text-primary" : ""
+                )}
+                onClick={() => setGroupByProject(!groupByProject)}
+              >
+                <LuMenu className="shrink-0 size-3.5" />
+                Group by Project
+              </button>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+      )}
+
       {/* Sessions List */}
       <SidebarContent className={isIconMode ? "mt-4" : ""}>
         {sessions.length === 0 ? (
@@ -561,7 +589,8 @@ export function AppSidebar() {
               No sessions
             </span>
           </div>
-        ) : (
+        ) : groupByProject && !isIconMode ? (
+          // Grouped view
           sortedProjectPaths.map((projectPath) => {
             const projectSessions = sessionsByProject[projectPath];
             const projectName = projectPath.split("/").pop() || projectPath;
@@ -571,7 +600,7 @@ export function AppSidebar() {
                 defaultOpen={true}
                 className="group/collapsible"
               >
-                <SidebarGroup className="py-1 px-2">
+                <SidebarGroup className="py-1">
                   <SidebarGroupLabel asChild>
                     <CollapsibleTrigger className="w-full cursor-pointer select-none hover:text-foreground tracking-wider group/trigger">
                       <div className="flex items-center w-full justify-between">
@@ -617,6 +646,29 @@ export function AppSidebar() {
               </Collapsible>
             );
           })
+        ) : (
+          // Ungrouped view (default and icon mode)
+          <SidebarGroup className="py-1">
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {sortedSessions.map((session) => (
+                  <SidebarMenuItem key={session.id}>
+                    <SessionSidebarItem
+                      ref={(r) => setSessionItemRef(session.id, r)}
+                      session={session}
+                      isActive={activeSessionId === session.id}
+                      isSessionActive={isSessionActive(session)}
+                      onClick={() => openTab(session.id)}
+                      isStreaming={streamingSessions.has(session.id)}
+                      isResuming={resumingSessions.has(session.id)}
+                      isCreating={creatingSessions.has(session.id)}
+                      hasPendingPermission={!!interactionPrompts[session.id]}
+                    />
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
         )}
       </SidebarContent>
 
