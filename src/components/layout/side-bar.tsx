@@ -545,8 +545,7 @@ export function AppSidebar() {
                 className={cn(
                   "cursor-pointer px-3",
                   !isIconMode &&
-                    "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground/90",
-                  "active:bg-primary/90 active:text-primary-foreground/90"
+                    "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground/90 active:bg-primary/90 active:text-primary-foreground/90"
                 )}
               >
                 <Edit className="shrink-0" />
