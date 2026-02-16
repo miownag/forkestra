@@ -79,6 +79,7 @@ export function CodeEditor({
       readOnly={readOnly}
       theme={resolvedTheme}
       className={className}
+      height="100%"
       basicSetup={{
         lineNumbers: true,
         highlightActiveLineGutter: true,

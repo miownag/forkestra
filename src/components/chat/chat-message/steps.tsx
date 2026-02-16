@@ -26,7 +26,7 @@ import {
   LuSearch,
   LuTerminal,
 } from "react-icons/lu";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Components } from "react-markdown";
 import { CodeBlockWithHeader } from "./code-block";
 import { DiffViewer } from "./diff-viewer";
@@ -93,8 +93,8 @@ const customComponents: Partial<Components> = {
       return (
         <span
           className={cn(
-            "bg-muted rounded-sm px-1 font-mono text-sm",
-            className
+            className,
+            "bg-muted rounded-sm px-1 font-google-sans-code text-sm"
           )}
           {...props}
         >
@@ -364,18 +364,22 @@ function renderToolCallContent(
   );
 }
 
-function renderToolStep(tc: ToolCallInfo, isLast: boolean) {
+function ToolStep({ tc, isLast }: { tc: ToolCallInfo; isLast: boolean }) {
   const hasContent = tc.content || tc.raw_input;
-
-  console.log("renderToolStep", tc);
-
-  // Check if content contains diff type - if so, don't show raw_input
   const hasDiffContent = tc.content?.some((item) => item.type === "diff");
+  const [isOpen, setIsOpen] = useState(hasDiffContent);
+
+  useEffect(() => {
+    if (hasDiffContent) {
+      setIsOpen(true);
+    }
+  }, [hasDiffContent]);
 
   return (
     <ChainOfThoughtStep
       key={tc.tool_call_id}
-      defaultOpen={tc.content?.some((item) => item.type === "diff")}
+      open={isOpen}
+      onOpenChange={setIsOpen}
       isLast={isLast}
     >
       <ChainOfThoughtTrigger
@@ -497,7 +501,13 @@ export function Steps({ message }: StepsProps) {
               />
             );
           } else if (part.type === "tool_call") {
-            return renderToolStep(part.tool_call, isLast);
+            return (
+              <ToolStep
+                key={`tool-${part.tool_call.tool_call_id}`}
+                tc={part.tool_call}
+                isLast={isLast}
+              />
+            );
           } else {
             return null;
           }
@@ -531,7 +541,13 @@ export function Steps({ message }: StepsProps) {
               />
             );
           } else if (part.type === "tool_call") {
-            return renderToolStep(part.tool_call, isLast);
+            return (
+              <ToolStep
+                key={`tool-${part.tool_call.tool_call_id}`}
+                tc={part.tool_call}
+                isLast={isLast}
+              />
+            );
           } else {
             return null;
           }

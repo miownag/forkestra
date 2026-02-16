@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Command,
   CommandList,
@@ -37,6 +37,7 @@ export function FileSelector({
   const [isLoading, setIsLoading] = useState(false);
   const [filterText, setFilterText] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   const fetchEntries = useCallback(
     async (relativePath: string | null) => {
@@ -47,7 +48,9 @@ export function FileSelector({
           projectPath,
           relativePath,
         });
-        setEntries(result);
+        // Filter out ~ directory (likely created by Claude Code)
+        const filteredResult = result.filter((entry) => entry.name !== "~");
+        setEntries(filteredResult);
       } catch (err) {
         console.error("Failed to list directory:", err);
         setEntries([]);
@@ -96,10 +99,36 @@ export function FileSelector({
     setFilterText("");
   };
 
+  // Handle path navigation in filter text
+  useEffect(() => {
+    if (!filterText || !open) return;
+
+    // Check if filter text contains path separators
+    const segments = filterText.split("/").filter((s) => s.length > 0);
+
+    if (segments.length > 1) {
+      // Multi-segment path: try to navigate
+      const targetDir = segments.slice(0, -1).join("/");
+      const targetPath = currentDir ? `${currentDir}/${targetDir}` : targetDir;
+
+      // Check if the target directory exists in current entries
+      const dirExists = entries.some(
+        (e) => e.is_dir && e.path === targetPath
+      );
+
+      if (dirExists) {
+        // Navigate to that directory and update filter to only show the last segment
+        setCurrentDir(targetPath);
+        setFilterText(segments[segments.length - 1]);
+      }
+    }
+  }, [filterText, entries, currentDir, open]);
+
   const filteredEntries = filterText
-    ? entries.filter((e) =>
-        e.name.toLowerCase().includes(filterText.toLowerCase())
-      )
+    ? entries.filter((e) => {
+        const lastSegment = filterText.split("/").filter((s) => s.length > 0).pop() || filterText;
+        return e.name.toLowerCase().includes(lastSegment.toLowerCase());
+      })
     : entries;
 
   // Reset selected index when entries change, but skip initial mount
@@ -109,6 +138,19 @@ export function FileSelector({
       setSelectedIndex(-1);
     }
   }, [filteredEntries.length, currentDir]);
+
+  // Scroll selected item into view
+  useEffect(() => {
+    if (selectedIndex >= 0) {
+      const element = itemRefs.current.get(selectedIndex);
+      if (element) {
+        element.scrollIntoView({
+          block: "nearest",
+          behavior: "smooth",
+        });
+      }
+    }
+  }, [selectedIndex]);
 
   // Handle keyboard navigation
   const handleKeyDown = useCallback(
@@ -228,6 +270,10 @@ export function FileSelector({
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
               autoFocus
+              autoCapitalize="off"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
             />
           </div>
           <CommandList>
@@ -241,6 +287,13 @@ export function FileSelector({
               <CommandGroup>
                 {currentDir !== null && (
                   <CommandItem
+                    ref={(el) => {
+                      if (el) {
+                        itemRefs.current.set(0, el);
+                      } else {
+                        itemRefs.current.delete(0);
+                      }
+                    }}
                     value=".."
                     onSelect={handleNavigateUp}
                     className={`cursor-pointer ${selectedIndex === 0 ? "bg-accent" : ""}`}
@@ -253,6 +306,13 @@ export function FileSelector({
                   return (
                     <CommandItem
                       key={entry.path}
+                      ref={(el) => {
+                        if (el) {
+                          itemRefs.current.set(itemIndex, el);
+                        } else {
+                          itemRefs.current.delete(itemIndex);
+                        }
+                      }}
                       value={entry.name}
                       onSelect={() => handleSelectEntry(entry)}
                       className={`flex items-center gap-2 cursor-pointer ${

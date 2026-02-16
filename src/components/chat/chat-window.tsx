@@ -129,15 +129,13 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
               type="color"
               className="flex items-center justify-center"
             />
-            <p className="text-base mt-4">
-              <Typewriter
-                className="font-mono"
-                text="How can I assist you with your code today?"
-                speed={30}
-                delay={300}
-                deps={[isActive]}
-              />
-            </p>
+            <Typewriter
+              className="font-short-stack text-lg mt-4"
+              text="How can I assist you with your code today?"
+              speed={30}
+              delay={300}
+              deps={[isActive]}
+            />
           </div>
 
           {/* Input with floating notifications */}

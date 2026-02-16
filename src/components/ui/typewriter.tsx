@@ -50,11 +50,18 @@ export function Typewriter({
   }, [currentIndex, text, speed, delay, onComplete]);
 
   return (
-    <span className={cn("inline-block", className)}>
-      {displayedText}
-      {currentIndex > 0 && currentIndex <= text.length && (
-        <span className="animate-pulse">|</span>
-      )}
+    <span className={cn("inline-block relative", className)}>
+      {/* Invisible placeholder to reserve space */}
+      <span className="opacity-0 select-none pointer-events-none" aria-hidden="true">
+        {text}
+      </span>
+      {/* Visible typewriter text */}
+      <span className="absolute inset-0">
+        {displayedText}
+        {currentIndex > 0 && currentIndex <= text.length && (
+          <span className="animate-pulse">|</span>
+        )}
+      </span>
     </span>
   );
 }

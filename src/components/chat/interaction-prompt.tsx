@@ -51,11 +51,11 @@ export function InteractionPromptPanel({ sessionId }: InteractionPromptProps) {
   const isInput = !isPermission && !isConfirm;
 
   return (
-    <div className="border-t border-border/50 bg-gradient-to-b from-background/80 to-muted/30 backdrop-blur-sm px-4 py-4">
+    <div className="border-border/50 bg-linear-to-b from-background/80 to-muted/30 backdrop-blur-sm px-4 py-4">
       <div className="max-w-(--breakpoint-md) mx-auto">
         {/* Header with icon and message */}
         <div className="flex items-start gap-3 mb-4">
-          <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 text-cyan-400 ring-1 ring-cyan-500/30">
+          <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-cyan-500/20 to-blue-500/20 text-cyan-400 ring-1 ring-cyan-500/30">
             <Terminal className="h-4 w-4" />
             <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
@@ -91,13 +91,13 @@ export function InteractionPromptPanel({ sessionId }: InteractionPromptProps) {
                     variant={isReject ? "outline" : "default"}
                     onClick={() => handleOptionSelect(option.optionId)}
                     className={cn(
-                      "h-8 px-3 gap-1.5 text-xs font-medium transition-all duration-200",
+                      "h-8 px-3 gap-1.5 text-xs font-medium transition-none",
                       isAllow &&
-                        "bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white border-0 shadow-sm shadow-cyan-500/20",
+                        "bg-linear-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white border-0 shadow-sm shadow-cyan-500/20",
                       isAlwaysAllow &&
-                        "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-0 shadow-sm shadow-emerald-500/20",
+                        "bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-0 shadow-sm shadow-emerald-500/20",
                       isReject &&
-                        "border-destructive/30 text-destructive/80 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
+                        "bg-destructive text-destructive-foreground/80 hover:bg-destructive/80"
                     )}
                   >
                     {isReject ? (
@@ -117,7 +117,7 @@ export function InteractionPromptPanel({ sessionId }: InteractionPromptProps) {
               <Button
                 size="sm"
                 onClick={handleConfirm}
-                className="h-8 px-4 gap-1.5 text-xs font-medium bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white border-0 shadow-sm shadow-cyan-500/20 transition-all duration-200"
+                className="h-8 px-4 gap-1.5 text-xs font-medium bg-linear-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white border-0 shadow-sm shadow-cyan-500/20 transition-none"
               >
                 <Check className="h-3.5 w-3.5" />
                 Confirm
@@ -126,7 +126,7 @@ export function InteractionPromptPanel({ sessionId }: InteractionPromptProps) {
                 size="sm"
                 variant="outline"
                 onClick={handleDecline}
-                className="h-8 px-4 gap-1.5 text-xs font-medium border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200"
+                className="h-8 px-4 gap-1.5 text-xs font-medium border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-none"
               >
                 <X className="h-3.5 w-3.5" />
                 Decline
@@ -145,7 +145,7 @@ export function InteractionPromptPanel({ sessionId }: InteractionPromptProps) {
                     "w-full h-9 px-3 pr-10 text-sm rounded-lg border bg-background/80",
                     "border-border/60 text-foreground placeholder:text-muted-foreground/50",
                     "focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50",
-                    "transition-all duration-200"
+                    "transition-none"
                   )}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -159,7 +159,7 @@ export function InteractionPromptPanel({ sessionId }: InteractionPromptProps) {
                 size="sm"
                 onClick={handleSend}
                 disabled={!inputValue.trim()}
-                className="h-9 px-4 gap-1.5 text-xs font-medium bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white border-0 shadow-sm shadow-cyan-500/20 transition-all duration-200"
+                className="h-9 px-4 gap-1.5 text-xs font-medium bg-linear-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white border-0 shadow-sm shadow-cyan-500/20 transition-none"
               >
                 <Send className="h-3.5 w-3.5" />
                 Send

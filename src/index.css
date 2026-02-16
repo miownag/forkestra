@@ -4,10 +4,42 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Bitcount Grid Double Font */
+@font-face {
+  font-family: "Bitcount Grid Double";
+  src: url("/Bitcount_Grid_Double/static/BitcountGridDouble-Regular.ttf")
+    format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Short Stack Font */
+@font-face {
+  font-family: "Short Stack";
+  src: url("/Short_Stack/ShortStack-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Google Sans Code Font */
+@font-face {
+  font-family: "Google Sans Code";
+  src: url("/Google_Sans_Code/static/GoogleSansCode-Regular.ttf")
+    format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
   --font-sans:
     Inter, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
     "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-bitcount: "Bitcount Grid Double", ui-monospace, monospace;
+  --font-short-stack: "Short Stack", ui-sans-serif, system-ui, sans-serif;
+  --font-google-sans-code: "Google Sans Code", ui-monospace, monospace;
 
   /* shadcn/ui compatible CSS variables */
   --color-background: hsl(0, 0%, 100%);
@@ -73,7 +105,7 @@
   --color-worktree: hsl(139, 29%, 68%);
 
   /* Sidebar - Dark Mode */
-  --sidebar: hsl(240 5.9% 10%);
+  --sidebar: hsl(0 0% 14%);
   --sidebar-foreground: hsl(240 4.8% 95.9%);
   --sidebar-primary: hsl(224.3 76.3% 48%);
   --sidebar-primary-foreground: hsl(0 0% 100%);

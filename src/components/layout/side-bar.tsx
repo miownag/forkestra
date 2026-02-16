@@ -494,11 +494,11 @@ export function AppSidebar() {
               alt="Forkestra"
               className={cn(
                 "shrink-0 select-none pointer-events-none duration-300",
-                isIconMode ? "h-auto w-auto scale-180" : "h-10 w-10 -mt-0.5"
+                isIconMode ? "scale-200 mb-2" : "h-12 w-12 -mt-1.5"
               )}
             />
-            <div className="flex flex-col gap-1 group-data-[collapsible=icon]:hidden">
-              <h1 className="text-lg font-semibold leading-none whitespace-nowrap select-none! cursor-default">
+            <div className="flex flex-col gap-0.5 group-data-[collapsible=icon]:hidden">
+              <h1 className="text-[1.25rem] font-bitcount leading-none whitespace-nowrap scale-y-105 select-none! cursor-default">
                 Forkestra
               </h1>
               <p className="text-xs text-muted-foreground whitespace-nowrap">
