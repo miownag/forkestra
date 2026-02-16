@@ -16,6 +16,7 @@ import { FileSelector } from "./file-selector";
 import { ModeSelector } from "./mode-selector";
 import { ModelSelector } from "./model-selector";
 import { SlashCommandSelector } from "./slash-command-selector";
+import { useChatInputStore } from "@/stores";
 
 // Simple MIME type lookup from extension
 function guessMimeType(filename: string): string | undefined {
@@ -90,6 +91,7 @@ export function ChatInputInner({
   handleAttachButtonClick: () => void;
 }) {
   const { editor } = usePromptInput();
+  const { registerAddFileToInput, unregisterAddFileToInput } = useChatInputStore();
   // Track whether the file selector was opened via @ trigger or via button
   const fileOpenSourceRef = useRef<"inline" | "button">("inline");
 
@@ -128,6 +130,37 @@ export function ChatInputInner({
     },
     [editor, projectPath, setInlineFileOpen, setButtonFileOpen]
   );
+
+  // Register the function to add files to input (for context menu)
+  useEffect(() => {
+    if (!editor || !session) return;
+
+    const addFileToInput = (entry: FileEntry) => {
+      const absolutePath = `${projectPath}/${entry.path}`;
+      const uri = `file://${absolutePath}`;
+      const mimeType = entry.is_dir ? null : guessMimeType(entry.name) || null;
+
+      // Insert the file tag
+      insertFileTag(editor, {
+        path: entry.path,
+        name: entry.name,
+        uri,
+        mimeType,
+        isDir: entry.is_dir,
+      });
+
+      // Delay focus to ensure it happens after the context menu closes
+      requestAnimationFrame(() => {
+        editor.commands.focus("end");
+      });
+    };
+
+    registerAddFileToInput(session.id, addFileToInput);
+
+    return () => {
+      unregisterAddFileToInput(session.id);
+    };
+  }, [editor, session, projectPath, registerAddFileToInput, unregisterAddFileToInput]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

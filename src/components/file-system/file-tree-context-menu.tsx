@@ -27,13 +27,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  FileIcon,
-  FolderIcon,
-  Edit2Icon,
-  TrashIcon,
-  MessageSquareIcon,
-} from "lucide-react";
+import { FileIcon, FolderIcon } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import type { FileEntry } from "@/types";
 import { toast } from "sonner";
@@ -41,21 +35,26 @@ import {
   useFileOperationsStore,
   storeFileContentForUndo,
 } from "@/stores/file-operations-store";
-import { Copy } from "iconsax-reactjs";
+import { Copy, Edit2, MessageAdd1, Trash } from "iconsax-reactjs";
+import { useChatInputStore } from "@/stores";
 
 interface FileTreeContextMenuProps {
   entry: FileEntry;
   projectPath: string;
+  sessionId: string;
   onRefresh: () => void;
   onStartRename?: () => void;
+  onContextMenuChange?: (open: boolean) => void;
   children: React.ReactNode;
 }
 
 export function FileTreeContextMenu({
   entry,
   projectPath,
+  sessionId,
   onRefresh,
   onStartRename,
+  onContextMenuChange,
   children,
 }: FileTreeContextMenuProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -66,6 +65,7 @@ export function FileTreeContextMenu({
   const [isOperating, setIsOperating] = useState(false);
 
   const { recordOperation } = useFileOperationsStore();
+  const { addFileToInput } = useChatInputStore();
 
   // Handle delete
   const handleDelete = async () => {
@@ -216,35 +216,18 @@ export function FileTreeContextMenu({
 
   // Handle add to conversation
   const handleAddToConversation = async () => {
-    if (entry.is_dir) {
-      toast.error("Cannot add folder to conversation");
-      return;
-    }
-
     try {
-      const content = await invoke<string>("read_file", {
-        projectPath,
-        relativePath: entry.path,
-      });
-
-      // Get file extension for syntax highlighting
-      const ext = entry.name.split(".").pop() || "";
-
-      // Format as markdown code block
-      const formattedContent = `\`\`\`${ext}\n// File: ${entry.path}\n${content}\n\`\`\``;
-
-      // TODO: Add to chat input
-      // For now, just copy to clipboard
-      await navigator.clipboard.writeText(formattedContent);
-      toast.success("File content copied to clipboard (paste into chat)");
+      // Add the file or folder to the chat input using the store
+      addFileToInput(sessionId, entry);
+      toast.success(`Added ${entry.name} to conversation`);
     } catch (error) {
-      toast.error(`Failed to read file: ${error}`);
+      toast.error(`Failed to add to conversation: ${error}`);
     }
   };
 
   return (
     <>
-      <ContextMenu>
+      <ContextMenu onOpenChange={onContextMenuChange}>
         <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
         <ContextMenuContent className="w-56">
           {entry.is_dir && (
@@ -277,26 +260,25 @@ export function FileTreeContextMenu({
               }
             }}
           >
-            <Edit2Icon className="mr-2 size-4" />
+            <Edit2 className="mr-2 size-4" />
             Rename
           </ContextMenuItem>
           <ContextMenuItem
             onClick={() => setShowDeleteDialog(true)}
             className="text-destructive focus:text-destructive"
           >
-            <TrashIcon className="mr-2 size-4" />
+            <Trash className="mr-2 size-4" />
             Delete
           </ContextMenuItem>
           <ContextMenuSeparator />
-          {entry.is_file && (
-            <>
-              <ContextMenuItem onClick={handleAddToConversation}>
-                <MessageSquareIcon className="mr-2 size-4" />
-                Add to Conversation
-              </ContextMenuItem>
-              <ContextMenuSeparator />
-            </>
-          )}
+          <ContextMenuItem
+            onClick={handleAddToConversation}
+            className="text-amber-600 dark:text-amber-400 hover:text-amber-600! dark:hover:text-amber-400!"
+          >
+            <MessageAdd1 className="mr-2 size-4" />
+            Add to Conversation
+          </ContextMenuItem>
+          <ContextMenuSeparator />
           <ContextMenuItem onClick={handleCopyPath}>
             <Copy className="mr-2 size-4" />
             Copy Path

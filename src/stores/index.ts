@@ -6,3 +6,4 @@ export { useTerminalStore, useSelectorTerminalStore } from "./terminal-store";
 export type { TerminalPosition, TerminalInstance } from "./terminal-store";
 export { useSessionLayoutStore } from "./session-layout-store";
 export { useFileOperationsStore, storeFileContentForUndo } from "./file-operations-store";
+export { useChatInputStore } from "./chat-input-store";

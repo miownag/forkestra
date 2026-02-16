@@ -54,9 +54,11 @@ interface FileTreeItemProps {
   activeId: string | null;
   dropTargetId: string | null;
   renamingPath: string | null;
+  contextMenuPath: string | null;
   onStartRename: (path: string) => void;
   onFinishRename: (path: string, newName: string) => void;
   onCancelRename: () => void;
+  onContextMenuChange: (path: string | null, open: boolean) => void;
 }
 
 function FileTreeItem({
@@ -69,9 +71,11 @@ function FileTreeItem({
   activeId,
   dropTargetId,
   renamingPath,
+  contextMenuPath,
   onStartRename,
   onFinishRename,
   onCancelRename,
+  onContextMenuChange,
 }: FileTreeItemProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [children, setChildren] = useState<FileEntry[]>([]);
@@ -153,6 +157,7 @@ function FileTreeItem({
 
   const isSelected = selectedPath === entry.path;
   const isDropTarget = dropTargetId === entry.path && entry.is_dir;
+  const isContextMenuOpen = contextMenuPath === entry.path;
 
   if (entry.is_dir) {
     return (
@@ -160,8 +165,10 @@ function FileTreeItem({
         <FileTreeContextMenu
           entry={entry}
           projectPath={projectPath}
+          sessionId={sessionId}
           onRefresh={onRefresh}
           onStartRename={() => onStartRename(entry.path)}
+          onContextMenuChange={(open) => onContextMenuChange(entry.path, open)}
         >
           <Collapsible open={isOpen} onOpenChange={setIsOpen}>
             <CollapsibleTrigger asChild>
@@ -169,6 +176,7 @@ function FileTreeItem({
                 className={cn(
                   "group hover:bg-accent hover:text-accent-foreground w-full flex items-center transition-none h-7 px-2 gap-1 rounded-md cursor-pointer text-sm",
                   isSelected && "bg-accent text-accent-foreground",
+                  isContextMenuOpen && "bg-accent text-accent-foreground",
                   isDropTarget && "bg-accent/50 border-2 border-accent"
                 )}
                 onClick={!isRenaming ? handleToggle : undefined}
@@ -219,9 +227,11 @@ function FileTreeItem({
                         activeId={activeId}
                         dropTargetId={dropTargetId}
                         renamingPath={renamingPath}
+                        contextMenuPath={contextMenuPath}
                         onStartRename={onStartRename}
                         onFinishRename={onFinishRename}
                         onCancelRename={onCancelRename}
+                        onContextMenuChange={onContextMenuChange}
                       />
                     ))}
                   </SortableContext>
@@ -239,13 +249,16 @@ function FileTreeItem({
       <FileTreeContextMenu
         entry={entry}
         projectPath={projectPath}
+        sessionId={sessionId}
         onRefresh={onRefresh}
         onStartRename={() => onStartRename(entry.path)}
+        onContextMenuChange={(open) => onContextMenuChange(entry.path, open)}
       >
         <div
           className={cn(
             "w-full flex items-center gap-1 h-7 px-2 hover:bg-accent hover:text-accent-foreground rounded-md cursor-pointer text-sm",
-            isSelected && "bg-accent text-accent-foreground"
+            isSelected && "bg-accent text-accent-foreground",
+            isContextMenuOpen && "bg-accent text-accent-foreground"
           )}
           onClick={!isRenaming ? handleClick : undefined}
           {...(!isRenaming ? attributes : {})}
@@ -279,6 +292,7 @@ export function FileTree({ projectPath, sessionId }: FileTreeProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
+  const [contextMenuPath, setContextMenuPath] = useState<string | null>(null);
 
   const { selectFile } = useSessionLayoutStore();
   const { selectedFile } = useSessionLayoutStore().getLayout(sessionId);
@@ -396,6 +410,10 @@ export function FileTree({ projectPath, sessionId }: FileTreeProps) {
 
   const handleCancelRename = useCallback(() => {
     setRenamingPath(null);
+  }, []);
+
+  const handleContextMenuChange = useCallback((path: string | null, open: boolean) => {
+    setContextMenuPath(open ? path : null);
   }, []);
 
   // Check if target is a descendant of source
@@ -672,9 +690,11 @@ export function FileTree({ projectPath, sessionId }: FileTreeProps) {
                   activeId={activeId}
                   dropTargetId={overId}
                   renamingPath={renamingPath}
+                  contextMenuPath={contextMenuPath}
                   onStartRename={handleStartRename}
                   onFinishRename={handleFinishRename}
                   onCancelRename={handleCancelRename}
+                  onContextMenuChange={handleContextMenuChange}
                 />
               ))}
             </div>
