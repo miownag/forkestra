@@ -32,7 +32,6 @@ import {
   FolderIcon,
   Edit2Icon,
   TrashIcon,
-  CopyIcon,
   MessageSquareIcon,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
@@ -42,11 +41,13 @@ import {
   useFileOperationsStore,
   storeFileContentForUndo,
 } from "@/stores/file-operations-store";
+import { Copy } from "iconsax-reactjs";
 
 interface FileTreeContextMenuProps {
   entry: FileEntry;
   projectPath: string;
   onRefresh: () => void;
+  onStartRename?: () => void;
   children: React.ReactNode;
 }
 
@@ -54,56 +55,17 @@ export function FileTreeContextMenu({
   entry,
   projectPath,
   onRefresh,
+  onStartRename,
   children,
 }: FileTreeContextMenuProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [showNewFileDialog, setShowNewFileDialog] = useState(false);
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
 
   const [newName, setNewName] = useState("");
-  const [renameValue, setRenameValue] = useState(entry.name);
   const [isOperating, setIsOperating] = useState(false);
 
   const { recordOperation } = useFileOperationsStore();
-
-  // Handle rename
-  const handleRename = async () => {
-    if (!renameValue.trim() || renameValue === entry.name) {
-      setShowRenameDialog(false);
-      return;
-    }
-
-    setIsOperating(true);
-    try {
-      const newPath = await invoke<string>("rename_item", {
-        operation: {
-          projectPath,
-          oldPath: entry.path,
-          newName: renameValue.trim(),
-        },
-      });
-
-      // Record operation for undo
-      recordOperation({
-        type: "rename",
-        timestamp: Date.now(),
-        projectPath,
-        data: {
-          oldPath: entry.path,
-          newPath,
-        },
-      });
-
-      toast.success(`Renamed to ${renameValue.trim()}`);
-      onRefresh();
-      setShowRenameDialog(false);
-    } catch (error) {
-      toast.error(`Failed to rename: ${error}`);
-    } finally {
-      setIsOperating(false);
-    }
-  };
 
   // Handle delete
   const handleDelete = async () => {
@@ -293,7 +255,7 @@ export function FileTreeContextMenu({
                   setShowNewFileDialog(true);
                 }}
               >
-                <FileIcon className="mr-2 h-4 w-4" />
+                <FileIcon className="mr-2 size-4" />
                 New File
               </ContextMenuItem>
               <ContextMenuItem
@@ -302,7 +264,7 @@ export function FileTreeContextMenu({
                   setShowNewFolderDialog(true);
                 }}
               >
-                <FolderIcon className="mr-2 h-4 w-4" />
+                <FolderIcon className="mr-2 size-4" />
                 New Folder
               </ContextMenuItem>
               <ContextMenuSeparator />
@@ -310,36 +272,37 @@ export function FileTreeContextMenu({
           )}
           <ContextMenuItem
             onClick={() => {
-              setRenameValue(entry.name);
-              setShowRenameDialog(true);
+              if (onStartRename) {
+                onStartRename();
+              }
             }}
           >
-            <Edit2Icon className="mr-2 h-4 w-4" />
+            <Edit2Icon className="mr-2 size-4" />
             Rename
           </ContextMenuItem>
           <ContextMenuItem
             onClick={() => setShowDeleteDialog(true)}
             className="text-destructive focus:text-destructive"
           >
-            <TrashIcon className="mr-2 h-4 w-4" />
+            <TrashIcon className="mr-2 size-4" />
             Delete
           </ContextMenuItem>
           <ContextMenuSeparator />
           {entry.is_file && (
             <>
               <ContextMenuItem onClick={handleAddToConversation}>
-                <MessageSquareIcon className="mr-2 h-4 w-4" />
+                <MessageSquareIcon className="mr-2 size-4" />
                 Add to Conversation
               </ContextMenuItem>
               <ContextMenuSeparator />
             </>
           )}
           <ContextMenuItem onClick={handleCopyPath}>
-            <CopyIcon className="mr-2 h-4 w-4" />
+            <Copy className="mr-2 size-4" />
             Copy Path
           </ContextMenuItem>
           <ContextMenuItem onClick={handleCopyRelativePath}>
-            <CopyIcon className="mr-2 h-4 w-4" />
+            <Copy className="mr-2 size-4" />
             Copy Relative Path
           </ContextMenuItem>
         </ContextMenuContent>
@@ -370,46 +333,6 @@ export function FileTreeContextMenu({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Rename Dialog */}
-      <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rename {entry.is_dir ? "folder" : "file"}</DialogTitle>
-            <DialogDescription>
-              Enter a new name for "{entry.name}".
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="rename">Name</Label>
-              <Input
-                id="rename"
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !isOperating) {
-                    handleRename();
-                  }
-                }}
-                autoFocus
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowRenameDialog(false)}
-              disabled={isOperating}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleRename} disabled={isOperating}>
-              {isOperating ? "Renaming..." : "Rename"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* New File Dialog */}
       <Dialog open={showNewFileDialog} onOpenChange={setShowNewFileDialog}>

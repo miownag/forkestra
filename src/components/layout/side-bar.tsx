@@ -560,7 +560,7 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarGroup>
 
-      <SidebarSeparator />
+      <SidebarSeparator className="bg-muted" />
 
       {/* Group by Project Toggle Button */}
       {!isIconMode && sessions.length > 0 && (

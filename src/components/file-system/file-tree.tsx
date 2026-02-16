@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Collapsible,
   CollapsibleContent,
@@ -52,6 +53,10 @@ interface FileTreeItemProps {
   selectedPath: string | null;
   activeId: string | null;
   dropTargetId: string | null;
+  renamingPath: string | null;
+  onStartRename: (path: string) => void;
+  onFinishRename: (path: string, newName: string) => void;
+  onCancelRename: () => void;
 }
 
 function FileTreeItem({
@@ -63,10 +68,24 @@ function FileTreeItem({
   selectedPath,
   activeId,
   dropTargetId,
+  renamingPath,
+  onStartRename,
+  onFinishRename,
+  onCancelRename,
 }: FileTreeItemProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [children, setChildren] = useState<FileEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [renameValue, setRenameValue] = useState(entry.name);
+
+  const isRenaming = renamingPath === entry.path;
+
+  // Update rename value when renaming starts
+  useEffect(() => {
+    if (isRenaming) {
+      setRenameValue(entry.name);
+    }
+  }, [isRenaming, entry.name]);
 
   const {
     attributes,
@@ -119,6 +138,19 @@ function FileTreeItem({
     }
   }, [entry.is_file, entry.path, onFileSelect, handleToggle]);
 
+  const handleRenameKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        onFinishRename(entry.path, renameValue.trim());
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        onCancelRename();
+      }
+    },
+    [entry.path, renameValue, onFinishRename, onCancelRename]
+  );
+
   const isSelected = selectedPath === entry.path;
   const isDropTarget = dropTargetId === entry.path && entry.is_dir;
 
@@ -129,20 +161,19 @@ function FileTreeItem({
           entry={entry}
           projectPath={projectPath}
           onRefresh={onRefresh}
+          onStartRename={() => onStartRename(entry.path)}
         >
           <Collapsible open={isOpen} onOpenChange={setIsOpen}>
             <CollapsibleTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
+              <div
                 className={cn(
-                  "group hover:bg-accent hover:text-accent-foreground w-full justify-start transition-none h-7 px-2 gap-1",
+                  "group hover:bg-accent hover:text-accent-foreground w-full flex items-center transition-none h-7 px-2 gap-1 rounded-md cursor-pointer text-sm",
                   isSelected && "bg-accent text-accent-foreground",
                   isDropTarget && "bg-accent/50 border-2 border-accent"
                 )}
-                onClick={handleToggle}
-                {...attributes}
-                {...listeners}
+                onClick={!isRenaming ? handleToggle : undefined}
+                {...(!isRenaming ? attributes : {})}
+                {...(!isRenaming ? listeners : {})}
               >
                 <ChevronRightIcon className="h-4 w-4 transition-transform group-data-[state=open]:rotate-90 shrink-0" />
                 {isOpen ? (
@@ -150,8 +181,20 @@ function FileTreeItem({
                 ) : (
                   <FolderIcon className="h-4 w-4 shrink-0" />
                 )}
-                <span className="truncate">{entry.name}</span>
-              </Button>
+                {isRenaming ? (
+                  <Input
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={handleRenameKeyDown}
+                    onBlur={() => onFinishRename(entry.path, renameValue.trim())}
+                    className="h-5 px-1 py-0 text-[length:inherit] flex-1 border-0 shadow-none focus-visible:ring-0 bg-accent/50"
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <span className="truncate">{entry.name}</span>
+                )}
+              </div>
             </CollapsibleTrigger>
             <CollapsibleContent className="ml-4 mt-0.5">
               <div className="flex flex-col gap-0.5">
@@ -175,6 +218,10 @@ function FileTreeItem({
                         selectedPath={selectedPath}
                         activeId={activeId}
                         dropTargetId={dropTargetId}
+                        renamingPath={renamingPath}
+                        onStartRename={onStartRename}
+                        onFinishRename={onFinishRename}
+                        onCancelRename={onCancelRename}
                       />
                     ))}
                   </SortableContext>
@@ -193,21 +240,32 @@ function FileTreeItem({
         entry={entry}
         projectPath={projectPath}
         onRefresh={onRefresh}
+        onStartRename={() => onStartRename(entry.path)}
       >
-        <Button
-          variant="ghost"
-          size="sm"
+        <div
           className={cn(
-            "w-full justify-start gap-1 h-7 px-2 hover:bg-accent hover:text-accent-foreground",
+            "w-full flex items-center gap-1 h-7 px-2 hover:bg-accent hover:text-accent-foreground rounded-md cursor-pointer text-sm",
             isSelected && "bg-accent text-accent-foreground"
           )}
-          onClick={handleClick}
-          {...attributes}
-          {...listeners}
+          onClick={!isRenaming ? handleClick : undefined}
+          {...(!isRenaming ? attributes : {})}
+          {...(!isRenaming ? listeners : {})}
         >
           <FileIcon className="h-4 w-4 shrink-0" />
-          <span className="truncate">{entry.name}</span>
-        </Button>
+          {isRenaming ? (
+            <Input
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={handleRenameKeyDown}
+              onBlur={() => onFinishRename(entry.path, renameValue.trim())}
+              className="h-5 px-1 py-0 text-[length:inherit] flex-1 border-0 shadow-none focus-visible:ring-0 bg-accent/50"
+              autoFocus
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <span className="truncate">{entry.name}</span>
+          )}
+        </div>
       </FileTreeContextMenu>
     </div>
   );
@@ -220,6 +278,7 @@ export function FileTree({ projectPath, sessionId }: FileTreeProps) {
   const [error, setError] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
 
   const { selectFile } = useSessionLayoutStore();
   const { selectedFile } = useSessionLayoutStore().getLayout(sessionId);
@@ -291,6 +350,53 @@ export function FileTree({ projectPath, sessionId }: FileTreeProps) {
     },
     [rootEntries]
   );
+
+  // Rename handlers
+  const handleStartRename = useCallback((path: string) => {
+    setRenamingPath(path);
+  }, []);
+
+  const handleFinishRename = useCallback(
+    async (path: string, newName: string) => {
+      const entry = findEntry(path);
+      if (!entry || !newName || newName === entry.name) {
+        setRenamingPath(null);
+        return;
+      }
+
+      try {
+        const newPath = await invoke<string>("rename_item", {
+          operation: {
+            projectPath,
+            oldPath: path,
+            newName,
+          },
+        });
+
+        recordOperation({
+          type: "rename",
+          timestamp: Date.now(),
+          projectPath,
+          data: {
+            oldPath: path,
+            newPath,
+          },
+        });
+
+        toast.success(`Renamed to ${newName}`);
+        handleRefresh();
+      } catch (error) {
+        toast.error(`Failed to rename: ${error}`);
+      } finally {
+        setRenamingPath(null);
+      }
+    },
+    [projectPath, findEntry, recordOperation, handleRefresh]
+  );
+
+  const handleCancelRename = useCallback(() => {
+    setRenamingPath(null);
+  }, []);
 
   // Check if target is a descendant of source
   const isDescendant = useCallback((sourcePath: string, targetPath: string) => {
@@ -565,6 +671,10 @@ export function FileTree({ projectPath, sessionId }: FileTreeProps) {
                   selectedPath={selectedFile}
                   activeId={activeId}
                   dropTargetId={overId}
+                  renamingPath={renamingPath}
+                  onStartRename={handleStartRename}
+                  onFinishRename={handleFinishRename}
+                  onCancelRename={handleCancelRename}
                 />
               ))}
             </div>

@@ -48,7 +48,6 @@ export function InteractionPromptPanel({ sessionId }: InteractionPromptProps) {
   const isPermission =
     prompt.type === "permission" && prompt.options && prompt.options.length > 0;
   const isConfirm = prompt.type === "confirm";
-  const isInput = !isPermission && !isConfirm;
 
   return (
     <div className="border-border/50 bg-linear-to-b from-background/80 to-muted/30 backdrop-blur-sm px-4 py-4">

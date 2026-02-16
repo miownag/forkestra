@@ -137,7 +137,7 @@ function TextStep({ content, isLast }: { content: string; isLast: boolean }) {
         className="flex-1"
       >
         <div className="flex items-center gap-2 uppercase">
-          <div>Response</div>
+          Response
           <div
             onClick={handleCopy}
             className={cn(
