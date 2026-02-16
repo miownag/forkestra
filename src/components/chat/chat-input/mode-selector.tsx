@@ -43,26 +43,27 @@ const ModeSelector: FC<IProps> = ({ session }) => {
   }
 
   return (
-    <TooltipProvider>
-      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-        <PopoverTrigger asChild>
-          {currentMode ? (
-            <button className="flex items-center gap-1 p-1.5 rounded-md cursor-pointer text-muted-foreground hover:bg-secondary-foreground/5!">
-              <Layer className="size-4" />
-              <span className="text-xs">{currentMode.display_name}</span>
-            </button>
-          ) : (
-            <span />
-          )}
-        </PopoverTrigger>
-        <PopoverContent
-          className="w-56 p-1"
-          align="start"
-          side="top"
-          sideOffset={8}
-        >
+    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+      <PopoverTrigger asChild>
+        {currentMode ? (
+          <button className="flex items-center gap-1 p-1.5 rounded-md cursor-pointer text-muted-foreground hover:bg-secondary-foreground/5!">
+            <Layer className="size-4" />
+            <span className="text-xs">{currentMode.display_name}</span>
+          </button>
+        ) : (
+          <span />
+        )}
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-56 p-1"
+        align="start"
+        side="top"
+        sideOffset={8}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        <TooltipProvider delayDuration={300}>
           {session.available_modes.map((m) => (
-            <Tooltip key={m.mode_id} delayDuration={300}>
+            <Tooltip key={m.mode_id}>
               <TooltipTrigger asChild>
                 <button
                   type="button"
@@ -90,9 +91,9 @@ const ModeSelector: FC<IProps> = ({ session }) => {
               )}
             </Tooltip>
           ))}
-        </PopoverContent>
-      </Popover>
-    </TooltipProvider>
+        </TooltipProvider>
+      </PopoverContent>
+    </Popover>
   );
 };
 

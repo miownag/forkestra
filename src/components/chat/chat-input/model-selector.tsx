@@ -38,26 +38,27 @@ const ModelSelector: FC<IProps> = ({ session }) => {
   };
 
   return (
-    <TooltipProvider>
-      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-        <PopoverTrigger asChild>
-          {currentModel ? (
-            <button className="flex items-center gap-1 p-1.5 rounded-md cursor-pointer text-muted-foreground hover:bg-secondary-foreground/5!">
-              <TbBrain className="text-muted-foreground/75" />
-              <span className="text-xs">{currentModel.display_name}</span>
-            </button>
-          ) : (
-            <span />
-          )}
-        </PopoverTrigger>
-        <PopoverContent
-          className="w-56 p-1"
-          align="start"
-          side="top"
-          sideOffset={8}
-        >
+    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+      <PopoverTrigger asChild>
+        {currentModel ? (
+          <button className="flex items-center gap-1 p-1.5 rounded-md cursor-pointer text-muted-foreground hover:bg-secondary-foreground/5!">
+            <TbBrain className="text-muted-foreground/75" />
+            <span className="text-xs">{currentModel.display_name}</span>
+          </button>
+        ) : (
+          <span />
+        )}
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-56 p-1"
+        align="start"
+        side="top"
+        sideOffset={8}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        <TooltipProvider delayDuration={300}>
           {session?.available_models.map((m) => (
-            <Tooltip key={m.model_id} delayDuration={300}>
+            <Tooltip key={m.model_id}>
               <TooltipTrigger asChild>
                 <button
                   type="button"
@@ -85,9 +86,9 @@ const ModelSelector: FC<IProps> = ({ session }) => {
               )}
             </Tooltip>
           ))}
-        </PopoverContent>
-      </Popover>
-    </TooltipProvider>
+        </TooltipProvider>
+      </PopoverContent>
+    </Popover>
   );
 };
 

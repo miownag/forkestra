@@ -16,7 +16,7 @@ import {
   ResizableHandle,
 } from "@/components/ui/resizable";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { Driving } from "iconsax-reactjs";
 
 interface SessionTabContentProps {
   sessionId: string;
@@ -185,7 +185,7 @@ export function SessionPanel() {
     return (
       <div className="h-full flex-1 flex items-center justify-center text-muted-foreground">
         <div className="text-center max-w-md px-4">
-          <LuGitBranch className="h-24 w-24 mx-auto mb-6 opacity-20" />
+          <Driving className="size-24 mx-auto mb-6 opacity-20" />
           <h2 className="text-lg font-medium mb-2">No Session Selected</h2>
           <p className="text-sm">
             Create a new session or select an existing one from the sidebar to

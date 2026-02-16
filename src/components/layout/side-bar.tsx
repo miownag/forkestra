@@ -67,6 +67,7 @@ import {
   AddSquare,
   Edit2,
   Trash,
+  EmojiSad,
 } from "iconsax-reactjs";
 import { RiGitRepositoryLine } from "react-icons/ri";
 import PROVIDER_ICONS_MAP from "@/constants/icons";
@@ -533,7 +534,7 @@ export function AppSidebar() {
                 )}
               >
                 <Edit className="shrink-0" />
-                <span>New Session</span>
+                <span className="text-xs font-semibold">New Session</span>
                 <span className="ml-auto text-xs opacity-75 select-none">
                   ⌘ N
                 </span>
@@ -549,7 +550,7 @@ export function AppSidebar() {
                 )}
               >
                 <Edit className="shrink-0" />
-                <span>New Session</span>
+                <span className="text-xs font-semibold">New Session</span>
                 <span className="ml-auto text-xs opacity-75 select-none">
                   ⌘ N
                 </span>
@@ -586,7 +587,8 @@ export function AppSidebar() {
       {/* Sessions List */}
       <SidebarContent className={isIconMode ? "mt-4" : ""}>
         {sessions.length === 0 ? (
-          <div className="flex-1 flex justify-center items-center">
+          <div className="flex-1 flex flex-col gap-2 justify-center items-center">
+            <EmojiSad className="opacity-75" />
             <span className="text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
               No sessions
             </span>
@@ -678,7 +680,11 @@ export function AppSidebar() {
       <SidebarFooter className="p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Settings" onClick={handleSettingsClick}>
+            <SidebarMenuButton
+              tooltip="Settings"
+              className="cursor-pointer"
+              onClick={handleSettingsClick}
+            >
               <Setting5 className="shrink-0" />
               <span>Settings</span>
             </SidebarMenuButton>

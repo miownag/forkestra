@@ -17,18 +17,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import { Switch } from "@/components/ui/switch";
 import { BranchSearchSelect } from "./branch-search-select";
 import type { ProviderType } from "@/types";
 import { LuFolderGit2 } from "react-icons/lu";
 import PROVIDER_ICONS_MAP from "@/constants/icons";
+import { cn } from "@/lib/utils";
 
 interface NewSessionDialogProps {
   open: boolean;
@@ -138,7 +133,7 @@ export function NewSessionDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-4">
           {error && (
             <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
               {error}
@@ -146,45 +141,41 @@ export function NewSessionDialog({
           )}
 
           <div>
-            <Label htmlFor="name">
-              Session Name{" "}
-              <span className="text-muted-foreground font-normal">
-                (optional)
-              </span>
-            </Label>
-            <Input
-              id="name"
-              className="mt-2"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Default is `New Session`"
-            />
-          </div>
-
-          <div>
             <Label htmlFor="provider">AI Provider</Label>
-            <Select
-              value={provider}
-              onValueChange={(v) => setProvider(v as ProviderType)}
-            >
-              <SelectTrigger className="mt-2">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {installedProviders.map((p) => {
-                  const Icon = PROVIDER_ICONS_MAP[p.provider_type];
-                  return (
-                    <SelectItem key={p.provider_type} value={p.provider_type}>
-                      <Icon.Combine
-                        className="flex items-center gap-1"
-                        size={18}
-                        type="color"
-                      />
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+            <div className="flex w-fit items-center gap-1 mt-2 p-1 rounded-full border border-border/60 bg-muted/30">
+              {installedProviders.map((p) => {
+                const Icon = PROVIDER_ICONS_MAP[p.provider_type];
+                const isSelected = provider === p.provider_type;
+                return (
+                  <button
+                    key={p.provider_type}
+                    type="button"
+                    onClick={() => setProvider(p.provider_type)}
+                    className={cn(
+                      "flex items-center justify-center h-9 rounded-full transition-all duration-200 ease-out",
+                      isSelected
+                        ? "px-3 bg-background shadow-sm"
+                        : "px-1 cursor-pointer hover:bg-background"
+                    )}
+                    title={p.provider_type}
+                  >
+                    {isSelected ? (
+                      <span className="px-2 flex items-center justify-center">
+                        <Icon.Combine
+                          className="flex items-center gap-1"
+                          size={18}
+                          type="color"
+                        />
+                      </span>
+                    ) : (
+                      <span className="px-2 flex items-center justify-center">
+                        <Icon.Avatar size={20} />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div>
@@ -242,6 +233,22 @@ export function NewSessionDialog({
               </p>
             </div>
           )}
+        </div>
+
+        <div>
+          <Label htmlFor="name">
+            Session Name{" "}
+            <span className="text-muted-foreground font-normal">
+              (optional)
+            </span>
+          </Label>
+          <Input
+            id="name"
+            className="mt-2"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Default is `New Session`"
+          />
         </div>
 
         <DialogFooter>
