@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -23,11 +23,9 @@ import { Separator } from "@/components/ui/separator";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { homeDir } from "@tauri-apps/api/path";
 import { cn } from "@/lib/utils";
-import {
-  ThemeToggleButton,
-} from "@/components/layout/title-bar-controls";
+import { ThemeToggleButton } from "@/components/layout/title-bar-controls";
 import { TbCodeDots } from "react-icons/tb";
-import { ArrowLeft2, Refresh, Setting2 } from "iconsax-reactjs";
+import { ArrowLeft2, Refresh, Setting2, SidebarRight } from "iconsax-reactjs";
 import { LuFolderOpen } from "react-icons/lu";
 
 export const Route = createFileRoute("/settings/")({
@@ -35,6 +33,45 @@ export const Route = createFileRoute("/settings/")({
 });
 
 type SettingsTab = "ui" | "json";
+type SettingSection =
+  | "general"
+  | "general-project-path"
+  | "general-work-mode"
+  | "appearance"
+  | "appearance-theme"
+  | "appearance-font-size"
+  | "appearance-accent-color"
+  | "providers";
+
+interface SectionItem {
+  id: SettingSection;
+  label: string;
+  children?: SectionItem[];
+}
+
+const SECTION_ITEMS: SectionItem[] = [
+  {
+    id: "general",
+    label: "General",
+    children: [
+      { id: "general-project-path", label: "Default Project Path" },
+      { id: "general-work-mode", label: "Preferred Work Mode" },
+    ],
+  },
+  {
+    id: "appearance",
+    label: "Appearance",
+    children: [
+      { id: "appearance-theme", label: "Theme" },
+      { id: "appearance-font-size", label: "Font Size" },
+      { id: "appearance-accent-color", label: "Accent Color" },
+    ],
+  },
+  {
+    id: "providers",
+    label: "AI Providers",
+  },
+];
 
 function RouteComponent() {
   const { providers, isDetecting, detectProviders } = useSelectorProviderStore([
@@ -58,6 +95,7 @@ function RouteComponent() {
     setAccentColor,
     setDefaultProjectPath,
     setDefaultWorkMode,
+    toggleSidebar,
   } = useSelectorSettingsStore([
     "theme",
     "fontSize",
@@ -72,15 +110,63 @@ function RouteComponent() {
     "setAccentColor",
     "setDefaultProjectPath",
     "setDefaultWorkMode",
+    "toggleSidebar",
   ]);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<SettingsTab>("ui");
+  const [activeSection, setActiveSection] = useState<SettingSection>("general");
+
+  // Store refs in a Map for dynamic access
+  const sectionRefs = useRef<Map<SettingSection, HTMLDivElement>>(new Map());
 
   // Load settings on mount
   useEffect(() => {
     loadProviderSettings();
     loadSettings();
   }, [loadProviderSettings, loadSettings]);
+
+  // Scroll to section when clicked
+  const scrollToSection = (section: SettingSection) => {
+    const element = sectionRefs.current.get(section);
+    if (element) {
+      element.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      setActiveSection(section);
+    }
+  };
+
+  // Observe sections to update active section on scroll
+  useEffect(() => {
+    if (activeTab !== "ui") return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const section = entry.target.getAttribute(
+              "data-section"
+            ) as SettingSection;
+            if (section) {
+              setActiveSection(section);
+            }
+          }
+        });
+      },
+      { threshold: 0.3, rootMargin: "-20% 0px -60% 0px" }
+    );
+
+    sectionRefs.current.forEach((element) => {
+      observer.observe(element);
+    });
+
+    return () => {
+      sectionRefs.current.forEach((element) => {
+        observer.unobserve(element);
+      });
+    };
+  }, [activeTab]);
 
   const handleSelectDefaultPath = async () => {
     try {
@@ -105,265 +191,401 @@ function RouteComponent() {
         data-tauri-drag-region
         className={cn(
           "shrink-0 h-13 z-50 flex items-center pr-4 justify-between w-full bg-muted/20",
-          isFullscreen ? "pl-4" : sidebarCollapsed ? "pl-6" : "pl-4"
+          isFullscreen ? "pl-4" : sidebarCollapsed ? "pl-10" : "pl-4"
         )}
       >
-        <div />
+        {sidebarCollapsed ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-4.5 rounded-xl"
+            onClick={toggleSidebar}
+          >
+            <SidebarRight />
+          </Button>
+        ) : (
+          <div />
+        )}
         <ThemeToggleButton />
       </div>
-      <div className="flex-1 overflow-y-auto">
-        <div className="space-y-8 sm:w-2xl md:w-3xl mx-auto py-12">
-          <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              onClick={() => router.history.back()}
-              className="[&_svg]:size-5 -ml-3 pl-2 text-base"
-            >
-              <ArrowLeft2 />
-              Back
-            </Button>
-
-            {/* Tab Navigation */}
-            <div className="flex gap-2 p-1 bg-muted rounded-lg">
+      <div className="flex-1 overflow-hidden flex justify-center">
+        {/* Main Content Container */}
+        <div className="flex gap-8 w-full max-w-7xl">
+          {/* Left Sidebar - only show in UI mode */}
+          {activeTab === "ui" && (
+            <div className="w-56 shrink-0 py-12 sticky top-0 h-[calc(100vh-3.25rem)] overflow-y-auto">
               <Button
-                variant={activeTab === "ui" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setActiveTab("ui")}
+                variant="ghost"
+                onClick={() => router.history.back()}
+                className="[&_svg]:size-5 w-full justify-start pl-2 mb-6 text-base"
               >
-                <Setting2 />
-                UI Settings
+                <ArrowLeft2 />
+                Back
               </Button>
-              <Button
-                variant={activeTab === "json" ? "default" : "ghost"}
-                size="sm"
-                className="[&_svg]:size-5"
-                onClick={() => setActiveTab("json")}
-              >
-                <TbCodeDots />
-                settings.json
-              </Button>
-            </div>
-          </div>
 
-          {/* Tab Content */}
-          {activeTab === "json" ? (
-            <GlobalSettingsEditor />
-          ) : (
-            <>
-              {/* General Section */}
-              <div>
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold">General</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Configure general application settings
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  {/* Default Project Path */}
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label className="text-sm font-medium">
-                        Default Project Path
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Default directory when selecting a project folder
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={defaultProjectPath || ""}
-                        onChange={(e) =>
-                          setDefaultProjectPath(e.target.value || null)
-                        }
-                        placeholder="System user directory"
-                        className="w-60 text-sm"
-                      />
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={handleSelectDefaultPath}
-                      >
-                        <LuFolderOpen className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Default Work Mode */}
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label className="text-sm font-medium">
-                        Preferred Work Mode
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Default mode when creating new sessions
-                      </p>
-                    </div>
-                    <Select
-                      value={defaultWorkMode}
-                      onValueChange={(value) =>
-                        setDefaultWorkMode(value as DefaultWorkMode)
-                      }
+              <nav className="space-y-1">
+                {SECTION_ITEMS.map((section) => (
+                  <div key={section.id}>
+                    <button
+                      onClick={() => scrollToSection(section.id)}
+                      className={cn(
+                        "w-full text-left px-3 py-1.5 text-[0.85rem] rounded-md transition-colors",
+                        activeSection === section.id
+                          ? "text-foreground font-medium"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
                     >
-                      <SelectTrigger className="w-45">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="worktree">Worktree</SelectItem>
-                        <SelectItem value="local">Local</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Appearance Section */}
-              <div>
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold">Appearance</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Customize the look and feel of the application
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  {/* Theme Setting */}
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label className="text-sm font-medium">Theme</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Select your preferred color theme
-                      </p>
-                    </div>
-                    <Select
-                      value={theme}
-                      onValueChange={(value) => setTheme(value as Theme)}
-                    >
-                      <SelectTrigger className="w-45">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="light">Light</SelectItem>
-                        <SelectItem value="dark">Dark</SelectItem>
-                        <SelectItem value="system">Follow System</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Font Size Setting */}
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label className="text-sm font-medium">Font Size</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Adjust the interface font size
-                      </p>
-                    </div>
-                    <Select
-                      value={fontSize}
-                      onValueChange={(value) => setFontSize(value as FontSize)}
-                    >
-                      <SelectTrigger className="w-45">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="small">Small</SelectItem>
-                        <SelectItem value="base">Base (Default)</SelectItem>
-                        <SelectItem value="large">Large</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Accent Color Setting */}
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label className="text-sm font-medium">
-                        Accent Color
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Choose your preferred accent color theme
-                      </p>
-                    </div>
-                    <Select
-                      value={accentColor}
-                      onValueChange={(value) =>
-                        setAccentColor(value as AccentColor)
-                      }
-                    >
-                      <SelectTrigger className="w-45">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ACCENT_COLOR_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            <div className="flex items-center gap-2">
-                              <span
-                                className="w-3 h-3 rounded-full border border-border"
-                                style={{
-                                  backgroundColor: option.color,
-                                  borderColor:
-                                    option.value === "default"
-                                      ? "hsl(0, 0%, 89.8%)"
-                                      : option.color,
-                                }}
-                              />
-                              <span>{option.label}</span>
-                            </div>
-                          </SelectItem>
+                      {section.label}
+                    </button>
+                    {section.children && (
+                      <div className="ml-3 mt-0.5 space-y-0.5">
+                        {section.children.map((child) => (
+                          <button
+                            key={child.id}
+                            onClick={() => scrollToSection(child.id)}
+                            className={cn(
+                              "w-full text-left px-3 py-1 text-[0.8rem] rounded-md transition-colors",
+                              activeSection === child.id
+                                ? "text-foreground font-medium"
+                                : "text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            {child.label}
+                          </button>
                         ))}
-                      </SelectContent>
-                    </Select>
+                      </div>
+                    )}
                   </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Providers Section */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold">AI Providers</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Configure your AI coding assistants
-                    </p>
-                  </div>
+                ))}
+              </nav>
+            </div>
+          )}
+          <div className="flex-1 overflow-y-auto">
+            <div className="space-y-8 sm:w-2xl md:w-3xl py-12">
+              <div className="flex items-center justify-between">
+                {activeTab === "json" && (
                   <Button
-                    variant="outline"
-                    size="sm"
-                    className="[&_svg]:size-3"
-                    onClick={detectProviders}
-                    disabled={isDetecting}
+                    variant="ghost"
+                    onClick={() => router.history.back()}
+                    className="[&_svg]:size-5 -ml-3 pl-2 text-base"
                   >
-                    <Refresh className={cn(isDetecting && "animate-spin")} />
-                    Refresh
+                    <ArrowLeft2 />
+                    Back
+                  </Button>
+                )}
+
+                {/* Tab Navigation */}
+                <div
+                  className={cn(
+                    "flex gap-2 p-1 bg-muted rounded-lg",
+                    activeTab === "ui" && "ml-auto"
+                  )}
+                >
+                  <Button
+                    variant={activeTab === "ui" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setActiveTab("ui")}
+                  >
+                    <Setting2 />
+                    UI Settings
+                  </Button>
+                  <Button
+                    variant={activeTab === "json" ? "default" : "ghost"}
+                    size="sm"
+                    className="[&_svg]:size-5"
+                    onClick={() => setActiveTab("json")}
+                  >
+                    <TbCodeDots />
+                    settings.json
                   </Button>
                 </div>
-
-                <div className="space-y-4">
-                  {providers.map((provider) => (
-                    <ProviderSettingsCard
-                      key={provider.provider_type}
-                      provider={provider}
-                      refresh={detectProviders}
-                    />
-                  ))}
-                </div>
-
-                {providers.every((p) => !p.installed) && (
-                  <p className="text-xs text-muted-foreground mt-4 p-3 bg-yellow-500/10 rounded-lg">
-                    No AI CLI tools detected. Install Claude Code or Kimi Code
-                    to get started:
-                    <br />
-                    <code className="text-xs mt-1 block">
-                      npm install -g @anthropic-ai/claude-code
-                    </code>
-                  </p>
-                )}
               </div>
-            </>
-          )}
+
+              {/* Tab Content */}
+              {activeTab === "json" ? (
+                <GlobalSettingsEditor />
+              ) : (
+                <>
+                  {/* General Section */}
+                  <div
+                    ref={(el) => {
+                      if (el) sectionRefs.current.set("general", el);
+                    }}
+                    data-section="general"
+                  >
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold">General</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Configure general application settings
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Default Project Path */}
+                      <div
+                        ref={(el) => {
+                          if (el)
+                            sectionRefs.current.set("general-project-path", el);
+                        }}
+                        data-section="general-project-path"
+                        className="flex items-center justify-between"
+                      >
+                        <div className="space-y-0.5">
+                          <Label className="text-sm font-medium">
+                            Default Project Path
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Default directory when selecting a project folder
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={defaultProjectPath || ""}
+                            onChange={(e) =>
+                              setDefaultProjectPath(e.target.value || null)
+                            }
+                            placeholder="System user directory"
+                            className="w-60 text-sm"
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={handleSelectDefaultPath}
+                          >
+                            <LuFolderOpen className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Default Work Mode */}
+                      <div
+                        ref={(el) => {
+                          if (el)
+                            sectionRefs.current.set("general-work-mode", el);
+                        }}
+                        data-section="general-work-mode"
+                        className="flex items-center justify-between"
+                      >
+                        <div className="space-y-0.5">
+                          <Label className="text-sm font-medium">
+                            Preferred Work Mode
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Default mode when creating new sessions
+                          </p>
+                        </div>
+                        <Select
+                          value={defaultWorkMode}
+                          onValueChange={(value) =>
+                            setDefaultWorkMode(value as DefaultWorkMode)
+                          }
+                        >
+                          <SelectTrigger className="w-45">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="worktree">Worktree</SelectItem>
+                            <SelectItem value="local">Local</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Appearance Section */}
+                  <div
+                    ref={(el) => {
+                      if (el) sectionRefs.current.set("appearance", el);
+                    }}
+                    data-section="appearance"
+                  >
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold">Appearance</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Customize the look and feel of the application
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Theme Setting */}
+                      <div
+                        ref={(el) => {
+                          if (el)
+                            sectionRefs.current.set("appearance-theme", el);
+                        }}
+                        data-section="appearance-theme"
+                        className="flex items-center justify-between"
+                      >
+                        <div className="space-y-0.5">
+                          <Label className="text-sm font-medium">Theme</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Select your preferred color theme
+                          </p>
+                        </div>
+                        <Select
+                          value={theme}
+                          onValueChange={(value) => setTheme(value as Theme)}
+                        >
+                          <SelectTrigger className="w-45">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="light">Light</SelectItem>
+                            <SelectItem value="dark">Dark</SelectItem>
+                            <SelectItem value="system">
+                              Follow System
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Font Size Setting */}
+                      <div
+                        ref={(el) => {
+                          if (el)
+                            sectionRefs.current.set("appearance-font-size", el);
+                        }}
+                        data-section="appearance-font-size"
+                        className="flex items-center justify-between"
+                      >
+                        <div className="space-y-0.5">
+                          <Label className="text-sm font-medium">
+                            Font Size
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Adjust the interface font size
+                          </p>
+                        </div>
+                        <Select
+                          value={fontSize}
+                          onValueChange={(value) =>
+                            setFontSize(value as FontSize)
+                          }
+                        >
+                          <SelectTrigger className="w-45">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="small">Small</SelectItem>
+                            <SelectItem value="base">Base (Default)</SelectItem>
+                            <SelectItem value="large">Large</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Accent Color Setting */}
+                      <div
+                        ref={(el) => {
+                          if (el)
+                            sectionRefs.current.set(
+                              "appearance-accent-color",
+                              el
+                            );
+                        }}
+                        data-section="appearance-accent-color"
+                        className="flex items-center justify-between"
+                      >
+                        <div className="space-y-0.5">
+                          <Label className="text-sm font-medium">
+                            Accent Color
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Choose your preferred accent color theme
+                          </p>
+                        </div>
+                        <Select
+                          value={accentColor}
+                          onValueChange={(value) =>
+                            setAccentColor(value as AccentColor)
+                          }
+                        >
+                          <SelectTrigger className="w-45">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ACCENT_COLOR_OPTIONS.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className="w-3 h-3 rounded-full border border-border"
+                                    style={{
+                                      backgroundColor: option.color,
+                                      borderColor:
+                                        option.value === "default"
+                                          ? "hsl(0, 0%, 89.8%)"
+                                          : option.color,
+                                    }}
+                                  />
+                                  <span>{option.label}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Providers Section */}
+                  <div
+                    ref={(el) => {
+                      if (el) sectionRefs.current.set("providers", el);
+                    }}
+                    data-section="providers"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold">AI Providers</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Configure your AI coding assistants
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="[&_svg]:size-3"
+                        onClick={detectProviders}
+                        disabled={isDetecting}
+                      >
+                        <Refresh
+                          className={cn(isDetecting && "animate-spin")}
+                        />
+                        Refresh
+                      </Button>
+                    </div>
+
+                    <div className="space-y-4">
+                      {providers.map((provider) => (
+                        <ProviderSettingsCard
+                          key={provider.provider_type}
+                          provider={provider}
+                          refresh={detectProviders}
+                        />
+                      ))}
+                    </div>
+
+                    {providers.every((p) => !p.installed) && (
+                      <p className="text-xs text-muted-foreground mt-4 p-3 bg-yellow-500/10 rounded-lg">
+                        No AI CLI tools detected. Install Claude Code or Kimi
+                        Code to get started:
+                        <br />
+                        <code className="text-xs mt-1 block">
+                          npm install -g @anthropic-ai/claude-code
+                        </code>
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </>
