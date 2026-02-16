@@ -264,7 +264,7 @@ impl ProviderAdapter for ClaudeAdapter {
             stdout,
             session_id.to_string(),
             acp_session_id.to_string(),
-            project_path.to_string_lossy().to_string(),
+            worktree_path.to_string_lossy().to_string(),
             stream_tx,
             app_handle,
             self.current_message_id.clone(),

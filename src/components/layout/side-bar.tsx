@@ -563,7 +563,9 @@ export function AppSidebar() {
 
       {/* Group by Project Toggle Button */}
       {!isIconMode && sessions.length > 0 && (
-        <SidebarGroup className="py-0 px-3 mb-2 mt-2">
+        <SidebarGroup
+          className={cn("py-0 px-3 mt-2", !groupByProject && "mb-2")}
+        >
           <SidebarMenu>
             <SidebarMenuItem>
               <button

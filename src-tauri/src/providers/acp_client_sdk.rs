@@ -5,7 +5,7 @@ use agent_client_protocol::{
     self as acp, Agent, CancelNotification, ContentBlock, InitializeRequest, InitializeResponse,
     LoadSessionRequest, NewSessionRequest, PermissionOptionId, PromptRequest,
     RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
-    ResumeSessionRequest, SelectedPermissionOutcome, SessionConfigKind,
+    SelectedPermissionOutcome, SessionConfigKind,
     SessionConfigOptionCategory, SessionConfigSelectOptions, SessionId, SessionNotification,
     SessionUpdate, SetSessionModelRequest, SetSessionModeRequest, ToolCallStatus,
 };
@@ -910,41 +910,22 @@ async fn run_acp_resume_connection(
         println!("[ACP] Attempting to restore session: {} (cwd: {})", acp_session_id, cwd);
         println!("[ACP] Agent supports loadSession: {}", supports_load);
 
-        let (model_state, mode_state, config_options) = if supports_load {
-            println!("[ACP] Trying session/load for {}", acp_session_id);
-            match conn
-                .load_session(LoadSessionRequest::new(acp_session_id.clone(), cwd.clone()))
-                .await
-            {
-                Ok(response) => {
-                    println!("[ACP] Session loaded via session/load for {}", acp_session_id);
-                    (response.models, response.modes, response.config_options)
-                }
-                Err(e) => {
-                    println!(
-                        "[ACP] session/load failed for {}, falling back to session/resume: {:?}",
-                        acp_session_id, e
-                    );
-                    println!("[ACP] Trying session/resume for {}", acp_session_id);
-                    let resume_response = conn
-                        .resume_session(ResumeSessionRequest::new(acp_session_id.clone(), cwd.clone()))
-                        .await
-                        .map_err(|e| format!("session/resume failed: {:?}", e))?;
-                    println!("[ACP] Session resumed via session/resume for {}", acp_session_id);
-                    (resume_response.models, resume_response.modes, resume_response.config_options)
-                }
-            }
-        } else {
-            println!(
-                "[ACP] Agent does not support loadSession, using session/resume for {}",
-                acp_session_id
-            );
-            let resume_response = conn
-                .resume_session(ResumeSessionRequest::new(acp_session_id.clone(), cwd.clone()))
-                .await
-                .map_err(|e| format!("session/resume failed: {:?}", e))?;
-            (resume_response.models, resume_response.modes, resume_response.config_options)
-        };
+        if !supports_load {
+            return Err(format!("Agent does not support session/load for {}", acp_session_id));
+        }
+
+        println!("[ACP] Trying session/load for {}", acp_session_id);
+        let load_response = conn
+            .load_session(LoadSessionRequest::new(acp_session_id.clone(), cwd.clone()))
+            .await
+            .map_err(|e| {
+                let err_msg = format!("session/load failed for {}: {:?}", acp_session_id, e);
+                println!("[ACP] {}", err_msg);
+                err_msg
+            })?;
+        println!("[ACP] Session loaded via session/load for {}", acp_session_id);
+        let (model_state, mode_state, config_options) =
+            (load_response.models, load_response.modes, load_response.config_options);
 
         println!("[ACP] Session restored: {}", acp_session_id);
 

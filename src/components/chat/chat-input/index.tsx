@@ -10,6 +10,7 @@ import {
   GalleryAdd,
   Keyboard,
 } from "iconsax-reactjs";
+import { cn } from "@/lib/utils";
 
 export function ChatInput({
   onSend,
@@ -102,11 +103,14 @@ export function ChatInput({
         content: (
           <span className="flex items-center gap-1.5">
             <Keyboard className="size-4" />
-            Press <kbd className="px-1 bg-muted font-mono rounded">
+            Press{" "}
+            <kbd className="px-1 bg-muted text-[0.65rem] font-mono rounded">
               Enter
             </kbd>{" "}
             to send,{" "}
-            <kbd className="px-1 bg-muted font-mono rounded">Shift + Enter</kbd>{" "}
+            <kbd className="px-1 bg-muted text-[0.65rem] font-mono rounded">
+              Shift + Enter
+            </kbd>{" "}
             for new line
           </span>
         ),
@@ -116,8 +120,10 @@ export function ChatInput({
         content: (
           <span className="flex items-center gap-1.5">
             <GalleryAdd className="size-3.5" />
-            <kbd className="px-1 bg-muted font-mono rounded">⌘ + V</kbd> to
-            attach images in context
+            <kbd className="px-1 bg-muted text-[0.65rem] font-mono rounded">
+              ⌘ + V
+            </kbd>{" "}
+            to attach images in context
           </span>
         ),
       },
@@ -147,7 +153,7 @@ export function ChatInput({
           <span className="flex items-center gap-1.5">
             <Command className="size-3" />
             Use{" "}
-            <kbd className="px-1 py-0.5 bg-muted font-mono rounded">
+            <kbd className="px-1 py-0.5 text-[0.65rem] bg-muted font-mono rounded">
               ⌘ + ⌥ + N
             </kbd>{" "}
             to quickly create a new session based on the current one
@@ -159,7 +165,13 @@ export function ChatInput({
   );
 
   return (
-    <div className="w-full mx-auto mb-4 space-y-3">
+    <div
+      className={cn(
+        "w-full mx-auto mb-4",
+        hasMessage && "space-y-3",
+        !hasMessage && "space-y-1.5"
+      )}
+    >
       <RotatingTip
         tips={tips}
         interval={5000}

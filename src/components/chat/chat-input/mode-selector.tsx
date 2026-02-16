@@ -3,6 +3,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useSelectorSessionStore } from "@/stores";
 import { Session } from "@/types";
 import { FC, useState } from "react";
@@ -37,43 +43,56 @@ const ModeSelector: FC<IProps> = ({ session }) => {
   }
 
   return (
-    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-      <PopoverTrigger asChild>
-        {currentMode ? (
-          <button className="flex items-center gap-1 p-1.5 rounded-md cursor-pointer text-muted-foreground hover:bg-secondary-foreground/5!">
-            <Layer className="size-4" />
-            <span className="text-xs">{currentMode.display_name}</span>
-          </button>
-        ) : (
-          <span />
-        )}
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-lg p-1"
-        align="start"
-        side="top"
-        sideOffset={8}
-      >
-        {session.available_modes.map((m) => (
-          <button
-            key={m.mode_id}
-            type="button"
-            className="w-full flex justify-between items-center rounded-md px-2 py-1.5 hover:bg-accent cursor-pointer"
-            onClick={() => handleModeSelect(m.mode_id)}
-          >
-            <div className="flex flex-col justify-between">
-              <span className="text-xs flex-1 text-left">{m.display_name}</span>
+    <TooltipProvider>
+      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+        <PopoverTrigger asChild>
+          {currentMode ? (
+            <button className="flex items-center gap-1 p-1.5 rounded-md cursor-pointer text-muted-foreground hover:bg-secondary-foreground/5!">
+              <Layer className="size-4" />
+              <span className="text-xs">{currentMode.display_name}</span>
+            </button>
+          ) : (
+            <span />
+          )}
+        </PopoverTrigger>
+        <PopoverContent
+          className="w-56 p-1"
+          align="start"
+          side="top"
+          sideOffset={8}
+        >
+          {session.available_modes.map((m) => (
+            <Tooltip key={m.mode_id} delayDuration={300}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="w-full flex justify-between items-center rounded-md px-2 py-1.5 hover:bg-accent cursor-pointer"
+                  onClick={() => handleModeSelect(m.mode_id)}
+                >
+                  <span className="text-xs flex-1 text-left">
+                    {m.display_name}
+                  </span>
+                  {session.mode === m.mode_id && (
+                    <LuCheck className="size-4 text-primary" />
+                  )}
+                </button>
+              </TooltipTrigger>
               {m.description && (
-                <p className="text-xs text-muted-foreground">{m.description}</p>
+                <TooltipContent
+                  side="right"
+                  align="center"
+                  className="bg-popover text-popover-foreground border shadow-md"
+                >
+                  <p className="max-w-xs text-xs text-muted-foreground">
+                    {m.description}
+                  </p>
+                </TooltipContent>
               )}
-            </div>
-            {session.mode === m.mode_id && (
-              <LuCheck className="size-4 text-primary" />
-            )}
-          </button>
-        ))}
-      </PopoverContent>
-    </Popover>
+            </Tooltip>
+          ))}
+        </PopoverContent>
+      </Popover>
+    </TooltipProvider>
   );
 };
 

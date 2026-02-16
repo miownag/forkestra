@@ -456,13 +456,6 @@ impl SessionManager {
             entry.session.clone()
         };
 
-        // Check if session has ACP session ID - if not, it was never successfully connected
-        let acp_session_id = session.acp_session_id.as_ref().ok_or_else(|| {
-            AppError::InvalidOperation(
-                "Session was never successfully initialized. The session may have been created but the connection failed or was interrupted before completion. Please delete this session and create a new one.".to_string(),
-            )
-        })?;
-
         let worktree_path = PathBuf::from(&session.worktree_path);
         let project_path = PathBuf::from(&session.project_path);
 
@@ -511,17 +504,43 @@ impl SessionManager {
             );
         });
 
-        // Resume the session
-        adapter
-            .resume_session(
-                session_id,
-                acp_session_id,
-                &worktree_path,
-                &project_path,
-                tx,
-                self.app_handle.clone(),
-            )
-            .await?;
+        // Try to load the session if acp_session_id exists
+        let load_result = if let Some(ref acp_session_id) = session.acp_session_id {
+            println!(
+                "[SessionManager] Attempting to load session {} with ACP ID {}",
+                session_id, acp_session_id
+            );
+            adapter
+                .resume_session(
+                    session_id,
+                    acp_session_id,
+                    &worktree_path,
+                    &project_path,
+                    tx.clone(),
+                    self.app_handle.clone(),
+                )
+                .await
+        } else {
+            Err(AppError::InvalidOperation(
+                "No ACP session ID to load".to_string(),
+            ))
+        };
+
+        // If load failed, fall back to creating a new session
+        if let Err(ref e) = load_result {
+            println!(
+                "[SessionManager] Session {} load failed ({}), creating new session instead",
+                session_id, e
+            );
+            adapter
+                .start_session(
+                    session_id,
+                    &worktree_path,
+                    tx,
+                    self.app_handle.clone(),
+                )
+                .await?;
+        }
 
         // Get the (possibly updated) ACP session ID and models from the adapter
         let new_acp_session_id = adapter.acp_session_id().map(|s| s.to_string());

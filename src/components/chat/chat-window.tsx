@@ -123,7 +123,7 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
       {messages.length === 0 ? (
         /* Empty state - centered layout with input below icon */
         <div className="flex-1 flex flex-col items-center justify-center px-8 -mt-24">
-          <div className="flex flex-col items-center text-muted-foreground mb-12">
+          <div className="flex flex-col items-center text-muted-foreground mb-8">
             <ProviderIcon.Combine
               size={48}
               type="color"
@@ -158,7 +158,7 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
             {canResume && !isResuming && !isCreating && !hasResumeError && (
               <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 w-[calc(100%-2rem)] max-w-lg flex items-center justify-between gap-4 px-4 py-3 rounded-xl border border-amber-500/20 bg-gradient-to-r from-amber-500/10 to-orange-500/5 backdrop-blur-sm shadow-lg shadow-amber-500/10">
                 <div className="flex items-center gap-3">
-                  <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500/30 to-orange-500/20 text-muted-foreground ring-1 ring-amber-500/30">
+                  <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-amber-500/30 to-orange-500/20 text-muted-foreground ring-1 ring-amber-500/30">
                     <Pause className="size-4" />
                   </div>
                   <div>
@@ -217,8 +217,8 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
 
             {/* Resuming state - floating above input */}
             {isResuming && (
-              <div className="absolute left-4 right-4 bottom-full mb-3 flex items-center gap-3 px-4 py-3 rounded-xl border border-cyan-500/20 bg-gradient-to-r from-cyan-500/10 to-blue-500/5 backdrop-blur-sm shadow-lg shadow-cyan-500/10">
-                <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/30 to-blue-500/20">
+              <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 flex items-center gap-3 max-w-lg px-4 py-3 rounded-xl border border-cyan-500/20 bg-linear-to-r from-cyan-500/10 to-blue-500/5 backdrop-blur-sm shadow-lg shadow-cyan-500/10">
+                <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-cyan-500/30 to-blue-500/20">
                   <Spinner className="size-4 text-cyan-400" />
                 </div>
                 <div>
@@ -346,8 +346,8 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
 
             {/* Resuming state - floating above input */}
             {isResuming && (
-              <div className="absolute left-12 right-12 bottom-full mb-3 flex items-center gap-3 px-4 py-3 rounded-xl border border-cyan-500/20 bg-gradient-to-r from-cyan-500/10 to-blue-500/5 backdrop-blur-sm shadow-lg shadow-cyan-500/10">
-                <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/30 to-blue-500/20">
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 flex items-center gap-3 max-w-lg px-4 py-3 rounded-xl border border-cyan-500/20 bg-linear-to-r from-cyan-500/10 to-blue-500/5 backdrop-blur-sm shadow-lg shadow-cyan-500/10">
+                <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-cyan-500/30 to-blue-500/20">
                   <Spinner className="size-4 text-cyan-400" />
                 </div>
                 <div>

@@ -79,7 +79,7 @@ export function RotatingTip({
       onMouseEnter={() => pauseOnHover && setIsPaused(true)}
       onMouseLeave={() => pauseOnHover && setIsPaused(false)}
     >
-      <LuLightbulb className="size-3.5 text-primary shrink-0" />
+      <LuLightbulb className="size-3.5 shrink-0 text-amber-600 dark:text-amber-500" />
 
       <div className="flex-1 min-w-0 overflow-hidden">
         <div
