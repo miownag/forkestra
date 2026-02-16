@@ -32,7 +32,6 @@ export function ChatInput({
   const [inlineSlashQuery, setInlineSlashQuery] = useState("");
   const [buttonSlashOpen, setButtonSlashOpen] = useState(false);
   const [inlineFileOpen, setInlineFileOpen] = useState(false);
-  const [buttonFileOpen, setButtonFileOpen] = useState(false);
 
   const commands = session?.available_commands ?? [];
   const projectPath = session?.worktree_path || session?.project_path || "";
@@ -89,10 +88,6 @@ export function ChatInput({
     if (commands.length > 0) {
       setButtonSlashOpen(!buttonSlashOpen);
     }
-  };
-
-  const handleAttachButtonClick = () => {
-    setButtonFileOpen(!buttonFileOpen);
   };
 
   // Mock tips for the rotating tip component
@@ -202,8 +197,6 @@ export function ChatInput({
           setInlineSlashQuery={setInlineSlashQuery}
           inlineFileOpen={inlineFileOpen}
           setInlineFileOpen={setInlineFileOpen}
-          buttonFileOpen={buttonFileOpen}
-          setButtonFileOpen={setButtonFileOpen}
           buttonSlashOpen={buttonSlashOpen}
           setButtonSlashOpen={setButtonSlashOpen}
           commands={commands}
@@ -211,7 +204,6 @@ export function ChatInput({
           session={session}
           handleCommandSelect={handleCommandSelect}
           handleSlashButtonClick={handleSlashButtonClick}
-          handleAttachButtonClick={handleAttachButtonClick}
         />
       </PromptInput>
     </div>

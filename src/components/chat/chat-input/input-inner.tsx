@@ -8,7 +8,7 @@ import {
 } from "@/components/prompt-kit/prompt-input";
 import { PromptContent, AvailableCommand, FileEntry, Session } from "@/types";
 import { Editor } from "@tiptap/core";
-import { Send2, StopCircle } from "iconsax-reactjs";
+import { DocumentText1, Folder, Send2, StopCircle } from "iconsax-reactjs";
 import { useRef, useEffect, useCallback } from "react";
 import { GrAttachment } from "react-icons/gr";
 import { TbSlash } from "react-icons/tb";
@@ -17,6 +17,14 @@ import { ModeSelector } from "./mode-selector";
 import { ModelSelector } from "./model-selector";
 import { SlashCommandSelector } from "./slash-command-selector";
 import { useChatInputStore } from "@/stores";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Simple MIME type lookup from extension
 function guessMimeType(filename: string): string | undefined {
@@ -56,8 +64,6 @@ export function ChatInputInner({
   setInlineSlashQuery,
   inlineFileOpen,
   setInlineFileOpen,
-  buttonFileOpen,
-  setButtonFileOpen,
   buttonSlashOpen,
   setButtonSlashOpen,
   commands,
@@ -65,7 +71,6 @@ export function ChatInputInner({
   session,
   handleCommandSelect,
   handleSlashButtonClick,
-  handleAttachButtonClick,
 }: {
   input: string;
   setInput: (v: string) => void;
@@ -79,8 +84,6 @@ export function ChatInputInner({
   setInlineSlashQuery: (v: string) => void;
   inlineFileOpen: boolean;
   setInlineFileOpen: (v: boolean) => void;
-  buttonFileOpen: boolean;
-  setButtonFileOpen: (v: boolean) => void;
   buttonSlashOpen: boolean;
   setButtonSlashOpen: (v: boolean) => void;
   commands: AvailableCommand[];
@@ -88,20 +91,17 @@ export function ChatInputInner({
   session?: Session;
   handleCommandSelect: (cmd: AvailableCommand) => Promise<void>;
   handleSlashButtonClick: () => void;
-  handleAttachButtonClick: () => void;
 }) {
   const { editor } = usePromptInput();
-  const { registerAddFileToInput, unregisterAddFileToInput } = useChatInputStore();
+  const { registerAddFileToInput, unregisterAddFileToInput } =
+    useChatInputStore();
   // Track whether the file selector was opened via @ trigger or via button
   const fileOpenSourceRef = useRef<"inline" | "button">("inline");
 
-  // Update the source ref when inline or button file open changes
+  // Update the source ref when inline file open changes
   useEffect(() => {
     if (inlineFileOpen) fileOpenSourceRef.current = "inline";
   }, [inlineFileOpen]);
-  useEffect(() => {
-    if (buttonFileOpen) fileOpenSourceRef.current = "button";
-  }, [buttonFileOpen]);
 
   const handleFileEntrySelect = useCallback(
     (entry: FileEntry) => {
@@ -126,9 +126,8 @@ export function ChatInputInner({
       });
 
       setInlineFileOpen(false);
-      setButtonFileOpen(false);
     },
-    [editor, projectPath, setInlineFileOpen, setButtonFileOpen]
+    [editor, projectPath, setInlineFileOpen]
   );
 
   // Register the function to add files to input (for context menu)
@@ -160,7 +159,72 @@ export function ChatInputInner({
     return () => {
       unregisterAddFileToInput(session.id);
     };
-  }, [editor, session, projectPath, registerAddFileToInput, unregisterAddFileToInput]);
+  }, [
+    editor,
+    session,
+    projectPath,
+    registerAddFileToInput,
+    unregisterAddFileToInput,
+  ]);
+
+  // Handle native file selector for attach button
+  const handleNativeFileSelect = useCallback(
+    async (type: "file" | "folder") => {
+      if (!editor) return;
+
+      try {
+        const selected = await openDialog({
+          defaultPath: projectPath,
+          multiple: true,
+          directory: type === "folder",
+          title: type === "folder" ? "Select Folders" : "Select Files",
+        });
+
+        console.log("Selected:", selected, "Type:", typeof selected);
+
+        if (!selected) return;
+
+        // Handle both string (single selection) and array (multiple selection)
+        const filePaths = Array.isArray(selected) ? selected : [selected];
+
+        if (filePaths.length === 0) return;
+
+        for (const filePath of filePaths) {
+          // Get relative path if within project
+          let relativePath = filePath;
+          let displayName = filePath.split("/").pop() || filePath;
+
+          if (filePath.startsWith(projectPath + "/")) {
+            relativePath = filePath.substring(projectPath.length + 1);
+          }
+
+          const uri = `file://${filePath}`;
+          const mimeType =
+            type === "file" ? guessMimeType(displayName) || null : null;
+
+          // Insert the file tag
+          insertFileTag(editor, {
+            path: relativePath,
+            name: displayName,
+            uri,
+            mimeType,
+            isDir: type === "folder",
+          });
+        }
+
+        // Focus back to editor
+        requestAnimationFrame(() => {
+          editor.commands.focus("end");
+        });
+      } catch (error) {
+        console.error("Failed to select:", error);
+        toast.error(
+          `Failed to select ${type === "folder" ? "folders" : "files"}`
+        );
+      }
+    },
+    [editor, projectPath]
+  );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -197,7 +261,6 @@ export function ChatInputInner({
     setInlineSlashQuery("");
     setButtonSlashOpen(false);
     setInlineFileOpen(false);
-    setButtonFileOpen(false);
 
     const content: PromptContent[] = [];
 
@@ -236,7 +299,6 @@ export function ChatInputInner({
     setInlineSlashQuery,
     setButtonSlashOpen,
     setInlineFileOpen,
-    setButtonFileOpen,
   ]);
 
   // Register submit handler with the editor's handleKeyDown
@@ -299,23 +361,32 @@ export function ChatInputInner({
         </div>
 
         <div className="flex items-center gap-2">
-          <FileSelector
-            open={buttonFileOpen}
-            onOpenChange={setButtonFileOpen}
-            projectPath={projectPath}
-            onSelect={handleFileEntrySelect}
-            align="end"
-          >
-            <PromptInputAction tooltip="Attach File">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                onClick={handleAttachButtonClick}
                 className="hover:bg-secondary-foreground/10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-2xl text-muted-foreground"
               >
                 <GrAttachment className="size-4" />
               </button>
-            </PromptInputAction>
-          </FileSelector>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onClick={() => handleNativeFileSelect("file")}
+              >
+                <DocumentText1 className="size-4" />
+                Files
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onClick={() => handleNativeFileSelect("folder")}
+              >
+                <Folder className="size-4" />
+                Folders
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <SlashCommandSelector
             open={buttonSlashOpen}
             onOpenChange={setButtonSlashOpen}
