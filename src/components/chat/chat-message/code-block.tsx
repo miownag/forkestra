@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { MermaidDiagram } from "@/components/chat/chat-message/mermaid-diagram";
 import { Copy, CopySuccess, Code1 } from "iconsax-reactjs";
+import { MD_LANG_TYPE_SETI_ICONS_MAP } from "@/constants/icons";
 
 const BASH_LANGUAGES = new Set(["bash", "sh", "shell", "zsh"]);
 
@@ -71,7 +72,18 @@ export function CodeBlockWithHeader({
             title={collapsed ? "Expand" : "Collapse"}
           >
             {collapsed ? <BiExpandVertical /> : <BiCollapseVertical />}
-            {language}
+            <div className="flex items-center gap-0.5">
+              <img
+                src={
+                  MD_LANG_TYPE_SETI_ICONS_MAP[
+                    language as keyof typeof MD_LANG_TYPE_SETI_ICONS_MAP
+                  ] || ""
+                }
+                alt=""
+                className="size-5.5"
+              />
+              {language}
+            </div>
           </button>
           <div className="flex items-center">
             {isBash && (

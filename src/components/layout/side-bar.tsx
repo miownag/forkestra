@@ -70,7 +70,7 @@ import {
   EmojiSad,
 } from "iconsax-reactjs";
 import { RiGitRepositoryLine } from "react-icons/ri";
-import PROVIDER_ICONS_MAP from "@/constants/icons";
+import { PROVIDER_ICONS_MAP } from "@/constants/icons";
 import { SessionStatusIcon } from "@/components/session/session-status-icon";
 import { LuChevronDown, LuGitBranch, LuMenu } from "react-icons/lu";
 import {

@@ -22,7 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { BranchSearchSelect } from "./branch-search-select";
 import type { ProviderType } from "@/types";
 import { LuFolderGit2 } from "react-icons/lu";
-import PROVIDER_ICONS_MAP from "@/constants/icons";
+import { PROVIDER_ICONS_MAP } from "@/constants/icons";
 import { cn } from "@/lib/utils";
 
 interface NewSessionDialogProps {

@@ -12,7 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggleButton } from "./title-bar-controls";
 import { cn } from "@/lib/utils";
 import type { Session } from "@/types";
-import PROVIDER_ICONS_MAP from "@/constants/icons";
+import { PROVIDER_ICONS_MAP } from "@/constants/icons";
 import {
   DndContext,
   closestCenter,

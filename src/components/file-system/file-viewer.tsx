@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { invoke } from "@tauri-apps/api/core";
-import { LuX, LuFileText, LuEye, LuRefreshCw } from "react-icons/lu";
+import { LuX, LuRefreshCw } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { categorizeFile } from "@/lib/file-types";
 import { CodeEditor } from "./code-editor";
 import { FilePreview } from "./file-preview";
+import { DocumentText1, Eye } from "iconsax-reactjs";
+import { FILE_EXT_SETI_ICONS_MAP } from "@/constants/icons";
 
 interface FileViewerProps {
   sessionId: string;
@@ -114,13 +116,26 @@ export function FileViewer({
   const showRefresh = fileCategory !== "binary";
   const showDirtyIndicator = fileCategory !== "binary";
 
+  const fileIconSrc =
+    FILE_EXT_SETI_ICONS_MAP[
+      filePath.split(".").pop() as keyof typeof FILE_EXT_SETI_ICONS_MAP
+    ] || "";
+
   return (
     <div className="flex flex-col h-full w-full overflow-auto">
       {/* Header */}
       <div className="border-b px-3 py-2 shrink-0 flex items-center justify-between gap-2">
         <div className="flex-1 min-w-0 flex items-center gap-2">
           <div className="min-w-0">
-            <h3 className="text-sm font-medium truncate" title={filePath}>
+            <h3
+              className="text-sm font-medium truncate flex items-center gap-1"
+              title={filePath}
+            >
+              {fileIconSrc ? (
+                <img src={fileIconSrc} alt="" className="size-5.5 shrink-0" />
+              ) : (
+                <DocumentText1 className="size-4 shrink-0" />
+              )}
               {fileName}
             </h3>
             <p
@@ -146,11 +161,12 @@ export function FileViewer({
                 size="sm"
                 className={cn(
                   "h-7 px-2 gap-1",
-                  mode === "edit" && "bg-background shadow-sm"
+                  mode === "edit" &&
+                    "bg-background hover:bg-background shadow-sm"
                 )}
                 onClick={() => onModeChange("edit")}
               >
-                <LuFileText className="h-3.5 w-3.5" />
+                <DocumentText1 className="size-3.5" />
                 <span className="text-xs">Edit</span>
               </Button>
               <Button
@@ -158,11 +174,12 @@ export function FileViewer({
                 size="sm"
                 className={cn(
                   "h-7 px-2 gap-1",
-                  mode === "preview" && "bg-background shadow-sm"
+                  mode === "preview" &&
+                    "bg-background hover:bg-background shadow-sm"
                 )}
                 onClick={() => onModeChange("preview")}
               >
-                <LuEye className="h-3.5 w-3.5" />
+                <Eye className="size-3.5" />
                 <span className="text-xs">Preview</span>
               </Button>
             </div>
@@ -177,7 +194,7 @@ export function FileViewer({
               onClick={handleRefresh}
               title="Refresh from disk"
             >
-              <LuRefreshCw className="h-3.5 w-3.5" />
+              <LuRefreshCw className="size-3.5" />
             </Button>
           )}
 

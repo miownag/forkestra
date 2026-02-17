@@ -4,8 +4,9 @@ import { createTwoFilesPatch } from "diff";
 import "react-diff-view/style/index.css";
 import { useSelectorSettingsStore } from "@/stores";
 import { cn } from "@/lib/utils";
-import { Copy, CopySuccess } from "iconsax-reactjs";
+import { Copy, CopySuccess, DocumentText1 } from "iconsax-reactjs";
 import { LuMaximize, LuMinimize } from "react-icons/lu";
+import { FILE_EXT_SETI_ICONS_MAP } from "@/constants/icons";
 
 interface DiffViewerProps {
   path: string;
@@ -211,13 +212,21 @@ export function DiffViewer({ path, oldText, newText }: DiffViewerProps) {
   };
 
   const fileName = path.split("/").pop() || path;
+  const fileExtension = fileName.split(".").pop() || "";
+  const iconKey = fileExtension as keyof typeof FILE_EXT_SETI_ICONS_MAP;
+  const iconSrc = FILE_EXT_SETI_ICONS_MAP[iconKey] || null;
 
   return (
     <div className="rounded-md border border-border overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border bg-muted/30 px-3 py-2">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-foreground">
+          <span className="text-xs font-medium text-foreground flex items-center">
+            {iconSrc ? (
+              <img src={iconSrc} alt="" className="size-5.5 shrink-0" />
+            ) : (
+              <DocumentText1 className="size-4 shrink-0" />
+            )}
             {fileName}
           </span>
           <span className="text-xs text-muted-foreground">{path}</span>

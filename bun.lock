@@ -76,6 +76,7 @@
         "rehype-mermaid": "^3.0.0",
         "remark-breaks": "^4.0.0",
         "remark-gfm": "^4.0.1",
+        "seti-icons-react": "^0.2.0",
         "sonner": "^2.0.7",
         "tailwind-merge": "^3.4.0",
         "tw-animate-css": "^1.4.0",
@@ -1774,6 +1775,8 @@
     "seroval-plugins": ["seroval-plugins@1.5.0", "https://mirrors.tencent.com/npm/seroval-plugins/-/seroval-plugins-1.5.0.tgz", { "peerDependencies": { "seroval": "^1.0" } }, "sha512-EAHqADIQondwRZIdeW2I636zgsODzoBDwb3PT/+7TLDWyw1Dy/Xv7iGUIEXXav7usHDE9HVhOU61irI3EnyyHA=="],
 
     "set-value": ["set-value@2.0.1", "", { "dependencies": { "extend-shallow": "^2.0.1", "is-extendable": "^0.1.1", "is-plain-object": "^2.0.3", "split-string": "^3.0.1" } }, "sha512-JxHc1weCN68wRY0fhCoXpyK55m/XPHafOmK4UWD7m2CI14GMcFypt4w/0+NV5f/ZMby2F6S2wwA7fgynh9gWSw=="],
+
+    "seti-icons-react": ["seti-icons-react@0.2.0", "https://mirrors.tencent.com/npm/seti-icons-react/-/seti-icons-react-0.2.0.tgz", {}, "sha512-x1dMTJIUtQTj4fOCeuasIkvy3Yg0ptOBiyC6YLvaN043kNFfWuG6xHxB9QLAd7dFfkzALOScATnZUH5UUn7pEA=="],
 
     "shallow-equal": ["shallow-equal@3.1.0", "https://mirrors.tencent.com/npm/shallow-equal/-/shallow-equal-3.1.0.tgz", {}, "sha512-pfVOw8QZIXpMbhBWvzBISicvToTiM5WBF1EeAUZDDSb5Dt29yl4AYbyywbJFSEsRUMr7gJaxqCdr4L3tQf9wVg=="],
 

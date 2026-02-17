@@ -4,7 +4,7 @@ import { ChatMessage } from "./chat-message";
 import { ChatInput } from "./chat-input";
 import { InteractionPromptPanel } from "./interaction-prompt";
 import { Button } from "@/components/ui/button";
-import PROVIDER_ICONS_MAP from "@/constants/icons";
+import { PROVIDER_ICONS_MAP } from "@/constants/icons";
 import { ProviderType, PromptContent } from "@/types";
 import { Loader } from "@/components/prompt-kit/loader";
 import {

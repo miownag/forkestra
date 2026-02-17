@@ -9,7 +9,7 @@ import { isClaudeSettings } from "@/types";
 import { LuFolderOpen } from "react-icons/lu";
 import { VscCheck, VscClose } from "react-icons/vsc";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import PROVIDER_ICONS_MAP from "@/constants/icons";
+import { PROVIDER_ICONS_MAP } from "@/constants/icons";
 import { Trash } from "iconsax-reactjs";
 
 interface ProviderSettingsCardProps {

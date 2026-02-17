@@ -38,6 +38,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { RiGitRepositoryLine } from "react-icons/ri";
+import { FILE_EXT_SETI_ICONS_MAP } from "@/constants/icons";
+import { DocumentText1 } from "iconsax-reactjs";
 
 interface FileTreeProps {
   projectPath: string;
@@ -183,18 +185,20 @@ function FileTreeItem({
                 {...(!isRenaming ? attributes : {})}
                 {...(!isRenaming ? listeners : {})}
               >
-                <ChevronRightIcon className="h-4 w-4 transition-transform group-data-[state=open]:rotate-90 shrink-0" />
+                <ChevronRightIcon className="size-4 transition-transform group-data-[state=open]:rotate-90 shrink-0" />
                 {isOpen ? (
-                  <FolderOpenIcon className="h-4 w-4 shrink-0" />
+                  <FolderOpenIcon className="size-4 shrink-0" />
                 ) : (
-                  <FolderIcon className="h-4 w-4 shrink-0" />
+                  <FolderIcon className="size-4 shrink-0" />
                 )}
                 {isRenaming ? (
                   <Input
                     value={renameValue}
                     onChange={(e) => setRenameValue(e.target.value)}
                     onKeyDown={handleRenameKeyDown}
-                    onBlur={() => onFinishRename(entry.path, renameValue.trim())}
+                    onBlur={() =>
+                      onFinishRename(entry.path, renameValue.trim())
+                    }
                     className="h-5 px-1 py-0 text-[length:inherit] flex-1 border-0 shadow-none focus-visible:ring-0 bg-accent/50"
                     autoFocus
                     onClick={(e) => e.stopPropagation()}
@@ -244,6 +248,11 @@ function FileTreeItem({
     );
   }
 
+  const fileIconSrc =
+    FILE_EXT_SETI_ICONS_MAP[
+      entry.name.split(".").pop() as keyof typeof FILE_EXT_SETI_ICONS_MAP
+    ] || "";
+
   return (
     <div ref={setNodeRef} style={style}>
       <FileTreeContextMenu
@@ -264,7 +273,11 @@ function FileTreeItem({
           {...(!isRenaming ? attributes : {})}
           {...(!isRenaming ? listeners : {})}
         >
-          <FileIcon className="h-4 w-4 shrink-0" />
+          {fileIconSrc ? (
+            <img src={fileIconSrc} alt="" className="size-5.5 shrink-0" />
+          ) : (
+            <DocumentText1 className="size-4 shrink-0" />
+          )}
           {isRenaming ? (
             <Input
               value={renameValue}
@@ -412,9 +425,12 @@ export function FileTree({ projectPath, sessionId }: FileTreeProps) {
     setRenamingPath(null);
   }, []);
 
-  const handleContextMenuChange = useCallback((path: string | null, open: boolean) => {
-    setContextMenuPath(open ? path : null);
-  }, []);
+  const handleContextMenuChange = useCallback(
+    (path: string | null, open: boolean) => {
+      setContextMenuPath(open ? path : null);
+    },
+    []
+  );
 
   // Check if target is a descendant of source
   const isDescendant = useCallback((sourcePath: string, targetPath: string) => {
@@ -703,9 +719,9 @@ export function FileTree({ projectPath, sessionId }: FileTreeProps) {
             {draggedEntry ? (
               <div className="bg-background border rounded-md px-2 py-1 flex items-center gap-1 shadow-lg">
                 {draggedEntry.is_dir ? (
-                  <FolderIcon className="h-4 w-4" />
+                  <FolderIcon className="size-4" />
                 ) : (
-                  <FileIcon className="h-4 w-4" />
+                  <FileIcon className="size-4" />
                 )}
                 <span className="text-sm">{draggedEntry.name}</span>
               </div>

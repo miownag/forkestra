@@ -33,7 +33,7 @@ import { useSessionStore } from "@/stores";
 import type { Session } from "@/types";
 import { cn, formatTimeAgo } from "@/lib/utils";
 import { NewSessionDialog } from "./new-session-dialog";
-import PROVIDER_ICONS_MAP from "@/constants/icons";
+import { PROVIDER_ICONS_MAP } from "@/constants/icons";
 import { SessionStatusIcon } from "./session-status-icon";
 import { LuGitBranch } from "react-icons/lu";
 
