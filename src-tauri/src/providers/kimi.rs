@@ -138,6 +138,7 @@ impl ProviderAdapter for KimiAdapter {
         worktree_path: &Path,
         stream_tx: mpsc::Sender<StreamChunk>,
         app_handle: AppHandle,
+        mcp_servers: Vec<agent_client_protocol::McpServer>,
     ) -> AppResult<()> {
         println!("[KimiAdapter] Starting ACP session for {}", session_id);
 
@@ -159,6 +160,7 @@ impl ProviderAdapter for KimiAdapter {
             stream_tx,
             app_handle,
             self.current_message_id.clone(),
+            mcp_servers,
         );
 
         let handshake = handshake_rx
@@ -197,6 +199,7 @@ impl ProviderAdapter for KimiAdapter {
         project_path: &Path,
         stream_tx: mpsc::Sender<StreamChunk>,
         app_handle: AppHandle,
+        mcp_servers: Vec<agent_client_protocol::McpServer>,
     ) -> AppResult<()> {
         println!(
             "[KimiAdapter] Resuming ACP session {} for {} (worktree: {}, project: {})",
@@ -225,6 +228,7 @@ impl ProviderAdapter for KimiAdapter {
             stream_tx,
             app_handle,
             self.current_message_id.clone(),
+            mcp_servers,
         );
 
         let handshake = handshake_rx

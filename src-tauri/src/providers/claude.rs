@@ -175,6 +175,7 @@ impl ProviderAdapter for ClaudeAdapter {
         worktree_path: &Path,
         stream_tx: mpsc::Sender<StreamChunk>,
         app_handle: AppHandle,
+        mcp_servers: Vec<agent_client_protocol::McpServer>,
     ) -> AppResult<()> {
         println!(
             "[ClaudeAdapter] Starting ACP session for {}",
@@ -201,6 +202,7 @@ impl ProviderAdapter for ClaudeAdapter {
             stream_tx,
             app_handle,
             self.current_message_id.clone(),
+            mcp_servers,
         );
 
         // Wait for the handshake result
@@ -240,6 +242,7 @@ impl ProviderAdapter for ClaudeAdapter {
         project_path: &Path,
         stream_tx: mpsc::Sender<StreamChunk>,
         app_handle: AppHandle,
+        mcp_servers: Vec<agent_client_protocol::McpServer>,
     ) -> AppResult<()> {
         println!(
             "[ClaudeAdapter] Resuming ACP session {} for {} (worktree: {}, project: {})",
@@ -268,6 +271,7 @@ impl ProviderAdapter for ClaudeAdapter {
             stream_tx,
             app_handle,
             self.current_message_id.clone(),
+            mcp_servers,
         );
 
         let handshake = handshake_rx

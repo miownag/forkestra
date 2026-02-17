@@ -689,7 +689,6 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip="Settings"
               className="cursor-pointer"
               onClick={handleMCPsClick}
             >
@@ -699,7 +698,6 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip="Settings"
               className="cursor-pointer"
               onClick={handleSettingsClick}
             >

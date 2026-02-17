@@ -660,6 +660,7 @@ pub fn spawn_acp_connection(
     stream_tx: mpsc::Sender<StreamChunk>,
     app_handle: AppHandle,
     current_message_id: Arc<Mutex<String>>,
+    mcp_servers: Vec<agent_client_protocol::McpServer>,
 ) -> (
     mpsc::Sender<AcpCommand>,
     oneshot::Receiver<Result<AcpHandshakeResult, String>>,
@@ -689,6 +690,7 @@ pub fn spawn_acp_connection(
                 handshake_tx,
                 perm_tx,
                 perm_rx,
+                mcp_servers,
             )
             .await;
         });
@@ -707,6 +709,7 @@ pub fn spawn_acp_resume_connection(
     stream_tx: mpsc::Sender<StreamChunk>,
     app_handle: AppHandle,
     current_message_id: Arc<Mutex<String>>,
+    mcp_servers: Vec<agent_client_protocol::McpServer>,
 ) -> (
     mpsc::Sender<AcpCommand>,
     oneshot::Receiver<Result<AcpHandshakeResult, String>>,
@@ -737,6 +740,7 @@ pub fn spawn_acp_resume_connection(
                 handshake_tx,
                 perm_tx,
                 perm_rx,
+                mcp_servers,
             )
             .await;
         });
@@ -761,6 +765,7 @@ async fn run_acp_connection(
     handshake_tx: oneshot::Sender<Result<AcpHandshakeResult, String>>,
     perm_tx: mpsc::Sender<PendingPermissionInfo>,
     perm_rx: mpsc::Receiver<PendingPermissionInfo>,
+    mcp_servers: Vec<agent_client_protocol::McpServer>,
 ) {
     use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
@@ -805,7 +810,7 @@ async fn run_acp_connection(
         }
 
         let session_response = conn
-            .new_session(NewSessionRequest::new(&cwd))
+            .new_session(NewSessionRequest::new(&cwd).mcp_servers(mcp_servers))
             .await
             .map_err(|e| format!("session/new failed: {:?}", e))?;
 
@@ -864,6 +869,7 @@ async fn run_acp_resume_connection(
     handshake_tx: oneshot::Sender<Result<AcpHandshakeResult, String>>,
     perm_tx: mpsc::Sender<PendingPermissionInfo>,
     perm_rx: mpsc::Receiver<PendingPermissionInfo>,
+    mcp_servers: Vec<agent_client_protocol::McpServer>,
 ) {
     use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
@@ -916,7 +922,7 @@ async fn run_acp_resume_connection(
 
         println!("[ACP] Trying session/load for {}", acp_session_id);
         let load_response = conn
-            .load_session(LoadSessionRequest::new(acp_session_id.clone(), cwd.clone()))
+            .load_session(LoadSessionRequest::new(acp_session_id.clone(), cwd.clone()).mcp_servers(mcp_servers))
             .await
             .map_err(|e| {
                 let err_msg = format!("session/load failed for {}: {:?}", acp_session_id, e);

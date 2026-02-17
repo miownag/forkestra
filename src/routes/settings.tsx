@@ -22,6 +22,7 @@ import { ACCENT_COLOR_OPTIONS } from "@/constants/theme";
 import { Separator } from "@/components/ui/separator";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { homeDir } from "@tauri-apps/api/path";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { TbCodeDots } from "react-icons/tb";
 import { ArrowLeft2, Refresh, Setting2 } from "iconsax-reactjs";
@@ -87,30 +88,24 @@ function RouteComponent() {
     accentColor,
     defaultProjectPath,
     defaultWorkMode,
-    sidebarCollapsed,
-    isFullscreen,
     loadSettings,
     setTheme,
     setFontSize,
     setAccentColor,
     setDefaultProjectPath,
     setDefaultWorkMode,
-    toggleSidebar,
   } = useSelectorSettingsStore([
     "theme",
     "fontSize",
     "accentColor",
     "defaultProjectPath",
     "defaultWorkMode",
-    "sidebarCollapsed",
-    "isFullscreen",
     "loadSettings",
     "setTheme",
     "setFontSize",
     "setAccentColor",
     "setDefaultProjectPath",
     "setDefaultWorkMode",
-    "toggleSidebar",
   ]);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<SettingsTab>("ui");
@@ -241,7 +236,7 @@ function RouteComponent() {
             </div>
           )}
           <div className="flex-1 overflow-y-auto">
-            <div className="space-y-8 sm:w-2xl md:w-3xl py-12">
+            <div className="space-y-8 sm:w-2xl md:w-3xl py-12 mx-auto">
               <div className="flex items-center justify-between">
                 {activeTab === "json" && (
                   <Button
@@ -255,30 +250,22 @@ function RouteComponent() {
                 )}
 
                 {/* Tab Navigation */}
-                <div
-                  className={cn(
-                    "flex gap-2 p-1 bg-muted rounded-lg",
-                    activeTab === "ui" && "ml-auto"
-                  )}
+                <Tabs
+                  value={activeTab}
+                  onValueChange={(v) => setActiveTab(v as SettingsTab)}
+                  className={cn(activeTab === "ui" && "ml-auto")}
                 >
-                  <Button
-                    variant={activeTab === "ui" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setActiveTab("ui")}
-                  >
-                    <Setting2 />
-                    UI Settings
-                  </Button>
-                  <Button
-                    variant={activeTab === "json" ? "default" : "ghost"}
-                    size="sm"
-                    className="[&_svg]:size-5"
-                    onClick={() => setActiveTab("json")}
-                  >
-                    <TbCodeDots />
-                    settings.json
-                  </Button>
-                </div>
+                  <TabsList>
+                    <TabsTrigger value="ui" className="cursor-pointer">
+                      <Setting2 className="size-4 mr-2" />
+                      UI Settings
+                    </TabsTrigger>
+                    <TabsTrigger value="json" className="cursor-pointer">
+                      <TbCodeDots className="size-5 mr-2" />
+                      settings.json
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
 
               {/* Tab Content */}

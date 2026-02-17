@@ -7,7 +7,7 @@ mod providers;
 
 use std::sync::Arc;
 
-use managers::{SessionManager, SettingsManager, TerminalManager};
+use managers::{McpManager, SessionManager, SettingsManager, TerminalManager};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::{Emitter, Manager};
 
@@ -24,6 +24,24 @@ pub fn run() {
                 .accelerator("CmdOrCtrl+,")
                 .build(app)?;
 
+            // Session menu items
+            let create_session = MenuItemBuilder::with_id("create_session", "Create Session")
+                .accelerator("CmdOrCtrl+N")
+                .build(app)?;
+            let quick_create = MenuItemBuilder::with_id("quick_create", "Quick Create from This Session")
+                .accelerator("CmdOrCtrl+Alt+N")
+                .build(app)?;
+            let rename_session = MenuItemBuilder::with_id("rename_session", "Rename This Session")
+                .accelerator("CmdOrCtrl+Alt+R")
+                .build(app)?;
+            let delete_session = MenuItemBuilder::with_id("delete_session", "Delete This Session")
+                .accelerator("CmdOrCtrl+Alt+Backspace")
+                .build(app)?;
+
+            // Tools menu items
+            let mcps = MenuItemBuilder::with_id("mcps", "MCPs").build(app)?;
+            let skills = MenuItemBuilder::with_id("skills", "Skills").build(app)?;
+
             let app_submenu = SubmenuBuilder::new(app, "Forkestra")
                 .about(None)
                 .separator()
@@ -38,6 +56,14 @@ pub fn run() {
                 .quit()
                 .build()?;
 
+            let session_submenu = SubmenuBuilder::new(app, "Session")
+                .item(&create_session)
+                .item(&quick_create)
+                .separator()
+                .item(&rename_session)
+                .item(&delete_session)
+                .build()?;
+
             let edit_submenu = SubmenuBuilder::new(app, "Edit")
                 .undo()
                 .redo()
@@ -46,6 +72,11 @@ pub fn run() {
                 .copy()
                 .paste()
                 .select_all()
+                .build()?;
+
+            let tools_submenu = SubmenuBuilder::new(app, "Tools")
+                .item(&mcps)
+                .item(&skills)
                 .build()?;
 
             let view_submenu = SubmenuBuilder::new(app, "View")
@@ -59,7 +90,9 @@ pub fn run() {
 
             let menu = MenuBuilder::new(app)
                 .item(&app_submenu)
+                .item(&session_submenu)
                 .item(&edit_submenu)
+                .item(&tools_submenu)
                 .item(&view_submenu)
                 .item(&window_submenu)
                 .build()?;
@@ -68,9 +101,29 @@ pub fn run() {
 
             // Handle menu events
             app.on_menu_event(|app, event| {
-                if event.id().as_ref() == "preferences" {
-                    // Emit event to frontend to navigate to settings
-                    let _ = app.emit("menu:preferences", ());
+                match event.id().as_ref() {
+                    "preferences" => {
+                        let _ = app.emit("menu:preferences", ());
+                    }
+                    "create_session" => {
+                        let _ = app.emit("menu:create_session", ());
+                    }
+                    "quick_create" => {
+                        let _ = app.emit("menu:quick_create", ());
+                    }
+                    "rename_session" => {
+                        let _ = app.emit("menu:rename_session", ());
+                    }
+                    "delete_session" => {
+                        let _ = app.emit("menu:delete_session", ());
+                    }
+                    "mcps" => {
+                        let _ = app.emit("menu:mcps", ());
+                    }
+                    "skills" => {
+                        let _ = app.emit("menu:skills", ());
+                    }
+                    _ => {}
                 }
             });
 
@@ -87,9 +140,14 @@ pub fn run() {
                     .expect("Failed to initialize database"),
             );
 
-            // Initialize session manager with settings and database
+            // Initialize MCP manager
+            let mcp_manager = Arc::new(McpManager::new(settings_manager.clone()));
+            let _ = mcp_manager.scan_all();
+            app.manage(mcp_manager.clone());
+
+            // Initialize session manager with settings, database, and MCP manager
             let session_manager =
-                SessionManager::new(app.handle().clone(), settings_manager, database);
+                SessionManager::new(app.handle().clone(), settings_manager, database, mcp_manager);
             app.manage(session_manager);
 
             // Initialize terminal manager
@@ -136,6 +194,12 @@ pub fn run() {
             commands::rename_item,
             commands::move_item,
             commands::write_file,
+            commands::list_mcp_servers,
+            commands::scan_mcp_servers,
+            commands::add_mcp_server,
+            commands::update_mcp_server,
+            commands::delete_mcp_server,
+            commands::toggle_mcp_server,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

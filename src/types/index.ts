@@ -283,6 +283,25 @@ export interface PlanUpdateEvent {
   entries: PlanEntry[];
 }
 
+// MCP types
+export type McpServerSource =
+  | { type: "user" }
+  | { type: "claude_global" }
+  | { type: "claude_project"; project_path: string };
+
+export type McpTransport =
+  | { type: "stdio"; command: string; args: string[]; env: Record<string, string> }
+  | { type: "http"; url: string; headers: Record<string, string> }
+  | { type: "sse"; url: string; headers: Record<string, string> };
+
+export interface McpServerConfig {
+  id: string;
+  name: string;
+  transport: McpTransport;
+  enabled: boolean;
+  source: McpServerSource;
+}
+
 // Settings types
 export type Theme = "light" | "dark" | "system";
 export type FontSize = "small" | "base" | "large";

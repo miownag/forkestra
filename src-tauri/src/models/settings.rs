@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use super::mcp::McpSettings;
 use super::provider::{
     ClaudeProviderSettings, KimiProviderSettings, ProviderSettings, ProviderType,
 };
@@ -51,6 +52,8 @@ pub struct AppSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub appearance: Option<AppearanceSettings>,
     pub provider_settings: HashMap<ProviderType, ProviderSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mcp: Option<McpSettings>,
 }
 
 impl Default for AppSettings {
@@ -69,6 +72,7 @@ impl Default for AppSettings {
             general: Some(GeneralSettings::default()),
             appearance: Some(AppearanceSettings::default()),
             provider_settings,
+            mcp: None,
         }
     }
 }

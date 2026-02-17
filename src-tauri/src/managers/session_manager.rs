@@ -8,6 +8,7 @@ use tokio::sync::{mpsc, RwLock};
 
 use crate::db::Database;
 use crate::error::{AppError, AppResult};
+use crate::managers::mcp_manager::McpManager;
 use crate::managers::settings_manager::SettingsManager;
 use crate::managers::worktree_manager::WorktreeManager;
 use crate::models::{
@@ -26,6 +27,7 @@ pub struct SessionManager {
     db: Arc<Database>,
     app_handle: AppHandle,
     settings_manager: Arc<SettingsManager>,
+    mcp_manager: Arc<McpManager>,
 }
 
 impl SessionManager {
@@ -33,6 +35,7 @@ impl SessionManager {
         app_handle: AppHandle,
         settings_manager: Arc<SettingsManager>,
         db: Arc<Database>,
+        mcp_manager: Arc<McpManager>,
     ) -> Self {
         // Load persisted sessions from DB on startup
         let mut initial_sessions = HashMap::new();
@@ -82,6 +85,7 @@ impl SessionManager {
             db,
             app_handle,
             settings_manager,
+            mcp_manager,
         }
     }
 
@@ -176,6 +180,7 @@ impl SessionManager {
         let db = self.db.clone();
         let app_handle = self.app_handle.clone();
         let settings_manager = self.settings_manager.clone();
+        let mcp_servers = self.mcp_manager.get_enabled_acp_servers();
 
         tokio::spawn(async move {
             // Yield to ensure the command response reaches the frontend first
@@ -220,7 +225,7 @@ impl SessionManager {
 
             // Start the ACP session
             let result = adapter
-                .start_session(&session_id, &worktree_path, tx, app_handle.clone())
+                .start_session(&session_id, &worktree_path, tx, app_handle.clone(), mcp_servers)
                 .await;
 
             match result {
@@ -504,6 +509,9 @@ impl SessionManager {
             );
         });
 
+        // Get enabled MCP servers
+        let mcp_servers = self.mcp_manager.get_enabled_acp_servers();
+
         // Try to load the session if acp_session_id exists
         let load_result = if let Some(ref acp_session_id) = session.acp_session_id {
             println!(
@@ -518,6 +526,7 @@ impl SessionManager {
                     &project_path,
                     tx.clone(),
                     self.app_handle.clone(),
+                    mcp_servers.clone(),
                 )
                 .await
         } else {
@@ -538,6 +547,7 @@ impl SessionManager {
                     &worktree_path,
                     tx,
                     self.app_handle.clone(),
+                    mcp_servers,
                 )
                 .await?;
         }

@@ -9,6 +9,8 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/side-bar";
 import { listen } from "@tauri-apps/api/event";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
+import { menuEventBus } from "@/lib/menu-events";
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -44,13 +46,30 @@ function RootComponent() {
     loadSettings();
   }, [loadSettings]);
 
-  // Listen for menu:preferences event from backend
+  // Listen for menu events from backend
   useEffect(() => {
-    const unlisten = listen("menu:preferences", () => {
-      navigate({ to: "/settings" });
-    });
+    const menuEvents = [
+      "menu:preferences",
+      "menu:create_session",
+      "menu:quick_create",
+      "menu:rename_session",
+      "menu:delete_session",
+      "menu:mcps",
+      "menu:skills",
+    ];
+
+    const unlisteners = menuEvents.map((event) =>
+      listen(event, () => {
+        if (event === "menu:preferences") {
+          navigate({ to: "/settings" });
+        } else {
+          menuEventBus.emit(event);
+        }
+      })
+    );
+
     return () => {
-      unlisten.then((fn) => fn());
+      unlisteners.forEach((unlisten) => unlisten.then((fn) => fn()));
     };
   }, [navigate]);
 
@@ -96,6 +115,7 @@ function RootComponent() {
           <Outlet />
         </main>
       </SidebarProvider>
+      <Toaster />
     </TooltipProvider>
   );
 }

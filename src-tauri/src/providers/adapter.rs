@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use agent_client_protocol::SessionConfigOption;
+use agent_client_protocol::{McpServer, SessionConfigOption};
 use async_trait::async_trait;
 use tauri::AppHandle;
 use tokio::sync::mpsc;
@@ -23,6 +23,7 @@ pub trait ProviderAdapter: Send + Sync {
         worktree_path: &Path,
         stream_tx: mpsc::Sender<StreamChunk>,
         app_handle: AppHandle,
+        mcp_servers: Vec<McpServer>,
     ) -> AppResult<()>;
 
     /// Resume an existing ACP session by its session ID
@@ -37,8 +38,9 @@ pub trait ProviderAdapter: Send + Sync {
         project_path: &Path,
         stream_tx: mpsc::Sender<StreamChunk>,
         app_handle: AppHandle,
+        mcp_servers: Vec<McpServer>,
     ) -> AppResult<()> {
-        let _ = (session_id, acp_session_id, worktree_path, project_path, stream_tx, app_handle);
+        let _ = (session_id, acp_session_id, worktree_path, project_path, stream_tx, app_handle, mcp_servers);
         Err(AppError::Provider(
             "This provider does not support session resume".to_string(),
         ))

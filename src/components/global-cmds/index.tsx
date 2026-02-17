@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -32,11 +32,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Add,
+  AddSquare,
   AddCircle,
   CommandSquare,
   Edit2,
   Ghost,
+  Microscope,
   SearchZoomIn,
   SearchZoomOut,
   Setting5,
@@ -48,6 +49,8 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useNavigate } from "@tanstack/react-router";
 import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { NewSessionDialog } from "@/components/session/new-session-dialog";
+import { MCP } from "@lobehub/icons";
+import { menuEventBus } from "@/lib/menu-events";
 
 export interface GlobalCommandsRef {
   openNewSession: () => void;
@@ -65,17 +68,13 @@ export function GlobalCommands({ className }: { className?: string }) {
   const [newName, setNewName] = useState("");
 
   const navigate = useNavigate();
-  const {
-    sessions,
-    activeSessionId,
-    renameSession,
-    terminateSession,
-  } = useSelectorSessionStore([
-    "sessions",
-    "activeSessionId",
-    "renameSession",
-    "terminateSession",
-  ]);
+  const { sessions, activeSessionId, renameSession, terminateSession } =
+    useSelectorSessionStore([
+      "sessions",
+      "activeSessionId",
+      "renameSession",
+      "terminateSession",
+    ]);
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
 
@@ -103,6 +102,28 @@ export function GlobalCommands({ className }: { className?: string }) {
     setOpen(false);
     setShowDeleteDialog(true);
   };
+
+  // Listen for native menu events
+  useEffect(() => {
+    const unsubs = [
+      menuEventBus.on("menu:create_session", handleCreateSession),
+      menuEventBus.on("menu:quick_create", handleQuickCreate),
+      menuEventBus.on("menu:rename_session", handleRename),
+      menuEventBus.on("menu:delete_session", handleDelete),
+      menuEventBus.on("menu:mcps", () => {
+        setOpen(false);
+        navigate({ to: "/settings" });
+      }),
+      menuEventBus.on("menu:skills", () => {
+        setOpen(false);
+        navigate({ to: "/settings" });
+      }),
+    ];
+
+    return () => {
+      unsubs.forEach((unsub) => unsub());
+    };
+  }, [navigate, activeSession]);
 
   const handleRenameSubmit = async () => {
     if (activeSession && newName.trim() && newName !== activeSession.name) {
@@ -160,7 +181,9 @@ export function GlobalCommands({ className }: { className?: string }) {
         provider: activeSession.provider,
         projectPath: activeSession.project_path,
         useLocal: activeSession.is_local,
-        baseBranch: activeSession.is_local ? undefined : activeSession.branch_name,
+        baseBranch: activeSession.is_local
+          ? undefined
+          : activeSession.branch_name,
       }
     : undefined;
 
@@ -185,7 +208,10 @@ export function GlobalCommands({ className }: { className?: string }) {
             <CommandList>
               <CommandEmpty>No results found.</CommandEmpty>
               <CommandGroup heading="Session">
-                <CommandItem className="cursor-pointer" onSelect={handleCreateSession}>
+                <CommandItem
+                  className="cursor-pointer"
+                  onSelect={handleCreateSession}
+                >
                   <AddCircle />
                   <span>Create session</span>
                   <CommandShortcut>⌘N</CommandShortcut>
@@ -195,7 +221,7 @@ export function GlobalCommands({ className }: { className?: string }) {
                   onSelect={handleQuickCreate}
                   disabled={!activeSession}
                 >
-                  <Add />
+                  <AddSquare />
                   <span>Quick create from this session</span>
                   <CommandShortcut>⌘⌥N</CommandShortcut>
                 </CommandItem>
@@ -219,8 +245,25 @@ export function GlobalCommands({ className }: { className?: string }) {
                 </CommandItem>
               </CommandGroup>
               <CommandSeparator />
+              <CommandGroup heading="Tools">
+                <CommandItem
+                  className="cursor-pointer"
+                  onSelect={handleSettings}
+                >
+                  <MCP />
+                  MCPs
+                </CommandItem>
+                <CommandItem className="cursor-pointer" onSelect={handleHelp}>
+                  <Microscope />
+                  Skills
+                </CommandItem>
+              </CommandGroup>
+              <CommandSeparator />
               <CommandGroup heading="Account">
-                <CommandItem className="cursor-pointer" onSelect={handleSettings}>
+                <CommandItem
+                  className="cursor-pointer"
+                  onSelect={handleSettings}
+                >
                   <Setting5 />
                   Settings
                   <CommandShortcut>⌘,</CommandShortcut>
@@ -232,13 +275,21 @@ export function GlobalCommands({ className }: { className?: string }) {
               </CommandGroup>
               <CommandSeparator />
               <CommandGroup heading="View">
-                <CommandItem className="cursor-pointer" onSelect={handleToggleFullscreen}>
+                <CommandItem
+                  className="cursor-pointer"
+                  onSelect={handleToggleFullscreen}
+                >
                   <SearchZoomIn />
-                  Toggle Fullscreen
+                  Toggle Full Screen
+                  <CommandShortcut>fn F</CommandShortcut>
                 </CommandItem>
-                <CommandItem className="cursor-pointer" onSelect={handleExitFullscreen}>
+                <CommandItem
+                  className="cursor-pointer"
+                  onSelect={handleExitFullscreen}
+                >
                   <SearchZoomOut />
                   Exit Fullscreen
+                  <CommandShortcut>fn F</CommandShortcut>
                 </CommandItem>
               </CommandGroup>
             </CommandList>
