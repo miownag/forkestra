@@ -4,7 +4,10 @@ import { memo, useId, useMemo } from "react";
 import ReactMarkdown, { Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import { CodeBlock, CodeBlockCode } from "./code-block";
+import "katex/dist/katex.min.css";
 
 export type MarkdownProps = {
   children: string;
@@ -35,7 +38,7 @@ const INITIAL_COMPONENTS: Partial<Components> = {
         <span
           className={cn(
             "bg-primary-foreground rounded-sm px-1 font-mono text-sm",
-            className,
+            className
           )}
           {...props}
         >
@@ -67,7 +70,8 @@ const MemoizedMarkdownBlock = memo(
   }) {
     return (
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkBreaks]}
+        remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
         components={components}
       >
         {content}
@@ -76,7 +80,7 @@ const MemoizedMarkdownBlock = memo(
   },
   function propsAreEqual(prevProps, nextProps) {
     return prevProps.content === nextProps.content;
-  },
+  }
 );
 
 MemoizedMarkdownBlock.displayName = "MemoizedMarkdownBlock";

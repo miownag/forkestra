@@ -78,6 +78,7 @@ import {
   CollapsibleTrigger,
   CollapsibleContent,
 } from "../ui/collapsible";
+import { MCP } from "@lobehub/icons";
 
 // ---- SessionSidebarItem types ----
 
@@ -453,6 +454,14 @@ export function AppSidebar() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activeSessionId, sidebarCollapsed]);
 
+  const handleMCPsClick = () => {
+    if (location.pathname !== "/mcps") {
+      router.navigate({ to: "/mcps" });
+    } else {
+      router.history.back();
+    }
+  };
+
   const handleSettingsClick = () => {
     if (location.pathname !== "/settings") {
       router.navigate({ to: "/settings" });
@@ -678,6 +687,16 @@ export function AppSidebar() {
       {/* Footer: Settings */}
       <SidebarFooter className="p-2">
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="Settings"
+              className="cursor-pointer"
+              onClick={handleMCPsClick}
+            >
+              <MCP className="shrink-0" />
+              <span>MCPs</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="Settings"

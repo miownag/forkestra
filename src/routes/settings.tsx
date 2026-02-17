@@ -23,13 +23,12 @@ import { Separator } from "@/components/ui/separator";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { homeDir } from "@tauri-apps/api/path";
 import { cn } from "@/lib/utils";
-import { ThemeToggleButton } from "@/components/layout/title-bar-controls";
 import { TbCodeDots } from "react-icons/tb";
-import { ArrowLeft2, Refresh, Setting2, SidebarRight } from "iconsax-reactjs";
+import { ArrowLeft2, Refresh, Setting2 } from "iconsax-reactjs";
 import { LuFolderOpen } from "react-icons/lu";
-import { GlobalCommands } from "@/components/global-cmds";
+import { DragArea } from "@/components/ui/drag-area";
 
-export const Route = createFileRoute("/settings/")({
+export const Route = createFileRoute("/settings")({
   component: RouteComponent,
 });
 
@@ -188,28 +187,7 @@ function RouteComponent() {
 
   return (
     <>
-      <div
-        data-tauri-drag-region
-        className={cn(
-          "shrink-0 h-13 z-50 flex items-center pr-4 justify-between w-full bg-muted/20",
-          !isFullscreen && (sidebarCollapsed ? "pl-10" : "pl-2")
-        )}
-      >
-        <div className="flex items-center gap-2">
-          {sidebarCollapsed && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-4.5 rounded-xl"
-              onClick={toggleSidebar}
-            >
-              <SidebarRight />
-            </Button>
-          )}
-          <GlobalCommands className="mr-1" />
-        </div>
-        <ThemeToggleButton />
-      </div>
+      <DragArea />
       <div className="flex-1 overflow-hidden flex justify-center">
         {/* Main Content Container */}
         <div className="flex gap-8 w-full max-w-7xl">

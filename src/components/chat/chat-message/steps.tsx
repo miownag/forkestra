@@ -40,6 +40,7 @@ import {
   Forbidden,
   Gallery,
 } from "iconsax-reactjs";
+import { CUSTOM_COMPONENTS_FOR_MARKDOWN } from "@/constants";
 
 function getToolIcon(status: string, kind?: ToolKind) {
   // Status-based icons take precedence
@@ -76,44 +77,6 @@ function getToolTitle(tc: ToolCallInfo) {
   if (tc.tool_name) return tc.tool_name;
   return "Tool Call";
 }
-
-function extractLanguage(className?: string): string {
-  if (!className) return "plaintext";
-  const match = className.match(/language-(\w+)/);
-  return match ? match[1] : "plaintext";
-}
-
-const customComponents: Partial<Components> = {
-  code: function CodeComponent({ className, children, ...props }) {
-    const isInline =
-      !props.node?.position?.start.line ||
-      props.node?.position?.start.line === props.node?.position?.end.line;
-
-    if (isInline) {
-      return (
-        <span
-          className={cn(
-            className,
-            "bg-muted rounded-sm px-1 font-google-sans-code text-sm"
-          )}
-          {...props}
-        >
-          {children}
-        </span>
-      );
-    }
-    const language = extractLanguage(className);
-
-    return (
-      <CodeBlockWithHeader language={language}>
-        {children as string}
-      </CodeBlockWithHeader>
-    );
-  },
-  pre: function PreComponent({ children }) {
-    return <>{children}</>;
-  },
-};
 
 function TextStep({ content, isLast }: { content: string; isLast: boolean }) {
   const [copied, setCopied] = useState(false);
@@ -158,7 +121,9 @@ function TextStep({ content, isLast }: { content: string; isLast: boolean }) {
       <ChainOfThoughtContent>
         <ChainOfThoughtItem>
           <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-strong:text-foreground text-foreground">
-            <Markdown components={customComponents}>{content}</Markdown>
+            <Markdown components={CUSTOM_COMPONENTS_FOR_MARKDOWN}>
+              {content}
+            </Markdown>
           </div>
         </ChainOfThoughtItem>
       </ChainOfThoughtContent>
@@ -386,7 +351,9 @@ function ToolStep({ tc, isLast }: { tc: ToolCallInfo; isLast: boolean }) {
         leftIcon={getToolIcon(tc.status, tc.kind)}
         swapIconOnHover={false}
       >
-        <Markdown>{getToolTitle(tc)}</Markdown>
+        <Markdown components={CUSTOM_COMPONENTS_FOR_MARKDOWN}>
+          {getToolTitle(tc)}
+        </Markdown>
       </ChainOfThoughtTrigger>
       {hasContent && (
         <ChainOfThoughtContent>

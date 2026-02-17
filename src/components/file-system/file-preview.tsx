@@ -3,6 +3,7 @@ import { Markdown } from "@/components/prompt-kit/markdown";
 import { getFileExtension, isImageFile } from "@/lib/file-types";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { LuFileQuestion } from "react-icons/lu";
+import { CUSTOM_COMPONENTS_FOR_MARKDOWN } from "@/constants";
 
 interface FilePreviewProps {
   content: string;
@@ -14,7 +15,9 @@ function MarkdownPreview({ content }: { content: string }) {
   return (
     <div className="h-full overflow-auto p-4">
       <div className="prose dark:prose-invert max-w-none">
-        <Markdown>{content}</Markdown>
+        <Markdown components={CUSTOM_COMPONENTS_FOR_MARKDOWN}>
+          {content}
+        </Markdown>
       </div>
     </div>
   );
@@ -75,7 +78,11 @@ function UnsupportedPreview({ filePath }: { filePath: string }) {
   );
 }
 
-export function FilePreview({ content, filePath, projectPath }: FilePreviewProps) {
+export function FilePreview({
+  content,
+  filePath,
+  projectPath,
+}: FilePreviewProps) {
   const ext = getFileExtension(filePath);
 
   if (ext === "md" || ext === "markdown") {
