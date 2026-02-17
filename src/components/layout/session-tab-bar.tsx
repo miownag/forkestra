@@ -34,6 +34,7 @@ import { STATUS_BG_COLORS_MAP } from "../session/session-status-icon";
 import { useSidebar } from "../ui/sidebar";
 import { Button } from "../ui/button";
 import { SidebarRight } from "iconsax-reactjs";
+import { GlobalCommands } from "../global-cmds";
 
 const getStatusColor = (
   status: Session["status"],
@@ -159,7 +160,7 @@ export function SessionTabBar() {
       data-tauri-drag-region
       className={cn(
         "shrink-0 h-13 z-50 flex items-center pr-2 w-full bg-muted/20",
-        isFullscreen ? "pl-2" : sidebarCollapsed ? "pl-6" : "pl-2"
+        !isFullscreen && (sidebarCollapsed ? "pl-6" : "pl-2")
       )}
     >
       {sidebarState === "collapsed" && (
@@ -172,11 +173,12 @@ export function SessionTabBar() {
           <SidebarRight />
         </Button>
       )}
+      <GlobalCommands className="mr-1" />
       {/* Center: tabs */}
       <Tabs
         value={activeSessionId ?? undefined}
         onValueChange={(value) => openTab(value)}
-        className="flex-1 min-w-0 px-1"
+        className="flex-1 min-w-0 px-1 overflow-x-auto"
       >
         <DndContext
           sensors={sensors}

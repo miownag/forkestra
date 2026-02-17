@@ -27,6 +27,7 @@ import { ThemeToggleButton } from "@/components/layout/title-bar-controls";
 import { TbCodeDots } from "react-icons/tb";
 import { ArrowLeft2, Refresh, Setting2, SidebarRight } from "iconsax-reactjs";
 import { LuFolderOpen } from "react-icons/lu";
+import { GlobalCommands } from "@/components/global-cmds";
 
 export const Route = createFileRoute("/settings/")({
   component: RouteComponent,
@@ -191,21 +192,22 @@ function RouteComponent() {
         data-tauri-drag-region
         className={cn(
           "shrink-0 h-13 z-50 flex items-center pr-4 justify-between w-full bg-muted/20",
-          isFullscreen ? "pl-4" : sidebarCollapsed ? "pl-10" : "pl-4"
+          !isFullscreen && (sidebarCollapsed ? "pl-10" : "pl-2")
         )}
       >
-        {sidebarCollapsed ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-4.5 rounded-xl"
-            onClick={toggleSidebar}
-          >
-            <SidebarRight />
-          </Button>
-        ) : (
-          <div />
-        )}
+        <div className="flex items-center gap-2">
+          {sidebarCollapsed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-4.5 rounded-xl"
+              onClick={toggleSidebar}
+            >
+              <SidebarRight />
+            </Button>
+          )}
+          <GlobalCommands className="mr-1" />
+        </div>
         <ThemeToggleButton />
       </div>
       <div className="flex-1 overflow-hidden flex justify-center">
@@ -229,7 +231,7 @@ function RouteComponent() {
                     <button
                       onClick={() => scrollToSection(section.id)}
                       className={cn(
-                        "w-full text-left px-3 py-1.5 text-[0.85rem] rounded-md transition-colors",
+                        "w-full text-left px-3 py-1.5 text-[0.85rem] rounded-md transition-colors cursor-pointer",
                         activeSection === section.id
                           ? "text-foreground font-medium"
                           : "text-muted-foreground hover:text-foreground"
@@ -244,7 +246,7 @@ function RouteComponent() {
                             key={child.id}
                             onClick={() => scrollToSection(child.id)}
                             className={cn(
-                              "w-full text-left px-3 py-1 text-[0.8rem] rounded-md transition-colors",
+                              "w-full text-left px-3 py-1 text-[0.8rem] rounded-md transition-colors cursor-pointer",
                               activeSection === child.id
                                 ? "text-foreground font-medium"
                                 : "text-muted-foreground hover:text-foreground"

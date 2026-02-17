@@ -535,8 +535,8 @@ export function AppSidebar() {
               >
                 <Edit className="shrink-0" />
                 <span className="text-xs font-semibold">New Session</span>
-                <span className="ml-auto text-xs opacity-75 select-none">
-                  ⌘ N
+                <span className="ml-auto text-xs font-semibold opacity-75 select-none">
+                  ⌘ + N
                 </span>
               </SidebarMenuButton>
             ) : (
@@ -550,8 +550,8 @@ export function AppSidebar() {
               >
                 <Edit className="shrink-0" />
                 <span className="text-xs font-semibold">New Session</span>
-                <span className="ml-auto text-xs opacity-75 select-none">
-                  ⌘ N
+                <span className="ml-auto text-xs font-semibold opacity-75 select-none">
+                  ⌘ + N
                 </span>
               </SidebarMenuButton>
             )}
