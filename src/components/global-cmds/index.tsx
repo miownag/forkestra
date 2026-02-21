@@ -112,11 +112,11 @@ export function GlobalCommands({ className }: { className?: string }) {
       menuEventBus.on("menu:delete_session", handleDelete),
       menuEventBus.on("menu:mcps", () => {
         setOpen(false);
-        navigate({ to: "/settings" });
+        navigate({ to: "/mcps" });
       }),
       menuEventBus.on("menu:skills", () => {
         setOpen(false);
-        navigate({ to: "/settings" });
+        navigate({ to: "/skills" });
       }),
     ];
 
@@ -248,12 +248,21 @@ export function GlobalCommands({ className }: { className?: string }) {
               <CommandGroup heading="Tools">
                 <CommandItem
                   className="cursor-pointer"
-                  onSelect={handleSettings}
+                  onSelect={() => {
+                    setOpen(false);
+                    navigate({ to: "/mcps" });
+                  }}
                 >
                   <MCP />
                   MCPs
                 </CommandItem>
-                <CommandItem className="cursor-pointer" onSelect={handleHelp}>
+                <CommandItem
+                  className="cursor-pointer"
+                  onSelect={() => {
+                    setOpen(false);
+                    navigate({ to: "/skills" });
+                  }}
+                >
                   <Microscope />
                   Skills
                 </CommandItem>

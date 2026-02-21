@@ -10,12 +10,17 @@ use crate::db::Database;
 use crate::error::{AppError, AppResult};
 use crate::managers::mcp_manager::McpManager;
 use crate::managers::settings_manager::SettingsManager;
+use crate::managers::skills_manager::SkillsManager;
 use crate::managers::worktree_manager::WorktreeManager;
 use crate::models::{
     AvailableCommand, CreateSessionRequest, PlanEntry, PromptContent, ProviderSettings, ProviderType, Session, SessionStatus,
     SessionStatusEvent, StreamChunk,
 };
 use crate::providers::{ClaudeAdapter, KimiAdapter, ProviderAdapter};
+
+/// Code-level switch: set to `true` to prepend skill contents into the first
+/// message of each ACP session. This is an experimental feature for internal use.
+const SKILLS_INJECT_ENABLED: bool = false;
 
 struct SessionEntry {
     session: Session,
@@ -28,6 +33,9 @@ pub struct SessionManager {
     app_handle: AppHandle,
     settings_manager: Arc<SettingsManager>,
     mcp_manager: Arc<McpManager>,
+    skills_manager: Arc<SkillsManager>,
+    /// Track which sessions have already had skills injected
+    skills_injected: Arc<RwLock<std::collections::HashSet<String>>>,
 }
 
 impl SessionManager {
@@ -36,6 +44,7 @@ impl SessionManager {
         settings_manager: Arc<SettingsManager>,
         db: Arc<Database>,
         mcp_manager: Arc<McpManager>,
+        skills_manager: Arc<SkillsManager>,
     ) -> Self {
         // Load persisted sessions from DB on startup
         let mut initial_sessions = HashMap::new();
@@ -86,6 +95,8 @@ impl SessionManager {
             app_handle,
             settings_manager,
             mcp_manager,
+            skills_manager,
+            skills_injected: Arc::new(RwLock::new(std::collections::HashSet::new())),
         }
     }
 
@@ -355,8 +366,39 @@ impl SessionManager {
         };
 
         if let Some(adapter) = adapter {
+            // Skill injection: prepend skill contents to the first message of each session
+            let final_content = if SKILLS_INJECT_ENABLED {
+                let already_injected = {
+                    let injected = self.skills_injected.read().await;
+                    injected.contains(session_id)
+                };
+
+                if !already_injected {
+                    let skills = self.skills_manager.get_enabled_skill_contents();
+                    if !skills.is_empty() {
+                        let skill_text = skills
+                            .iter()
+                            .map(|(name, c)| format!("[SKILL: {}]\n{}", name, c))
+                            .collect::<Vec<_>>()
+                            .join("\n\n---\n\n");
+
+                        let mut combined = vec![PromptContent::Text { text: skill_text }];
+                        combined.extend(content);
+
+                        self.skills_injected.write().await.insert(session_id.to_string());
+                        combined
+                    } else {
+                        content
+                    }
+                } else {
+                    content
+                }
+            } else {
+                content
+            };
+
             let mut adapter = adapter.lock().await;
-            adapter.send_message(content).await?;
+            adapter.send_message(final_content).await?;
             Ok(())
         } else {
             Err(AppError::NotFound(format!(
@@ -364,6 +406,13 @@ impl SessionManager {
                 session_id
             )))
         }
+    }
+
+    /// Refresh skills injection for a session — clears the injected flag so the
+    /// next message will re-inject the latest enabled skill contents.
+    pub async fn refresh_skills_in_session(&self, session_id: &str) {
+        let mut injected = self.skills_injected.write().await;
+        injected.remove(session_id);
     }
 
     /// Terminate a session

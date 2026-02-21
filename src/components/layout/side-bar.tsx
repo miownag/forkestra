@@ -68,6 +68,7 @@ import {
   Edit2,
   Trash,
   EmojiSad,
+  Microscope,
 } from "iconsax-reactjs";
 import { RiGitRepositoryLine } from "react-icons/ri";
 import { PROVIDER_ICONS_MAP } from "@/constants/icons";
@@ -454,6 +455,14 @@ export function AppSidebar() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activeSessionId, sidebarCollapsed]);
 
+  const handleSkillsClick = () => {
+    if (location.pathname !== "/skills") {
+      router.navigate({ to: "/skills" });
+    } else {
+      router.history.back();
+    }
+  };
+
   const handleMCPsClick = () => {
     if (location.pathname !== "/mcps") {
       router.navigate({ to: "/mcps" });
@@ -694,6 +703,15 @@ export function AppSidebar() {
             >
               <MCP className="shrink-0" />
               <span>MCPs</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              className="cursor-pointer"
+              onClick={handleSkillsClick}
+            >
+              <Microscope className="shrink-0" />
+              <span>Skills</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>

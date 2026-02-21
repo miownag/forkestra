@@ -26,6 +26,9 @@ pub enum AppError {
 
     #[error("Database error: {0}")]
     Database(String),
+
+    #[error("Skill error: {0}")]
+    Skill(String),
 }
 
 impl From<git2::Error> for AppError {

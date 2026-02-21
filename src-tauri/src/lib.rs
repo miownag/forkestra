@@ -7,7 +7,7 @@ mod providers;
 
 use std::sync::Arc;
 
-use managers::{McpManager, SessionManager, SettingsManager, TerminalManager};
+use managers::{McpManager, SessionManager, SettingsManager, SkillsManager, TerminalManager};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::{Emitter, Manager};
 
@@ -145,9 +145,14 @@ pub fn run() {
             let _ = mcp_manager.scan_all();
             app.manage(mcp_manager.clone());
 
-            // Initialize session manager with settings, database, and MCP manager
+            // Initialize Skills manager
+            let skills_manager = Arc::new(SkillsManager::new(settings_manager.clone()));
+            let _ = skills_manager.scan_all();
+            app.manage(skills_manager.clone());
+
+            // Initialize session manager with settings, database, MCP manager, and skills manager
             let session_manager =
-                SessionManager::new(app.handle().clone(), settings_manager, database, mcp_manager);
+                SessionManager::new(app.handle().clone(), settings_manager, database, mcp_manager, skills_manager);
             app.manage(session_manager);
 
             // Initialize terminal manager
@@ -204,6 +209,12 @@ pub fn run() {
             commands::update_mcp_server,
             commands::delete_mcp_server,
             commands::toggle_mcp_server,
+            commands::list_skills,
+            commands::scan_skills,
+            commands::toggle_skill,
+            commands::install_skill,
+            commands::remove_skill,
+            commands::update_skills,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

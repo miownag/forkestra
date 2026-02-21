@@ -27,8 +27,6 @@ import {
   LuTerminal,
 } from "react-icons/lu";
 import { useState, useCallback, useEffect } from "react";
-import { Components } from "react-markdown";
-import { CodeBlockWithHeader } from "./code-block";
 import { DiffViewer } from "./diff-viewer";
 import { cn } from "@/lib/utils";
 import {

@@ -8,3 +8,4 @@ export { useSessionLayoutStore } from "./session-layout-store";
 export { useFileOperationsStore, storeFileContentForUndo } from "./file-operations-store";
 export { useChatInputStore } from "./chat-input-store";
 export { useMcpStore, useSelectorMcpStore } from "./mcp-store";
+export { useSkillsStore, useSelectorSkillsStore } from "./skills-store";

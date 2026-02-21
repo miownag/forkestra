@@ -303,6 +303,28 @@ export interface McpServerConfig {
   source: McpServerSource;
 }
 
+// Skill types
+export type SkillSource =
+  | { type: "global"; agent: string }
+  | { type: "project"; agent: string; project_path: string }
+  | { type: "user_installed" };
+
+export interface SkillConfig {
+  id: string;
+  name: string;
+  description: string;
+  path: string;
+  content: string;
+  enabled: boolean;
+  source: SkillSource;
+}
+
+export interface CliResult {
+  stdout: string;
+  stderr: string;
+  exit_code: number;
+}
+
 // Settings types
 export type Theme = "light" | "dark" | "system";
 export type FontSize = "small" | "base" | "large";

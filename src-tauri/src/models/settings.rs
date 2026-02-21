@@ -5,6 +5,7 @@ use super::mcp::McpSettings;
 use super::provider::{
     ClaudeProviderSettings, KimiProviderSettings, ProviderSettings, ProviderType,
 };
+use super::skill::SkillSettings;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,6 +55,8 @@ pub struct AppSettings {
     pub provider_settings: HashMap<ProviderType, ProviderSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mcp: Option<McpSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skills: Option<SkillSettings>,
 }
 
 impl Default for AppSettings {
@@ -73,6 +76,7 @@ impl Default for AppSettings {
             appearance: Some(AppearanceSettings::default()),
             provider_settings,
             mcp: None,
+            skills: None,
         }
     }
 }
