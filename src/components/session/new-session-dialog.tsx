@@ -106,6 +106,7 @@ export function NewSessionDialog({
         project_path: projectPath,
         base_branch: useLocal ? undefined : baseBranch || undefined,
         use_local: useLocal,
+        fetch_first: true,
       });
     } catch (err) {
       console.error("Failed to create session:", err);
@@ -225,6 +226,7 @@ export function NewSessionDialog({
                   projectPath={projectPath}
                   value={baseBranch}
                   onChange={setBaseBranch}
+                  includeRemote
                   placeholder="Select base branch..."
                 />
               </div>

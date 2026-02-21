@@ -22,6 +22,7 @@ interface BranchSearchSelectProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  includeRemote?: boolean;
 }
 
 export function BranchSearchSelect({
@@ -29,6 +30,7 @@ export function BranchSearchSelect({
   value,
   onChange,
   placeholder = "Select branch...",
+  includeRemote = false,
 }: BranchSearchSelectProps) {
   const [open, setOpen] = useState(false);
   const [branches, setBranches] = useState<string[]>([]);
@@ -45,6 +47,7 @@ export function BranchSearchSelect({
       try {
         const result = await invoke<string[]>("list_branches", {
           projectPath,
+          includeRemote,
         });
         setBranches(result);
       } catch (err) {
@@ -56,7 +59,7 @@ export function BranchSearchSelect({
     };
 
     fetchBranches();
-  }, [projectPath]);
+  }, [projectPath, includeRemote]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

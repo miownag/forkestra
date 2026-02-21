@@ -497,7 +497,7 @@ export function AppSidebar() {
       {/* Header: Logo + Version */}
       <SidebarHeader className={cn("p-0", isFullscreen ? "mt-1" : "-mt-2")}>
         <div className="flex items-center justify-between p-4">
-          <div className="flex gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full">
+          <div className="flex gap-2">
             <img
               src={`/icon-${resolvedTheme}.png`}
               alt="Forkestra"

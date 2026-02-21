@@ -12,8 +12,14 @@ impl WorktreeManager {
         project_path: &Path,
         session_id: &str,
         base_branch: Option<&str>,
+        fetch_first: bool,
     ) -> AppResult<(PathBuf, String)> {
         let repo = Repository::open(project_path)?;
+
+        // Fetch all remotes if requested (to ensure remote branches are up to date)
+        if fetch_first {
+            Self::fetch_all(project_path)?;
+        }
 
         // Determine base branch
         let base = base_branch.unwrap_or("main");
@@ -177,7 +183,7 @@ impl WorktreeManager {
     }
 
     /// List all branches in a repository
-    pub fn list_branches(project_path: &Path) -> AppResult<Vec<String>> {
+    pub fn list_branches(project_path: &Path, include_remote: bool) -> AppResult<Vec<String>> {
         let repo = Repository::open(project_path)?;
         let mut branches = Vec::new();
 
@@ -186,6 +192,19 @@ impl WorktreeManager {
             let (branch, _) = branch?;
             if let Some(name) = branch.name()? {
                 branches.push(name.to_string());
+            }
+        }
+
+        // Get remote branches if requested
+        if include_remote {
+            for branch in repo.branches(Some(BranchType::Remote))? {
+                let (branch, _) = branch?;
+                if let Some(name) = branch.name()? {
+                    // Skip HEAD references like origin/HEAD -> origin/main
+                    if !name.ends_with("/HEAD") {
+                        branches.push(name.to_string());
+                    }
+                }
             }
         }
 
@@ -225,5 +244,177 @@ impl WorktreeManager {
         } else {
             Err(AppError::Git("Could not determine current branch".to_string()))
         }
+    }
+
+    /// Fetch all remotes to ensure remote branches are up to date
+    pub fn fetch_all(project_path: &Path) -> AppResult<()> {
+        let repo = Repository::open(project_path)?;
+
+        // Get all remotes
+        let remotes = repo.remotes()?;
+        let remote_names: Vec<&str> = remotes
+            .iter()
+            .flatten()
+            .collect();
+
+        if remote_names.is_empty() {
+            return Ok(());
+        }
+
+        // Fetch each remote
+        for remote_name in remote_names {
+            let mut remote = repo.find_remote(remote_name)?;
+            remote.fetch(&[] as &[&str], None, None)?;
+        }
+
+        Ok(())
+    }
+
+    /// Sync repository: fetch all remotes and return status message
+    pub fn sync_repository(project_path: &Path) -> AppResult<String> {
+        let repo = Repository::open(project_path)?;
+
+        // Get all remotes
+        let remotes = repo.remotes()?;
+        let remote_names: Vec<&str> = remotes
+            .iter()
+            .flatten()
+            .collect();
+
+        if remote_names.is_empty() {
+            return Ok("No remotes configured".to_string());
+        }
+
+        let mut fetched_remotes = Vec::new();
+
+        // Fetch each remote
+        for remote_name in remote_names {
+            let mut remote = repo.find_remote(remote_name)?;
+            remote.fetch(&[] as &[&str], None, None)?;
+            fetched_remotes.push(remote_name);
+        }
+
+        Ok(format!("Synced: {}", fetched_remotes.join(", ")))
+    }
+
+    /// Get ahead/behind count compared to upstream
+    pub fn get_ahead_behind(project_path: &Path) -> AppResult<(usize, usize)> {
+        let repo = Repository::open(project_path)?;
+        
+        // Get current branch name
+        let head = repo.head()?;
+        let branch_name = match head.shorthand() {
+            Some(name) => name.to_string(),
+            None => return Ok((0, 0)),
+        };
+        
+        // Get the branch
+        let branch = match repo.find_branch(&branch_name, BranchType::Local) {
+            Ok(branch) => branch,
+            Err(_) => return Ok((0, 0)),
+        };
+        
+        // Get upstream branch
+        let upstream = match branch.upstream() {
+            Ok(upstream) => upstream,
+            Err(_) => return Ok((0, 0)), // No upstream configured
+        };
+        
+        let head_commit = head.peel_to_commit()?;
+        let upstream_commit = upstream.get().peel_to_commit()?;
+        
+        // Get ahead/behind count
+        let (ahead, behind) = repo.graph_ahead_behind(head_commit.id(), upstream_commit.id())?;
+        
+        Ok((ahead, behind))
+    }
+
+    /// Pull from upstream (fast-forward only)
+    pub fn pull_repository(project_path: &Path) -> AppResult<String> {
+        let repo = Repository::open(project_path)?;
+        
+        // Get current branch
+        let head = repo.head()?;
+        let branch_name = head.shorthand()
+            .ok_or_else(|| AppError::Git("Could not get branch name".to_string()))?;
+        
+        // Get the branch
+        let branch = repo.find_branch(branch_name, BranchType::Local)
+            .map_err(|_| AppError::Git("Not on a valid branch".to_string()))?;
+        
+        // Get upstream
+        let upstream = branch.upstream()
+            .map_err(|_| AppError::Git("No upstream configured".to_string()))?;
+        let upstream_ref = upstream.get();
+        let upstream_commit = upstream_ref.peel_to_commit()?;
+        
+        // Get current commit
+        let head_commit = head.peel_to_commit()?;
+        
+        // Check if fast-forward is possible
+        let (ahead, behind) = repo.graph_ahead_behind(head_commit.id(), upstream_commit.id())?;
+        
+        if ahead > 0 {
+            return Err(AppError::Git(
+                format!("Cannot fast-forward: {} local commits ahead", ahead)
+            ));
+        }
+        
+        if behind == 0 {
+            return Ok("Already up to date".to_string());
+        }
+        
+        // Fast-forward merge
+        let mut head_ref = head.resolve()?;
+        head_ref.set_target(upstream_commit.id(), "Fast-forward pull")?;
+        
+        // Checkout the new commit
+        repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
+        
+        Ok(format!("Pulled {} commits", behind))
+    }
+
+    /// Push to upstream
+    pub fn push_repository(project_path: &Path) -> AppResult<String> {
+        let repo = Repository::open(project_path)?;
+        
+        // Get current branch
+        let head = repo.head()?;
+        let branch_name = head.shorthand()
+            .ok_or_else(|| AppError::Git("Could not get branch name".to_string()))?;
+        
+        // Get the branch
+        let branch = repo.find_branch(branch_name, BranchType::Local)
+            .map_err(|_| AppError::Git("Not on a valid branch".to_string()))?;
+        
+        // Get upstream
+        let upstream = branch.upstream()
+            .map_err(|_| AppError::Git("No upstream configured".to_string()))?;
+        let upstream_name = upstream.get().shorthand()
+            .ok_or_else(|| AppError::Git("Could not get upstream name".to_string()))?;
+        
+        // Parse remote name from upstream (e.g., "origin/main" -> "origin")
+        let remote_name = upstream_name.split('/').next()
+            .ok_or_else(|| AppError::Git("Invalid upstream name".to_string()))?;
+        
+        // Get ahead count
+        let head_commit = head.peel_to_commit()?;
+        let upstream_commit = upstream.get().peel_to_commit()?;
+        let (ahead, _) = repo.graph_ahead_behind(head_commit.id(), upstream_commit.id())?;
+        
+        if ahead == 0 {
+            return Ok("Nothing to push".to_string());
+        }
+        
+        // Push using remote callbacks
+        let mut remote = repo.find_remote(remote_name)?;
+        
+        // Create push refspec
+        let refspec = format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name);
+        
+        // Push
+        remote.push(&[&refspec], None)?;
+        
+        Ok(format!("Pushed {} commits", ahead))
     }
 }

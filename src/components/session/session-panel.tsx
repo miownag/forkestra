@@ -1,3 +1,5 @@
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import {
   useSelectorTerminalStore,
   useSelectorSessionStore,
@@ -16,7 +18,8 @@ import {
   ResizableHandle,
 } from "@/components/ui/resizable";
 import { Button } from "@/components/ui/button";
-import { Driving } from "iconsax-reactjs";
+import { Driving, Refresh } from "iconsax-reactjs";
+import { toast } from "sonner";
 
 interface SessionTabContentProps {
   sessionId: string;
@@ -95,14 +98,15 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
                     </h2>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
-                        <LuGitBranch className="h-3 w-3" />
+                        <LuGitBranch className="size-3" />
                         {session.branch_name || "-"}
+                        <SyncButton projectPath={session.project_path} />
                       </span>
                       <span
                         className="flex items-center gap-1 truncate"
                         title={session.project_path || "-"}
                       >
-                        <LuFolderOpen className="h-3 w-3 shrink-0" />
+                        <LuFolderOpen className="size-3 shrink-0" />
                         <span
                           className="truncate"
                           title={session.project_path.split("/").pop()}
@@ -206,5 +210,136 @@ export function SessionPanel() {
         />
       ))}
     </>
+  );
+}
+
+// Sync button component
+interface SyncButtonProps {
+  projectPath: string;
+}
+
+function SyncButton({ projectPath }: SyncButtonProps) {
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [status, setStatus] = useState<{
+    ahead: number;
+    behind: number;
+  } | null>(null);
+
+  // Check status periodically
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const [ahead, behind] = await invoke<[number, number]>("git_status", {
+          projectPath,
+        });
+        setStatus({ ahead, behind });
+      } catch {
+        setStatus(null);
+      }
+    };
+
+    checkStatus();
+    const interval = setInterval(checkStatus, 5000); // Check every 5 seconds
+    return () => clearInterval(interval);
+  }, [projectPath]);
+
+  const handleSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      const result = await invoke<string>("git_sync", { projectPath });
+      toast.success(result);
+      // Refresh status
+      const [ahead, behind] = await invoke<[number, number]>("git_status", {
+        projectPath,
+      });
+      setStatus({ ahead, behind });
+    } catch (err) {
+      console.error("Failed to sync:", err);
+      toast.error(`Sync failed: ${err}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handlePull = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      const result = await invoke<string>("git_pull", { projectPath });
+      toast.success(result);
+      // Refresh status
+      const [ahead, behind] = await invoke<[number, number]>("git_status", {
+        projectPath,
+      });
+      setStatus({ ahead, behind });
+    } catch (err) {
+      console.error("Failed to pull:", err);
+      toast.error(`Pull failed: ${err}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handlePush = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      const result = await invoke<string>("git_push", { projectPath });
+      toast.success(result);
+      // Refresh status
+      const [ahead, behind] = await invoke<[number, number]>("git_status", {
+        projectPath,
+      });
+      setStatus({ ahead, behind });
+    } catch (err) {
+      console.error("Failed to push:", err);
+      toast.error(`Push failed: ${err}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  return (
+    <span className="flex items-center gap-0.5">
+      {/* Pull button - show when behind > 0 */}
+      {status && status.behind > 0 && (
+        <button
+          onClick={handlePull}
+          disabled={isSyncing}
+          className="flex items-center gap-0.5 px-1 py-0.5 rounded hover:bg-muted transition-colors text-blue-600 dark:text-blue-400 cursor-pointer"
+          title={`Pull ${status.behind} commits`}
+        >
+          <span className="text-[10px] leading-none">↓</span>
+          <span className="text-[10px] leading-none">{status.behind}</span>
+        </button>
+      )}
+
+      {/* Push button - show when ahead > 0 */}
+      {status && status.ahead > 0 && (
+        <button
+          onClick={handlePush}
+          disabled={isSyncing}
+          className="flex items-center gap-0.5 px-1 py-0.5 rounded hover:bg-muted transition-colors text-green-600 dark:text-green-400 cursor-pointer"
+          title={`Push ${status.ahead} commits`}
+        >
+          <span className="text-[10px] leading-none">↑</span>
+          <span className="text-[10px] leading-none">{status.ahead}</span>
+        </button>
+      )}
+
+      {/* Sync button */}
+      <button
+        onClick={handleSync}
+        disabled={isSyncing}
+        className={cn(
+          "p-0.5 rounded hover:bg-muted transition-colors cursor-pointer",
+          isSyncing && "animate-spin"
+        )}
+        title="Sync with remote"
+      >
+        <Refresh className="size-3" />
+      </button>
+    </span>
   );
 }

@@ -73,6 +73,12 @@ pub struct CreateSessionRequest {
     pub base_branch: Option<String>,
     #[serde(default)]
     pub use_local: bool,
+    #[serde(default = "default_fetch_first")]
+    pub fetch_first: bool,
+}
+
+fn default_fetch_first() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

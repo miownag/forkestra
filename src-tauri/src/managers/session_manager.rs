@@ -120,6 +120,7 @@ impl SessionManager {
                 &project_path,
                 &session_id,
                 request.base_branch.as_deref(),
+                request.fetch_first,
             )?
         };
 

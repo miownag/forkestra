@@ -68,8 +68,8 @@ pub async fn merge_session(
 }
 
 #[tauri::command]
-pub async fn list_branches(project_path: String) -> Result<Vec<String>, String> {
-    WorktreeManager::list_branches(Path::new(&project_path)).map_err(|e| e.to_string())
+pub async fn list_branches(project_path: String, include_remote: bool) -> Result<Vec<String>, String> {
+    WorktreeManager::list_branches(Path::new(&project_path), include_remote).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -178,4 +178,24 @@ pub async fn cancel_generation(
         .cancel_generation(&session_id)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_sync(project_path: String) -> Result<String, String> {
+    WorktreeManager::sync_repository(Path::new(&project_path)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_pull(project_path: String) -> Result<String, String> {
+    WorktreeManager::pull_repository(Path::new(&project_path)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_push(project_path: String) -> Result<String, String> {
+    WorktreeManager::push_repository(Path::new(&project_path)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_status(project_path: String) -> Result<(usize, usize), String> {
+    WorktreeManager::get_ahead_behind(Path::new(&project_path)).map_err(|e| e.to_string())
 }

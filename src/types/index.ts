@@ -120,6 +120,7 @@ export interface CreateSessionRequest {
   project_path: string;
   base_branch?: string;
   use_local?: boolean;
+  fetch_first?: boolean;
 }
 
 export interface SessionStatusEvent {
