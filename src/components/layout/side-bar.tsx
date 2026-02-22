@@ -69,6 +69,7 @@ import {
   Trash,
   EmojiSad,
   Microscope,
+  ChemicalGlass,
 } from "iconsax-reactjs";
 import { RiGitRepositoryLine } from "react-icons/ri";
 import { PROVIDER_ICONS_MAP } from "@/constants/icons";
@@ -711,7 +712,10 @@ export function AppSidebar() {
               onClick={handleSkillsClick}
             >
               <Microscope className="shrink-0" />
-              <span>Skills</span>
+              <span className="flex items-center gap-1">
+                Skills
+                <ChemicalGlass className="size-3.5 text-muted-foreground" />
+              </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>

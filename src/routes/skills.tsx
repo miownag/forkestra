@@ -1,15 +1,27 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { DragArea } from "@/components/ui/drag-area";
 import { SkillCard } from "@/components/skills/skill-card";
 import { SkillDetailDialog } from "@/components/skills/skill-detail-dialog";
 import { SkillInstallDialog } from "@/components/skills/skill-install-dialog";
+import { SkillCreateDialog } from "@/components/skills/skill-create-dialog";
 import { useSelectorSkillsStore } from "@/stores";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { ArrowLeft2, Refresh, Add } from "iconsax-reactjs";
+import {
+  ArrowLeft2,
+  Refresh,
+  SearchNormal1,
+  Edit2,
+  Scanner,
+  DocumentDownload,
+  ChemicalGlass,
+} from "iconsax-reactjs";
 import type { SkillConfig } from "@/types";
+import { Tooltip, TooltipContent } from "@/components/ui/tooltip";
+import { TooltipTrigger } from "@radix-ui/react-tooltip";
 
 export const Route = createFileRoute("/skills")({
   component: RouteComponent,
@@ -32,27 +44,36 @@ function RouteComponent() {
     skills,
     isLoading,
     isScanning,
+    isUpdating,
     fetchSkills,
     scanSkills,
     toggleSkill,
     installSkill,
+    createSkill,
     removeSkill,
+    updateSkills,
   } = useSelectorSkillsStore([
     "skills",
     "isLoading",
     "isScanning",
+    "isUpdating",
     "fetchSkills",
     "scanSkills",
     "toggleSkill",
     "installSkill",
+    "createSkill",
     "removeSkill",
+    "updateSkills",
   ]);
 
   const router = useRouter();
-  const [activeSection, setActiveSection] = useState<SkillSection>("discovered");
+  const [activeSection, setActiveSection] =
+    useState<SkillSection>("discovered");
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [viewingSkill, setViewingSkill] = useState<SkillConfig | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const sectionRefs = useRef<Map<SkillSection, HTMLDivElement>>(new Map());
 
@@ -97,8 +118,23 @@ function RouteComponent() {
     }
   };
 
-  const discoveredSkills = skills.filter((s) => s.source.type !== "user_installed");
-  const installedSkills = skills.filter((s) => s.source.type === "user_installed");
+  // Filter skills by search query
+  const filteredSkills = useMemo(() => {
+    if (!searchQuery.trim()) return skills;
+    const q = searchQuery.toLowerCase();
+    return skills.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.description.toLowerCase().includes(q)
+    );
+  }, [skills, searchQuery]);
+
+  const discoveredSkills = filteredSkills.filter(
+    (s) => s.source.type !== "user_installed"
+  );
+  const installedSkills = filteredSkills.filter(
+    (s) => s.source.type === "user_installed"
+  );
 
   // Group discovered skills by source
   const groupedDiscovered = discoveredSkills.reduce<
@@ -123,7 +159,9 @@ function RouteComponent() {
 
   const handleRemove = useCallback(
     async (skill: SkillConfig) => {
-      const global = skill.source.type === "global" || skill.source.type === "user_installed";
+      const global =
+        skill.source.type === "global" ||
+        skill.source.type === "user_installed";
       const agent =
         skill.source.type === "global"
           ? skill.source.agent
@@ -138,7 +176,7 @@ function RouteComponent() {
   return (
     <>
       <DragArea />
-      <div className="flex-1 overflow-hidden flex justify-center">
+      <div className="flex-1 flex justify-center">
         <div className="flex gap-8 w-full max-w-7xl">
           {/* Left Sidebar */}
           <div className="w-56 shrink-0 py-12 sticky top-0 h-[calc(100vh-3.25rem)] overflow-y-auto">
@@ -170,26 +208,59 @@ function RouteComponent() {
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto px-1">
             <div className="space-y-8 sm:w-2xl md:w-3xl py-12">
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold">Skills</h2>
+                  <h2 className="text-xl font-semibold flex items-center gap-2">
+                    Skills
+                    <ChemicalGlass className="size-5 text-muted-foreground" />
+                  </h2>
                   <p className="text-sm text-muted-foreground mt-0.5">
                     Manage agent skills for your sessions
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="[&_svg]:size-3"
-                  onClick={scanSkills}
-                  disabled={isScanning}
-                >
-                  <Refresh className={cn(isScanning && "animate-spin")} />
-                  Scan
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="[&_svg]:size-3"
+                        onClick={() => updateSkills()}
+                        disabled={isUpdating}
+                      >
+                        <Refresh />
+                        {isUpdating ? "Updating..." : "Update"}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Update skills to latest version
+                    </TooltipContent>
+                  </Tooltip>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="[&_svg]:size-3"
+                    onClick={scanSkills}
+                    disabled={isScanning}
+                  >
+                    <Scanner className={cn(isScanning && "animate-spin")} />
+                    Scan
+                  </Button>
+                </div>
+              </div>
+
+              {/* Search */}
+              <div className="relative">
+                <SearchNormal1 className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search skills..."
+                  className="pl-9 text-sm"
+                />
               </div>
 
               {/* Discovered Section */}
@@ -212,8 +283,9 @@ function RouteComponent() {
                   </div>
                 ) : discoveredSkills.length === 0 ? (
                   <div className="text-sm text-muted-foreground py-8 text-center rounded-xl border border-dashed">
-                    No skills discovered. Click "Scan" to search your
-                    configuration directories.
+                    {searchQuery
+                      ? "No skills match your search."
+                      : 'No skills discovered. Click "Scan" to search your configuration directories.'}
                   </div>
                 ) : (
                   <div className="space-y-6">
@@ -230,6 +302,7 @@ function RouteComponent() {
                                 skill={skill}
                                 onToggle={toggleSkill}
                                 onView={handleView}
+                                onRemove={handleRemove}
                               />
                             ))}
                           </div>
@@ -253,23 +326,36 @@ function RouteComponent() {
                   <div>
                     <h3 className="text-lg font-semibold">Installed</h3>
                     <p className="text-sm text-muted-foreground">
-                      Skills installed via the CLI
+                      Skills installed via the CLI or created locally
                     </p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="[&_svg]:size-4"
-                    onClick={() => setInstallDialogOpen(true)}
-                  >
-                    <Add />
-                    Install Skill
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="[&_svg]:size-4"
+                      onClick={() => setCreateDialogOpen(true)}
+                    >
+                      <Edit2 />
+                      Create
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="[&_svg]:size-4"
+                      onClick={() => setInstallDialogOpen(true)}
+                    >
+                      <DocumentDownload />
+                      Install
+                    </Button>
+                  </div>
                 </div>
 
                 {installedSkills.length === 0 ? (
                   <div className="text-sm text-muted-foreground py-8 text-center rounded-xl border border-dashed">
-                    No user-installed skills yet.
+                    {searchQuery
+                      ? "No installed skills match your search."
+                      : "No user-installed skills yet."}
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -300,6 +386,12 @@ function RouteComponent() {
         open={installDialogOpen}
         onOpenChange={setInstallDialogOpen}
         onInstall={installSkill}
+      />
+
+      <SkillCreateDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onCreate={createSkill}
       />
     </>
   );

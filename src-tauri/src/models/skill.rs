@@ -42,6 +42,37 @@ pub struct SkillSettings {
     pub disabled_skills: Vec<String>,
 }
 
+/// Options for `npx skills add` command.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillInstallOptions {
+    /// Source repository (e.g. "vercel-labs/agent-skills")
+    pub source: String,
+    /// Install globally (-g)
+    #[serde(default)]
+    pub global: bool,
+    /// Target agents (--agent), supports multiple and `*` wildcard
+    #[serde(default)]
+    pub agent: Option<Vec<String>>,
+    /// Specific skills to install (--skill), supports multiple and `*` wildcard
+    #[serde(default)]
+    pub skill: Option<Vec<String>>,
+    /// Skip all confirmation prompts (-y)
+    #[serde(default)]
+    pub yes: bool,
+    /// Install all skills to all agents (--all)
+    #[serde(default)]
+    pub all: bool,
+    /// Search all subdirectories even if root has SKILL.md (--full-depth)
+    #[serde(default)]
+    pub full_depth: bool,
+    /// Copy files instead of symlinking (--copy)
+    #[serde(default)]
+    pub copy: bool,
+    /// Project directory for non-global installs (used as cwd)
+    #[serde(default)]
+    pub project_path: Option<String>,
+}
+
 /// Result from running a CLI command
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CliResult {

@@ -2,7 +2,7 @@ use std::sync::Arc;
 use tauri::State;
 
 use crate::managers::SkillsManager;
-use crate::models::skill::{CliResult, SkillConfig};
+use crate::models::skill::{CliResult, SkillConfig, SkillInstallOptions};
 
 #[tauri::command]
 pub async fn list_skills(
@@ -33,13 +33,27 @@ pub async fn toggle_skill(
 #[tauri::command]
 pub async fn install_skill(
     manager: State<'_, Arc<SkillsManager>>,
-    source: String,
-    global: bool,
-    agent: Option<String>,
+    options: SkillInstallOptions,
 ) -> Result<CliResult, String> {
     manager
-        .install_skill(&source, global, agent.as_deref())
+        .install_skill(&options)
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn create_skill(
+    manager: State<'_, Arc<SkillsManager>>,
+    name: String,
+    description: String,
+    content: String,
+    global: bool,
+) -> Result<CliResult, String> {
+    let result = manager
+        .create_skill(&name, &description, &content, global)
+        .map_err(|e| e.to_string())?;
+    // Re-scan to pick up the new skill
+    manager.scan_all().map_err(|e| e.to_string())?;
+    Ok(result)
 }
 
 #[tauri::command]

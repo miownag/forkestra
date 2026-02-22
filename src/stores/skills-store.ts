@@ -4,17 +4,24 @@ import { useShallow } from "zustand/react/shallow";
 import { pick } from "es-toolkit";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
-import type { SkillConfig, CliResult } from "@/types";
+import type { SkillConfig, SkillInstallOptions, CliResult } from "@/types";
 
 interface SkillsState {
   skills: SkillConfig[];
   isLoading: boolean;
   isScanning: boolean;
+  isUpdating: boolean;
 
   fetchSkills: () => Promise<void>;
   scanSkills: () => Promise<void>;
   toggleSkill: (skillId: string, enabled: boolean) => Promise<void>;
-  installSkill: (source: string, global: boolean, agent?: string) => Promise<CliResult>;
+  installSkill: (options: SkillInstallOptions) => Promise<CliResult>;
+  createSkill: (
+    name: string,
+    description: string,
+    content: string,
+    global: boolean
+  ) => Promise<void>;
   removeSkill: (name: string, global: boolean, agent?: string) => Promise<CliResult>;
   updateSkills: () => Promise<CliResult>;
 }
@@ -25,6 +32,7 @@ export const useSkillsStore = create<SkillsState>()(
       skills: [],
       isLoading: false,
       isScanning: false,
+      isUpdating: false,
 
       fetchSkills: async () => {
         set({ isLoading: true });
@@ -66,16 +74,11 @@ export const useSkillsStore = create<SkillsState>()(
         }
       },
 
-      installSkill: async (source, global, agent) => {
+      installSkill: async (options) => {
         try {
-          const result = await invoke<CliResult>("install_skill", {
-            source,
-            global,
-            agent: agent ?? null,
-          });
+          const result = await invoke<CliResult>("install_skill", { options });
           if (result.exit_code === 0) {
             toast.success("Skill installed successfully");
-            // Re-scan to pick up the new skill
             get().scanSkills();
           } else {
             toast.error(`Failed to install skill: ${result.stderr}`);
@@ -85,6 +88,23 @@ export const useSkillsStore = create<SkillsState>()(
           const errorMessage = err instanceof Error ? err.message : String(err);
           console.error("Failed to install skill:", err);
           toast.error(`Failed to install skill: ${errorMessage}`);
+          throw err;
+        }
+      },
+
+      createSkill: async (name, description, content, global) => {
+        try {
+          const result = await invoke<CliResult>("create_skill", { name, description, content, global });
+          if (result.exit_code === 0) {
+            toast.success(`Created skill: ${name}`);
+            get().scanSkills();
+          } else {
+            toast.error(`Failed to create skill: ${result.stderr}`);
+          }
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          console.error("Failed to create skill:", err);
+          toast.error(`Failed to create skill: ${errorMessage}`);
           throw err;
         }
       },
@@ -112,6 +132,7 @@ export const useSkillsStore = create<SkillsState>()(
       },
 
       updateSkills: async () => {
+        set({ isUpdating: true });
         try {
           const result = await invoke<CliResult>("update_skills");
           if (result.exit_code === 0) {
@@ -126,6 +147,8 @@ export const useSkillsStore = create<SkillsState>()(
           console.error("Failed to update skills:", err);
           toast.error(`Failed to update skills: ${errorMessage}`);
           throw err;
+        } finally {
+          set({ isUpdating: false });
         }
       },
     }),

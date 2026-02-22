@@ -28,9 +28,28 @@ impl SkillsManager {
     /// Scan all known skill directories and cache the results.
     pub fn scan_all(&self) -> AppResult<Vec<SkillConfig>> {
         let mut discovered = Vec::new();
+        let mut seen_names = HashSet::new();
+
+        // Scan CLI-installed skills from ~/.agents/skills/
+        let installed_names = self.load_installed_skill_names();
+        for skill in self.scan_agents_skills() {
+            seen_names.insert(skill.name.clone());
+            discovered.push(skill);
+        }
 
         // Scan Claude Code global skills: ~/.claude/skills/*/SKILL.md
-        discovered.extend(self.scan_claude_skills());
+        // Skip any already found in ~/.agents/skills/ to avoid duplicates
+        for mut skill in self.scan_claude_skills() {
+            if seen_names.contains(&skill.name) {
+                continue;
+            }
+            // If it's in the lock file but was found here (e.g. copied, not symlinked)
+            if installed_names.contains(&skill.name) {
+                skill.source = SkillSource::UserInstalled;
+                skill.id = format!("user:{}", skill.name);
+            }
+            discovered.push(skill);
+        }
 
         // Cache results
         *self.discovered_skills.write() = discovered.clone();
@@ -38,17 +57,61 @@ impl SkillsManager {
         Ok(discovered)
     }
 
+    /// Load installed skill names from ~/.agents/.skill-lock.json.
+    fn load_installed_skill_names(&self) -> HashSet<String> {
+        let lock_path = dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("/"))
+            .join(".agents")
+            .join(".skill-lock.json");
+
+        let content = match std::fs::read_to_string(&lock_path) {
+            Ok(c) => c,
+            Err(_) => return HashSet::new(),
+        };
+
+        // Parse the lock file: { "skills": { "<name>": { ... }, ... } }
+        let parsed: serde_json::Value = match serde_json::from_str(&content) {
+            Ok(v) => v,
+            Err(_) => return HashSet::new(),
+        };
+
+        parsed
+            .get("skills")
+            .and_then(|s| s.as_object())
+            .map(|obj| obj.keys().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    /// Scan CLI-installed skills from ~/.agents/skills/.
+    fn scan_agents_skills(&self) -> Vec<SkillConfig> {
+        let agents_skills_dir = dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("/"))
+            .join(".agents")
+            .join("skills");
+
+        self.scan_skills_dir(&agents_skills_dir, SkillSource::UserInstalled)
+    }
+
     /// Scan Claude Code skills directory (~/.claude/skills/).
     fn scan_claude_skills(&self) -> Vec<SkillConfig> {
+        let skills_dir = self.get_claude_skills_dir();
+        self.scan_skills_dir(
+            &skills_dir,
+            SkillSource::Global {
+                agent: "claude".to_string(),
+            },
+        )
+    }
+
+    /// Scan a directory for skills: look for <dir>/*/SKILL.md.
+    fn scan_skills_dir(&self, skills_dir: &Path, source: SkillSource) -> Vec<SkillConfig> {
         let mut skills = Vec::new();
 
-        let skills_dir = self.get_claude_skills_dir();
         if !skills_dir.exists() {
             return skills;
         }
 
-        // Iterate over subdirectories in skills_dir
-        let entries = match std::fs::read_dir(&skills_dir) {
+        let entries = match std::fs::read_dir(skills_dir) {
             Ok(entries) => entries,
             Err(_) => return skills,
         };
@@ -64,12 +127,7 @@ impl SkillsManager {
                 continue;
             }
 
-            if let Some(skill) = self.parse_skill_md(
-                &skill_md,
-                SkillSource::Global {
-                    agent: "claude".to_string(),
-                },
-            ) {
+            if let Some(skill) = self.parse_skill_md(&skill_md, source.clone()) {
                 skills.push(skill);
             }
         }
@@ -227,6 +285,7 @@ impl SkillsManager {
     /// Execute a `npx skills <args>` command.
     pub fn execute_cli(&self, args: &[&str], cwd: Option<&str>) -> AppResult<CliResult> {
         let mut cmd = Command::new("npx");
+        cmd.arg("-y");
         cmd.arg("skills");
         cmd.args(args);
 
@@ -245,22 +304,48 @@ impl SkillsManager {
         })
     }
 
-    /// Install a skill via `npx skills add <source>`.
-    pub fn install_skill(
-        &self,
-        source: &str,
-        global: bool,
-        agent: Option<&str>,
-    ) -> AppResult<CliResult> {
-        let mut args = vec!["add", source];
-        if global {
+    /// Install a skill via `npx skills add <source>` with full options.
+    pub fn install_skill(&self, options: &SkillInstallOptions) -> AppResult<CliResult> {
+        let mut args = vec!["add", &options.source];
+
+        if options.global {
             args.push("-g");
         }
-        if let Some(a) = agent {
-            args.push("--agent");
-            args.push(a);
+        if options.yes {
+            args.push("-y");
         }
-        self.execute_cli(&args, None)
+        if options.all {
+            args.push("--all");
+        }
+        if options.full_depth {
+            args.push("--full-depth");
+        }
+        if options.copy {
+            args.push("--copy");
+        }
+
+        // Collect agent strings to extend their lifetimes
+        let agent_strs: Vec<String>;
+        if let Some(agents) = &options.agent {
+            agent_strs = agents.clone();
+            for a in &agent_strs {
+                args.push("--agent");
+                args.push(a.as_str());
+            }
+        }
+
+        // Collect skill strings
+        let skill_strs: Vec<String>;
+        if let Some(skills) = &options.skill {
+            skill_strs = skills.clone();
+            for s in &skill_strs {
+                args.push("--skill");
+                args.push(s.as_str());
+            }
+        }
+
+        // Use project_path as cwd for non-global installs
+        self.execute_cli(&args, options.project_path.as_deref())
     }
 
     /// Remove a skill via `npx skills remove <name>`.
@@ -284,6 +369,54 @@ impl SkillsManager {
     /// Update skills via `npx skills update`.
     pub fn update_skills(&self) -> AppResult<CliResult> {
         self.execute_cli(&["update"], None)
+    }
+
+    /// Create a custom skill and install it to all agents via the CLI.
+    ///
+    /// 1. Write SKILL.md to a temp directory
+    /// 2. Run `npx skills add <temp-dir> --all [-g]` to install to all agents
+    pub fn create_skill(
+        &self,
+        name: &str,
+        description: &str,
+        content: &str,
+        global: bool,
+    ) -> AppResult<CliResult> {
+        // Create a temp directory with the skill
+        let temp_dir = std::env::temp_dir().join(format!("forkestra-skill-{}", name));
+        let skill_dir = temp_dir.join(name);
+        std::fs::create_dir_all(&skill_dir).map_err(|e| {
+            AppError::Skill(format!("Failed to create temp skill directory: {}", e))
+        })?;
+
+        let skill_md_path = skill_dir.join("SKILL.md");
+
+        let mut md_content = String::new();
+        md_content.push_str("---\n");
+        md_content.push_str(&format!("name: {}\n", name));
+        if !description.is_empty() {
+            md_content.push_str(&format!("description: {}\n", description));
+        }
+        md_content.push_str("---\n\n");
+        md_content.push_str(content);
+
+        std::fs::write(&skill_md_path, &md_content).map_err(|e| {
+            AppError::Skill(format!("Failed to write SKILL.md: {}", e))
+        })?;
+
+        // Install via CLI: npx skills add <temp-dir> --all [-g]
+        let temp_dir_str = temp_dir.to_string_lossy().to_string();
+        let mut args = vec!["add", &temp_dir_str, "--all"];
+        if global {
+            args.push("-g");
+        }
+
+        let result = self.execute_cli(&args, None);
+
+        // Clean up temp directory
+        let _ = std::fs::remove_dir_all(&temp_dir);
+
+        result
     }
 
     // ---- Toggle ----

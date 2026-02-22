@@ -215,6 +215,7 @@ pub fn run() {
             commands::install_skill,
             commands::remove_skill,
             commands::update_skills,
+            commands::create_skill,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

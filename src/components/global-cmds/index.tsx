@@ -42,6 +42,7 @@ import {
   SearchZoomOut,
   Setting5,
   Trash,
+  ChemicalGlass,
 } from "iconsax-reactjs";
 import { cn } from "@/lib/utils";
 import { useSelectorSessionStore } from "@/stores";
@@ -264,7 +265,10 @@ export function GlobalCommands({ className }: { className?: string }) {
                   }}
                 >
                   <Microscope />
-                  Skills
+                  <div className="flex items-center gap-1">
+                    Skills
+                    <ChemicalGlass className="size-2.5 text-muted-foreground" />
+                  </div>
                 </CommandItem>
               </CommandGroup>
               <CommandSeparator />

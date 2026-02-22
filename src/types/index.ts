@@ -325,6 +325,18 @@ export interface CliResult {
   exit_code: number;
 }
 
+export interface SkillInstallOptions {
+  source: string;
+  global: boolean;
+  agent?: string[];
+  skill?: string[];
+  yes: boolean;
+  all: boolean;
+  full_depth: boolean;
+  copy: boolean;
+  project_path?: string;
+}
+
 // Settings types
 export type Theme = "light" | "dark" | "system";
 export type FontSize = "small" | "base" | "large";
