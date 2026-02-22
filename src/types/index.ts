@@ -1,5 +1,5 @@
 // Provider types
-export type ProviderType = "claude" | "kimi";
+export type ProviderType = "claude" | "kimi" | "codex";
 
 export interface ProviderInfo {
   provider_type: ProviderType;
@@ -33,8 +33,15 @@ export interface KimiProviderSettings {
   env_vars?: Record<string, string>;
 }
 
+export interface CodexProviderSettings {
+  provider_type: "codex";
+  enabled: boolean;
+  custom_cli_path: string | null;
+  env_vars?: Record<string, string>;
+}
+
 // Discriminated union for all provider settings
-export type ProviderSettings = ClaudeProviderSettings | KimiProviderSettings;
+export type ProviderSettings = ClaudeProviderSettings | KimiProviderSettings | CodexProviderSettings;
 
 // Type guards
 export function isClaudeSettings(
@@ -47,6 +54,12 @@ export function isKimiSettings(
   settings: ProviderSettings
 ): settings is KimiProviderSettings {
   return settings.provider_type === "kimi";
+}
+
+export function isCodexSettings(
+  settings: ProviderSettings
+): settings is CodexProviderSettings {
+  return settings.provider_type === "codex";
 }
 
 // Default settings factory
@@ -65,6 +78,13 @@ export function createDefaultProviderSettings(
     case "kimi":
       return {
         provider_type: "kimi",
+        enabled: true,
+        custom_cli_path: null,
+        env_vars: {},
+      };
+    case "codex":
+      return {
+        provider_type: "codex",
         enabled: true,
         custom_cli_path: null,
         env_vars: {},
@@ -366,10 +386,51 @@ export type AccentColor =
   | "pink";
 
 export type DefaultWorkMode = "worktree" | "local";
+export type PostMergeAction = "ask" | "keep" | "cleanup";
 
 // App settings from backend
 export interface AppSettings {
   provider_settings: Record<ProviderType, ProviderSettings>;
+}
+
+// ========== Git SCM Types ==========
+
+export type GitFileStatusKind =
+  | "added"
+  | "modified"
+  | "deleted"
+  | "renamed"
+  | "copied"
+  | "untracked"
+  | "conflicted";
+
+export interface GitFileStatus {
+  path: string;
+  status: GitFileStatusKind;
+  old_path?: string;
+}
+
+export interface GitScmStatus {
+  staged: GitFileStatus[];
+  unstaged: GitFileStatus[];
+  untracked: GitFileStatus[];
+  conflicts: GitFileStatus[];
+  merge_in_progress: boolean;
+  rebase_in_progress: boolean;
+  branch_name: string;
+}
+
+export type MergeRebaseResult =
+  | "success"
+  | { conflicts: string[] }
+  | "up_to_date";
+
+export interface ConflictContent {
+  path: string;
+  ours: string | null;
+  theirs: string | null;
+  base: string | null;
+  working: string;
 }
 
 // ========== Session Config Options ==========

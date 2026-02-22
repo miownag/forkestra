@@ -1,5 +1,6 @@
 import { useState, forwardRef, useImperativeHandle } from "react";
 import { AddSquare, Edit2, Trash } from "iconsax-reactjs";
+import { LuGitMerge } from "react-icons/lu";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -33,7 +34,8 @@ import { useSessionStore } from "@/stores";
 import type { Session } from "@/types";
 import { cn, formatTimeAgo } from "@/lib/utils";
 import { NewSessionDialog } from "./new-session-dialog";
-import { PROVIDER_ICONS_MAP } from "@/constants/icons";
+import { MergeRebaseDialog } from "@/components/scm/merge-rebase-dialog";
+import { PROVIDER_ICONS_MAP, ProviderColorIcon } from "@/constants/icons";
 import { SessionStatusIcon } from "./session-status-icon";
 import { LuGitBranch } from "react-icons/lu";
 
@@ -71,6 +73,7 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showRenameDialog, setShowRenameDialog] = useState(false);
     const [showQuickCreateDialog, setShowQuickCreateDialog] = useState(false);
+    const [showMergeDialog, setShowMergeDialog] = useState(false);
     const [newName, setNewName] = useState(session.name);
 
     const terminateSession = useSessionStore((s) => s.terminateSession);
@@ -127,6 +130,13 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
           Rename
           <ContextMenuShortcut>⌘⌥R</ContextMenuShortcut>
         </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => setShowMergeDialog(true)}
+          className="cursor-pointer"
+        >
+          <LuGitMerge className="mr-2 h-4 w-4" />
+          Merge / Rebase
+        </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
           onClick={() => setShowDeleteDialog(true)}
@@ -159,7 +169,7 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
                   )}
                   title={session.name}
                 >
-                  <ProviderIcon.Color size={12} />
+                  <ProviderColorIcon icon={ProviderIcon} size={12} />
                   {session.name}
                 </div>
                 <div
@@ -250,6 +260,16 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
           open={showQuickCreateDialog}
           onOpenChange={setShowQuickCreateDialog}
           defaultValues={quickCreateDefaults}
+        />
+
+        <MergeRebaseDialog
+          open={showMergeDialog}
+          onOpenChange={setShowMergeDialog}
+          sessionId={session.id}
+          projectPath={session.project_path}
+          repoPath={session.is_local ? session.project_path : session.worktree_path}
+          currentBranch={session.branch_name}
+          isLocal={session.is_local}
         />
       </div>
     );

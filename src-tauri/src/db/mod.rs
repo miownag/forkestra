@@ -509,12 +509,14 @@ fn provider_type_to_str(p: &ProviderType) -> &'static str {
     match p {
         ProviderType::Claude => "claude",
         ProviderType::Kimi => "kimi",
+        ProviderType::Codex => "codex",
     }
 }
 
 fn str_to_provider_type(s: &str) -> ProviderType {
     match s {
         "kimi" => ProviderType::Kimi,
+        "codex" => ProviderType::Codex,
         _ => ProviderType::Claude,
     }
 }

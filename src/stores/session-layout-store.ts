@@ -1,11 +1,16 @@
 import { create } from "zustand";
 import { useSettingsStore } from "./settings-store";
 
+type LeftPanelMode = "file-tree" | "scm";
+type FileViewerContext = "file" | "diff" | "conflict";
+
 interface SessionLayout {
   showFileTree: boolean;
   showFileViewer: boolean;
   selectedFile: string | null;
   fileViewerMode: "edit" | "preview";
+  leftPanelMode: LeftPanelMode;
+  fileViewerContext: FileViewerContext;
 }
 
 interface SessionLayoutState {
@@ -24,6 +29,10 @@ interface SessionLayoutState {
   closeFileViewer: (sessionId: string) => void;
 
   setFileViewerMode: (sessionId: string, mode: "edit" | "preview") => void;
+
+  setLeftPanelMode: (sessionId: string, mode: LeftPanelMode) => void;
+  toggleLeftPanelMode: (sessionId: string) => void;
+  setFileViewerContext: (sessionId: string, ctx: FileViewerContext) => void;
 }
 
 const DEFAULT_LAYOUT: SessionLayout = {
@@ -31,6 +40,8 @@ const DEFAULT_LAYOUT: SessionLayout = {
   showFileViewer: false,
   selectedFile: null,
   fileViewerMode: "edit",
+  leftPanelMode: "file-tree",
+  fileViewerContext: "file",
 };
 
 export const useSessionLayoutStore = create<SessionLayoutState>((set, get) => ({
@@ -122,6 +133,7 @@ export const useSessionLayoutStore = create<SessionLayoutState>((set, get) => ({
             ...layout,
             showFileViewer: false,
             selectedFile: null,
+            fileViewerContext: "file",
           },
         },
       };
@@ -137,6 +149,57 @@ export const useSessionLayoutStore = create<SessionLayoutState>((set, get) => ({
           [sessionId]: {
             ...layout,
             fileViewerMode: mode,
+          },
+        },
+      };
+    });
+  },
+
+  setLeftPanelMode: (sessionId: string, mode: LeftPanelMode) => {
+    useSettingsStore.getState().setSidebarCollapsed(true);
+
+    set((state) => {
+      const layout = state.layouts[sessionId] || DEFAULT_LAYOUT;
+      return {
+        layouts: {
+          ...state.layouts,
+          [sessionId]: {
+            ...layout,
+            leftPanelMode: mode,
+            showFileTree: true,
+          },
+        },
+      };
+    });
+  },
+
+  toggleLeftPanelMode: (sessionId: string) => {
+    set((state) => {
+      const layout = state.layouts[sessionId] || DEFAULT_LAYOUT;
+      const newMode: LeftPanelMode =
+        layout.leftPanelMode === "file-tree" ? "scm" : "file-tree";
+      return {
+        layouts: {
+          ...state.layouts,
+          [sessionId]: {
+            ...layout,
+            leftPanelMode: newMode,
+            showFileTree: true,
+          },
+        },
+      };
+    });
+  },
+
+  setFileViewerContext: (sessionId: string, ctx: FileViewerContext) => {
+    set((state) => {
+      const layout = state.layouts[sessionId] || DEFAULT_LAYOUT;
+      return {
+        layouts: {
+          ...state.layouts,
+          [sessionId]: {
+            ...layout,
+            fileViewerContext: ctx,
           },
         },
       };

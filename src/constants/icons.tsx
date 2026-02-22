@@ -43,10 +43,31 @@ import Zig from "../../public/seti/zig.svg";
 
 const PROVIDER_ICONS_MAP = {
   claude: Claude,
-  openai: OpenAI,
   gemini: Gemini,
   kimi: Kimi,
-};
+  codex: OpenAI,
+} as const;
+
+type ProviderIconMap = typeof PROVIDER_ICONS_MAP;
+type ProviderIconType = ProviderIconMap[keyof ProviderIconMap];
+
+/**
+ * Render a provider icon's Color variant if available, otherwise fall back to Avatar.
+ * This is needed because some icons (e.g. OpenAI) don't have a Color sub-component.
+ */
+function ProviderColorIcon({
+  icon,
+  size,
+}: {
+  icon: ProviderIconType;
+  size: number;
+}) {
+  if ("Color" in icon && icon.Color) {
+    const ColorComponent = icon.Color as React.ComponentType<{ size: number }>;
+    return <ColorComponent size={size} />;
+  }
+  return <icon.Avatar size={size} />;
+}
 
 const FILE_EXT_SETI_ICONS_MAP = {
   ts: TypeScript,
@@ -158,6 +179,7 @@ const MD_LANG_TYPE_SETI_ICONS_MAP = {
 
 export {
   PROVIDER_ICONS_MAP,
+  ProviderColorIcon,
   FILE_EXT_SETI_ICONS_MAP,
   MD_LANG_TYPE_SETI_ICONS_MAP,
 };

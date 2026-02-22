@@ -30,10 +30,19 @@ pub async fn detect_providers(
             _ => None,
         });
 
+    let codex_custom_path: Option<String> = settings
+        .provider_settings
+        .get(&ProviderType::Codex)
+        .and_then(|s| match s {
+            ProviderSettings::Codex(c) => c.custom_cli_path.clone(),
+            _ => None,
+        });
+
     let result = tokio::task::spawn_blocking(move || {
         ProviderDetector::detect_all_with_settings(
             claude_custom_path.as_deref(),
             kimi_custom_path.as_deref(),
+            codex_custom_path.as_deref(),
         )
     })
     .await

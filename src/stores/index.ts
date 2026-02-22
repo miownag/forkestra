@@ -9,3 +9,4 @@ export { useFileOperationsStore, storeFileContentForUndo } from "./file-operatio
 export { useChatInputStore } from "./chat-input-store";
 export { useMcpStore, useSelectorMcpStore } from "./mcp-store";
 export { useSkillsStore, useSelectorSkillsStore } from "./skills-store";
+export { useScmStore } from "./scm-store";

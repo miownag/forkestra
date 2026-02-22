@@ -72,7 +72,7 @@ import {
   ChemicalGlass,
 } from "iconsax-reactjs";
 import { RiGitRepositoryLine } from "react-icons/ri";
-import { PROVIDER_ICONS_MAP } from "@/constants/icons";
+import { PROVIDER_ICONS_MAP, ProviderColorIcon } from "@/constants/icons";
 import { SessionStatusIcon } from "@/components/session/session-status-icon";
 import { LuChevronDown, LuGitBranch, LuMenu } from "react-icons/lu";
 import {
@@ -177,7 +177,7 @@ const SessionSidebarItem = forwardRef<
               )}
             >
               <span className="shrink-0 size-4 flex items-center justify-center">
-                <ProviderIcon.Color size={14} />
+                <ProviderColorIcon icon={ProviderIcon} size={14} />
               </span>
               <div className="flex-1 min-w-0">
                 <div

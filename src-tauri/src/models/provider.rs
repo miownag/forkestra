@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub enum ProviderType {
     Claude,
     Kimi,
+    Codex,
 }
 
 impl ProviderType {
@@ -12,6 +13,7 @@ impl ProviderType {
         match self {
             ProviderType::Claude => "claude",
             ProviderType::Kimi => "kimi",
+            ProviderType::Codex => "codex",
         }
     }
 
@@ -19,6 +21,7 @@ impl ProviderType {
         match self {
             ProviderType::Claude => "Claude Code",
             ProviderType::Kimi => "Kimi Code",
+            ProviderType::Codex => "Codex",
         }
     }
 }
@@ -92,12 +95,32 @@ impl Default for KimiProviderSettings {
     }
 }
 
+// Codex-specific settings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodexProviderSettings {
+    pub enabled: bool,
+    pub custom_cli_path: Option<String>,
+    #[serde(default)]
+    pub env_vars: std::collections::HashMap<String, String>,
+}
+
+impl Default for CodexProviderSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            custom_cli_path: None,
+            env_vars: std::collections::HashMap::new(),
+        }
+    }
+}
+
 // Tagged enum for all provider settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "provider_type", rename_all = "snake_case")]
 pub enum ProviderSettings {
     Claude(ClaudeProviderSettings),
     Kimi(KimiProviderSettings),
+    Codex(CodexProviderSettings),
 }
 
 impl ProviderSettings {
@@ -105,6 +128,7 @@ impl ProviderSettings {
         match self {
             ProviderSettings::Claude(_) => ProviderType::Claude,
             ProviderSettings::Kimi(_) => ProviderType::Kimi,
+            ProviderSettings::Codex(_) => ProviderType::Codex,
         }
     }
 
@@ -112,6 +136,7 @@ impl ProviderSettings {
         match self {
             ProviderSettings::Claude(s) => s.custom_cli_path.as_deref(),
             ProviderSettings::Kimi(s) => s.custom_cli_path.as_deref(),
+            ProviderSettings::Codex(s) => s.custom_cli_path.as_deref(),
         }
     }
 
@@ -119,6 +144,7 @@ impl ProviderSettings {
         match self {
             ProviderSettings::Claude(s) => s.enabled,
             ProviderSettings::Kimi(s) => s.enabled,
+            ProviderSettings::Codex(s) => s.enabled,
         }
     }
 }

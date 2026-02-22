@@ -17,7 +17,7 @@ import useSelectorSettingsStore from "@/stores/settings-store";
 import { ProviderSettingsCard } from "@/components/settings/provider-settings-card";
 import { GlobalSettingsEditor } from "@/components/settings/global-settings-editor";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import type { Theme, FontSize, AccentColor, DefaultWorkMode } from "@/types";
+import type { Theme, FontSize, AccentColor, DefaultWorkMode, PostMergeAction } from "@/types";
 import { ACCENT_COLOR_OPTIONS } from "@/constants/theme";
 import { Separator } from "@/components/ui/separator";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
@@ -38,6 +38,7 @@ type SettingSection =
   | "general"
   | "general-project-path"
   | "general-work-mode"
+  | "general-post-merge"
   | "appearance"
   | "appearance-theme"
   | "appearance-font-size"
@@ -57,6 +58,7 @@ const SECTION_ITEMS: SectionItem[] = [
     children: [
       { id: "general-project-path", label: "Default Project Path" },
       { id: "general-work-mode", label: "Preferred Work Mode" },
+      { id: "general-post-merge", label: "Post-Merge Action" },
     ],
   },
   {
@@ -88,24 +90,28 @@ function RouteComponent() {
     accentColor,
     defaultProjectPath,
     defaultWorkMode,
+    postMergeAction,
     loadSettings,
     setTheme,
     setFontSize,
     setAccentColor,
     setDefaultProjectPath,
     setDefaultWorkMode,
+    setPostMergeAction,
   } = useSelectorSettingsStore([
     "theme",
     "fontSize",
     "accentColor",
     "defaultProjectPath",
     "defaultWorkMode",
+    "postMergeAction",
     "loadSettings",
     "setTheme",
     "setFontSize",
     "setAccentColor",
     "setDefaultProjectPath",
     "setDefaultWorkMode",
+    "setPostMergeAction",
   ]);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<SettingsTab>("ui");
@@ -353,6 +359,40 @@ function RouteComponent() {
                           <SelectContent>
                             <SelectItem value="worktree">Worktree</SelectItem>
                             <SelectItem value="local">Local</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Post-Merge Action */}
+                      <div
+                        ref={(el) => {
+                          if (el)
+                            sectionRefs.current.set("general-post-merge", el);
+                        }}
+                        data-section="general-post-merge"
+                        className="flex items-center justify-between"
+                      >
+                        <div className="space-y-0.5">
+                          <Label className="text-sm font-medium">
+                            Post-Merge Action
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            What to do with session after successful merge
+                          </p>
+                        </div>
+                        <Select
+                          value={postMergeAction}
+                          onValueChange={(value) =>
+                            setPostMergeAction(value as PostMergeAction)
+                          }
+                        >
+                          <SelectTrigger className="w-45">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ask">Always Ask</SelectItem>
+                            <SelectItem value="keep">Keep Session</SelectItem>
+                            <SelectItem value="cleanup">Clean Up Session</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

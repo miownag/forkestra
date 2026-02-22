@@ -2,7 +2,12 @@ use std::path::Path;
 use tauri::State;
 
 use crate::managers::{SessionManager, WorktreeManager};
-use crate::models::{ChatMessage, CreateSessionRequest, PromptContent, Session};
+use crate::models::{
+    ChatMessage, CreateSessionRequest, PromptContent, Session,
+};
+use crate::models::session::{
+    ConflictContent, GitScmStatus, MergeRebaseResult,
+};
 
 #[tauri::command]
 pub async fn create_session(
@@ -198,4 +203,122 @@ pub async fn git_push(project_path: String) -> Result<String, String> {
 #[tauri::command]
 pub async fn git_status(project_path: String) -> Result<(usize, usize), String> {
     WorktreeManager::get_ahead_behind(Path::new(&project_path)).map_err(|e| e.to_string())
+}
+
+// ========== SCM Commands ==========
+
+#[tauri::command]
+pub async fn git_scm_status(repo_path: String) -> Result<GitScmStatus, String> {
+    WorktreeManager::get_scm_status(Path::new(&repo_path)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_file_diff(
+    repo_path: String,
+    file_path: String,
+    staged: bool,
+) -> Result<String, String> {
+    WorktreeManager::get_file_diff(Path::new(&repo_path), &file_path, staged)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_stage_file(repo_path: String, file_path: String) -> Result<(), String> {
+    WorktreeManager::stage_file(Path::new(&repo_path), &file_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_unstage_file(repo_path: String, file_path: String) -> Result<(), String> {
+    WorktreeManager::unstage_file(Path::new(&repo_path), &file_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_stage_all(repo_path: String) -> Result<(), String> {
+    WorktreeManager::stage_all(Path::new(&repo_path)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_unstage_all(repo_path: String) -> Result<(), String> {
+    WorktreeManager::unstage_all(Path::new(&repo_path)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_commit(repo_path: String, message: String) -> Result<String, String> {
+    WorktreeManager::commit(Path::new(&repo_path), &message).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_discard_file(repo_path: String, file_path: String) -> Result<(), String> {
+    WorktreeManager::discard_file(Path::new(&repo_path), &file_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_merge_from(
+    repo_path: String,
+    source_branch: String,
+) -> Result<MergeRebaseResult, String> {
+    WorktreeManager::merge_from(Path::new(&repo_path), &source_branch)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_rebase_onto(
+    repo_path: String,
+    onto_branch: String,
+) -> Result<MergeRebaseResult, String> {
+    WorktreeManager::rebase_onto(Path::new(&repo_path), &onto_branch)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_merge_to(
+    session_id: String,
+    project_path: String,
+    target_branch: String,
+) -> Result<MergeRebaseResult, String> {
+    WorktreeManager::merge_to_branch_with_result(
+        Path::new(&project_path),
+        &session_id,
+        &target_branch,
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_abort_merge(repo_path: String) -> Result<(), String> {
+    WorktreeManager::abort_merge(Path::new(&repo_path)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_abort_rebase(repo_path: String) -> Result<(), String> {
+    WorktreeManager::abort_rebase(Path::new(&repo_path)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_continue_merge(repo_path: String) -> Result<(), String> {
+    WorktreeManager::continue_merge(Path::new(&repo_path)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_continue_rebase(repo_path: String) -> Result<(), String> {
+    WorktreeManager::continue_rebase(Path::new(&repo_path)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_get_conflict_content(
+    repo_path: String,
+    file_path: String,
+) -> Result<ConflictContent, String> {
+    WorktreeManager::get_conflict_content(Path::new(&repo_path), &file_path)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_resolve_conflict(
+    repo_path: String,
+    file_path: String,
+    content: String,
+) -> Result<(), String> {
+    WorktreeManager::resolve_conflict(Path::new(&repo_path), &file_path, &content)
+        .map_err(|e| e.to_string())
 }

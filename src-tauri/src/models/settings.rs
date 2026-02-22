@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use super::mcp::McpSettings;
 use super::provider::{
-    ClaudeProviderSettings, KimiProviderSettings, ProviderSettings, ProviderType,
+    ClaudeProviderSettings, CodexProviderSettings, KimiProviderSettings, ProviderSettings, ProviderType,
 };
 use super::skill::SkillSettings;
 
@@ -14,6 +14,8 @@ pub struct GeneralSettings {
     pub default_project_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_work_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub post_merge_action: Option<String>,
 }
 
 impl Default for GeneralSettings {
@@ -21,6 +23,7 @@ impl Default for GeneralSettings {
         Self {
             default_project_path: None,
             default_work_mode: Some("worktree".to_string()),
+            post_merge_action: Some("ask".to_string()),
         }
     }
 }
@@ -69,6 +72,10 @@ impl Default for AppSettings {
         provider_settings.insert(
             ProviderType::Kimi,
             ProviderSettings::Kimi(KimiProviderSettings::default()),
+        );
+        provider_settings.insert(
+            ProviderType::Codex,
+            ProviderSettings::Codex(CodexProviderSettings::default()),
         );
 
         Self {

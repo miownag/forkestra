@@ -7,6 +7,7 @@ import type {
   AppSettings,
   ClaudeProviderSettings,
   KimiProviderSettings,
+  CodexProviderSettings,
 } from "@/types";
 import { createDefaultProviderSettings } from "@/types";
 import { useShallow } from "zustand/react/shallow";
@@ -23,7 +24,7 @@ interface ProviderSettingsState {
   updateProviderSettings: (settings: ProviderSettings) => Promise<void>;
   getProviderSettings: <T extends ProviderType>(
     providerType: T
-  ) => T extends "claude" ? ClaudeProviderSettings : KimiProviderSettings;
+  ) => T extends "claude" ? ClaudeProviderSettings : T extends "kimi" ? KimiProviderSettings : CodexProviderSettings;
 
   // Claude-specific helpers
   setClaudeCliPath: (path: string | null) => Promise<void>;
@@ -31,6 +32,9 @@ interface ProviderSettingsState {
 
   // Kimi-specific helpers
   setKimiCliPath: (path: string | null) => Promise<void>;
+
+  // Codex-specific helpers
+  setCodexCliPath: (path: string | null) => Promise<void>;
 }
 
 export const useProviderSettingsStore = create<ProviderSettingsState>()(
@@ -41,6 +45,7 @@ export const useProviderSettingsStore = create<ProviderSettingsState>()(
           claude:
             createDefaultProviderSettings("claude") as ClaudeProviderSettings,
           kimi: createDefaultProviderSettings("kimi") as KimiProviderSettings,
+          codex: createDefaultProviderSettings("codex") as CodexProviderSettings,
         },
         isLoading: false,
         error: null,
@@ -49,10 +54,14 @@ export const useProviderSettingsStore = create<ProviderSettingsState>()(
           set({ isLoading: true, error: null });
           try {
             const appSettings = await invoke<AppSettings>("get_settings");
-            set({
-              settings: appSettings.provider_settings,
+            // Merge with defaults so newly added providers are never undefined
+            set((state) => ({
+              settings: {
+                ...state.settings,
+                ...appSettings.provider_settings,
+              },
               isLoading: false,
-            });
+            }));
           } catch (error) {
             set({ error: String(error), isLoading: false });
           }
@@ -104,12 +113,32 @@ export const useProviderSettingsStore = create<ProviderSettingsState>()(
             custom_cli_path: path,
           });
         },
+
+        // Codex helpers
+        setCodexCliPath: async (path) => {
+          const current = get().settings.codex as CodexProviderSettings;
+          await get().updateProviderSettings({
+            ...current,
+            custom_cli_path: path,
+          });
+        },
       }),
       {
         name: "forkestra-provider-settings",
         partialize: (state) => ({
           settings: state.settings,
         }),
+        merge: (persisted, current) => {
+          const persistedState = persisted as Partial<ProviderSettingsState>;
+          return {
+            ...current,
+            ...persistedState,
+            settings: {
+              ...current.settings,
+              ...(persistedState.settings ?? {}),
+            },
+          };
+        },
       }
     ),
     { name: "ProviderSettingsStore" }

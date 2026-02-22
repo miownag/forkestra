@@ -10,6 +10,9 @@ import { TerminalPanel } from "@/components/terminal/terminal-panel";
 import { ActionToolbar } from "@/components/toolbar/action-toolbar";
 import { FileTree } from "@/components/file-system/file-tree";
 import { FileViewer } from "@/components/file-system/file-viewer";
+import { ScmPanel } from "@/components/scm/scm-panel";
+import { ScmDiffViewer } from "@/components/scm/scm-diff-viewer";
+import { ConflictResolver } from "@/components/scm/conflict-resolver";
 import { LuGitBranch, LuFolderOpen, LuFolderTree } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import {
@@ -32,7 +35,7 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
     "sessions",
     "creatingSessions",
   ]);
-  const { getLayout, toggleFileTree, setFileViewerMode, closeFileViewer } =
+  const { getLayout, toggleFileTree, setFileViewerMode, closeFileViewer, setFileViewerContext } =
     useSessionLayoutStore();
 
   const session = sessions.find((s) => s.id === sessionId);
@@ -40,7 +43,13 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
     session?.status === "creating" || creatingSessions.has(sessionId);
 
   const layout = getLayout(sessionId);
-  const { showFileTree, showFileViewer, selectedFile, fileViewerMode } = layout;
+  const { showFileTree, showFileViewer, selectedFile, fileViewerMode, leftPanelMode, fileViewerContext } = layout;
+
+  const repoPath = session
+    ? session.is_local
+      ? session.project_path
+      : session.worktree_path
+    : "";
 
   if (!session) return null;
 
@@ -52,14 +61,18 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
       )}
     >
       <ResizablePanelGroup orientation="horizontal" className="w-full">
-        {/* Left: File Tree (conditional) */}
+        {/* Left: File Tree or SCM Panel (conditional) */}
         {showFileTree && (
           <>
             <ResizablePanel defaultSize="10%" minSize="10%" maxSize="15%">
-              <FileTree
-                projectPath={session.project_path}
-                sessionId={session.id}
-              />
+              {leftPanelMode === "scm" ? (
+                <ScmPanel sessionId={session.id} repoPath={repoPath} />
+              ) : (
+                <FileTree
+                  projectPath={session.project_path}
+                  sessionId={session.id}
+                />
+              )}
             </ResizablePanel>
             <ResizableHandle withHandle />
           </>
@@ -155,19 +168,40 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
           </div>
         </ResizablePanel>
 
-        {/* Right: File Viewer (conditional) */}
+        {/* Right: File Viewer / Diff / Conflict (conditional) */}
         {showFileViewer && selectedFile && (
           <>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize="50%" minSize="40%" maxSize="50%">
-              <FileViewer
-                sessionId={session.id}
-                projectPath={session.project_path}
-                filePath={selectedFile}
-                mode={fileViewerMode}
-                onModeChange={(mode) => setFileViewerMode(session.id, mode)}
-                onClose={() => closeFileViewer(session.id)}
-              />
+              {fileViewerContext === "conflict" ? (
+                <ConflictResolver
+                  sessionId={session.id}
+                  repoPath={repoPath}
+                  filePath={selectedFile}
+                  onClose={() => closeFileViewer(session.id)}
+                  onResolved={() => {
+                    setFileViewerContext(session.id, "file");
+                    closeFileViewer(session.id);
+                  }}
+                />
+              ) : fileViewerContext === "diff" ? (
+                <ScmDiffViewer
+                  sessionId={session.id}
+                  repoPath={repoPath}
+                  filePath={selectedFile}
+                  staged={false}
+                  onClose={() => closeFileViewer(session.id)}
+                />
+              ) : (
+                <FileViewer
+                  sessionId={session.id}
+                  projectPath={session.project_path}
+                  filePath={selectedFile}
+                  mode={fileViewerMode}
+                  onModeChange={(mode) => setFileViewerMode(session.id, mode)}
+                  onClose={() => closeFileViewer(session.id)}
+                />
+              )}
             </ResizablePanel>
           </>
         )}

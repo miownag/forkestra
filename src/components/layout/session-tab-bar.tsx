@@ -12,7 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggleButton } from "./title-bar-controls";
 import { cn } from "@/lib/utils";
 import type { Session } from "@/types";
-import { PROVIDER_ICONS_MAP } from "@/constants/icons";
+import { PROVIDER_ICONS_MAP, ProviderColorIcon } from "@/constants/icons";
 import {
   DndContext,
   closestCenter,
@@ -292,7 +292,7 @@ function SortableTabItem({
             "transition-none"
           )}
         >
-          <ProviderIcon.Color size={14} />
+          <ProviderColorIcon icon={ProviderIcon} size={14} />
           <span className="truncate" title={session.name}>
             {session.name}
           </span>
@@ -361,7 +361,7 @@ function TabOverlay({ session, width }: { session: Session; width: number }) {
         session.is_local ? "text-local" : "text-worktree"
       )}
     >
-      <ProviderIcon.Color size={14} />
+      <ProviderColorIcon icon={ProviderIcon} size={14} />
       <span className="truncate" title={session.name}>
         {session.name}
       </span>

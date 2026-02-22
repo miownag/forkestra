@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { devtools, subscribeWithSelector } from "zustand/middleware";
-import type { Theme, FontSize, AccentColor, DefaultWorkMode } from "@/types";
+import type { Theme, FontSize, AccentColor, DefaultWorkMode, PostMergeAction } from "@/types";
 import { useShallow } from "zustand/react/shallow";
 import { pick } from "es-toolkit";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -11,6 +11,7 @@ type ResolvedTheme = "light" | "dark";
 interface GeneralSettings {
   defaultProjectPath: string | null;
   defaultWorkMode: DefaultWorkMode;
+  postMergeAction?: PostMergeAction;
 }
 
 interface AppearanceSettings {
@@ -38,6 +39,7 @@ interface SettingsState {
   worktreeBasePath: string | null;
   defaultProjectPath: string | null;
   defaultWorkMode: DefaultWorkMode;
+  postMergeAction: PostMergeAction;
 
   // Initialization
   isInitialized: boolean;
@@ -54,6 +56,7 @@ interface SettingsState {
   setWorktreeBasePath: (path: string | null) => void;
   setDefaultProjectPath: (path: string | null) => void;
   setDefaultWorkMode: (mode: DefaultWorkMode) => void;
+  setPostMergeAction: (action: PostMergeAction) => void;
 
   // File-based storage actions
   loadSettings: () => Promise<void>;
@@ -80,6 +83,7 @@ export const useSettingsStore = create<SettingsState>()(
       worktreeBasePath: null,
       defaultProjectPath: null,
       defaultWorkMode: "worktree",
+      postMergeAction: "ask",
 
       isInitialized: false,
 
@@ -129,6 +133,11 @@ export const useSettingsStore = create<SettingsState>()(
         get().saveSettings();
       },
 
+      setPostMergeAction: (action) => {
+        set({ postMergeAction: action });
+        get().saveSettings();
+      },
+
       loadSettings: async () => {
         try {
           const settings = await invoke<{
@@ -141,6 +150,9 @@ export const useSettingsStore = create<SettingsState>()(
           if (settings.general) {
             updates.defaultProjectPath = settings.general.defaultProjectPath;
             updates.defaultWorkMode = settings.general.defaultWorkMode;
+            if (settings.general.postMergeAction) {
+              updates.postMergeAction = settings.general.postMergeAction;
+            }
           }
 
           if (settings.appearance) {
@@ -168,6 +180,7 @@ export const useSettingsStore = create<SettingsState>()(
               general: {
                 defaultProjectPath: state.defaultProjectPath,
                 defaultWorkMode: state.defaultWorkMode,
+                postMergeAction: state.postMergeAction,
               },
               appearance: {
                 theme: state.theme,

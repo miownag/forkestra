@@ -44,12 +44,15 @@ import {
   Trash,
   ChemicalGlass,
 } from "iconsax-reactjs";
+import { LuGitMerge, LuGitBranch } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { useSelectorSessionStore } from "@/stores";
+import { useSessionLayoutStore } from "@/stores";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useNavigate } from "@tanstack/react-router";
 import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { NewSessionDialog } from "@/components/session/new-session-dialog";
+import { MergeRebaseDialog } from "@/components/scm/merge-rebase-dialog";
 import { MCP } from "@lobehub/icons";
 import { menuEventBus } from "@/lib/menu-events";
 
@@ -66,6 +69,7 @@ export function GlobalCommands({ className }: { className?: string }) {
   const [showQuickCreateDialog, setShowQuickCreateDialog] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [newName, setNewName] = useState("");
 
   const navigate = useNavigate();
@@ -76,6 +80,8 @@ export function GlobalCommands({ className }: { className?: string }) {
       "renameSession",
       "terminateSession",
     ]);
+
+  const { toggleLeftPanelMode } = useSessionLayoutStore();
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
 
@@ -244,6 +250,18 @@ export function GlobalCommands({ className }: { className?: string }) {
                   <span className="text-destructive">Delete this session</span>
                   <CommandShortcut>⌘⌥⌫</CommandShortcut>
                 </CommandItem>
+                <CommandItem
+                  className="cursor-pointer"
+                  onSelect={() => {
+                    if (!activeSession) return;
+                    setOpen(false);
+                    setShowMergeDialog(true);
+                  }}
+                  disabled={!activeSession}
+                >
+                  <LuGitMerge />
+                  <span>Merge / Rebase</span>
+                </CommandItem>
               </CommandGroup>
               <CommandSeparator />
               <CommandGroup heading="Tools">
@@ -288,6 +306,18 @@ export function GlobalCommands({ className }: { className?: string }) {
               </CommandGroup>
               <CommandSeparator />
               <CommandGroup heading="View">
+                <CommandItem
+                  className="cursor-pointer"
+                  onSelect={() => {
+                    if (!activeSession) return;
+                    setOpen(false);
+                    toggleLeftPanelMode(activeSession.id);
+                  }}
+                  disabled={!activeSession}
+                >
+                  <LuGitBranch />
+                  Toggle Source Control
+                </CommandItem>
                 <CommandItem
                   className="cursor-pointer"
                   onSelect={handleToggleFullscreen}
@@ -383,6 +413,23 @@ export function GlobalCommands({ className }: { className?: string }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Merge/Rebase Dialog */}
+      {activeSession && (
+        <MergeRebaseDialog
+          open={showMergeDialog}
+          onOpenChange={setShowMergeDialog}
+          sessionId={activeSession.id}
+          projectPath={activeSession.project_path}
+          repoPath={
+            activeSession.is_local
+              ? activeSession.project_path
+              : activeSession.worktree_path
+          }
+          currentBranch={activeSession.branch_name}
+          isLocal={activeSession.is_local}
+        />
+      )}
     </>
   );
 }

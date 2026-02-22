@@ -72,7 +72,7 @@ impl ProviderDetector {
 
     /// Detect all available providers
     pub fn detect_all() -> Vec<ProviderInfo> {
-        let providers = vec![ProviderType::Claude, ProviderType::Kimi];
+        let providers = vec![ProviderType::Claude, ProviderType::Kimi, ProviderType::Codex];
 
         providers
             .into_iter()
@@ -84,10 +84,12 @@ impl ProviderDetector {
     pub fn detect_all_with_settings(
         claude_custom_path: Option<&str>,
         kimi_custom_path: Option<&str>,
+        codex_custom_path: Option<&str>,
     ) -> Vec<ProviderInfo> {
         vec![
             Self::detect_provider(&ProviderType::Claude, claude_custom_path),
             Self::detect_provider(&ProviderType::Kimi, kimi_custom_path),
+            Self::detect_provider(&ProviderType::Codex, codex_custom_path),
         ]
     }
 
@@ -167,6 +169,7 @@ impl ProviderDetector {
         // Parse version string (format varies by CLI)
         // Claude Code: "claude x.y.z"
         // Kimi Code: "kimi, version 1.8.0"
+        // Codex: "codex x.y.z" or similar
         // Extract the last token that looks like a version number
         let version = version_str
             .split(|c: char| c.is_whitespace() || c == ',')
