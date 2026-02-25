@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::managers::SettingsManager;
-use crate::models::{AppearanceSettings, AppSettings, GeneralSettings, ProviderSettings};
+use crate::models::{AppearanceSettings, AppSettings, GeneralSettings, NotificationSettings, ProviderSettings};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -13,6 +13,8 @@ pub struct UiSettings {
     pub general: Option<GeneralSettings>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub appearance: Option<AppearanceSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notification: Option<NotificationSettings>,
 }
 
 #[tauri::command]
@@ -64,6 +66,7 @@ pub async fn get_ui_settings(
     Ok(UiSettings {
         general: settings.general,
         appearance: settings.appearance,
+        notification: settings.notification,
     })
 }
 
@@ -80,6 +83,10 @@ pub async fn update_ui_settings(
 
     if let Some(appearance) = ui_settings.appearance {
         settings.appearance = Some(appearance);
+    }
+
+    if let Some(notification) = ui_settings.notification {
+        settings.notification = Some(notification);
     }
 
     manager.update_settings(settings).map_err(|e| e.to_string())

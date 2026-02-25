@@ -11,6 +11,7 @@ import { listen } from "@tauri-apps/api/event";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { menuEventBus } from "@/lib/menu-events";
+import { useNotifications } from "@/hooks/use-notifications";
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -35,6 +36,9 @@ function RootComponent() {
     "setSidebarCollapsed",
   ]);
   const navigate = useNavigate();
+
+  // Activate notification system
+  useNotifications();
 
   useEffect(() => {
     detectProviders();

@@ -118,7 +118,7 @@ const SessionSidebarItem = forwardRef<
       isCreating = false,
       hasPendingPermission = false,
     },
-    ref
+    ref,
   ) => {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showRenameDialog, setShowRenameDialog] = useState(false);
@@ -173,7 +173,7 @@ const SessionSidebarItem = forwardRef<
               className={cn(
                 "py-6",
                 isActive && "bg-muted!",
-                !isSessionActive && "opacity-50"
+                !isSessionActive && "opacity-50",
               )}
             >
               <span className="shrink-0 size-4 flex items-center justify-center">
@@ -183,7 +183,7 @@ const SessionSidebarItem = forwardRef<
                 <div
                   className={cn(
                     "font-medium truncate text-xs",
-                    session.is_local ? "text-local" : "text-worktree"
+                    session.is_local ? "text-local" : "text-worktree",
                   )}
                 >
                   {session.name}
@@ -306,7 +306,7 @@ const SessionSidebarItem = forwardRef<
         />
       </>
     );
-  }
+  },
 );
 
 SessionSidebarItem.displayName = "SessionSidebarItem";
@@ -361,7 +361,7 @@ export function AppSidebar() {
   // Sort all sessions by created_at descending for ungrouped view
   const sortedSessions = [...sessions].sort(
     (a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
 
   // Group sessions by project path
@@ -372,14 +372,14 @@ export function AppSidebar() {
       acc[key].push(session);
       return acc;
     },
-    {}
+    {},
   );
 
   // Sort sessions within each group by created_at descending
   for (const key of Object.keys(sessionsByProject)) {
     sessionsByProject[key].sort(
       (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
   }
 
@@ -404,7 +404,7 @@ export function AppSidebar() {
         sessionItemRefs.current.delete(sessionId);
       }
     },
-    []
+    [],
   );
 
   // Cmd+N to open new session dialog
@@ -487,8 +487,8 @@ export function AppSidebar() {
         <div
           data-tauri-drag-region
           className={cn(
-            "shrink-0 h-13 z-50 flex items-center justify-end",
-            !isIconMode && "pr-2"
+            "shrink-0 h-11 z-50 flex items-center justify-end",
+            !isIconMode && "pr-2",
           )}
         >
           {!isIconMode && (
@@ -513,7 +513,7 @@ export function AppSidebar() {
               alt="Forkestra"
               className={cn(
                 "shrink-0 select-none pointer-events-none duration-300",
-                isIconMode ? "scale-200 mb-2" : "h-12 w-12 -mt-1.5"
+                isIconMode ? "scale-200 mb-2" : "h-12 w-12 -mt-1.5",
               )}
             />
             <div className="flex flex-col gap-0.5 group-data-[collapsible=icon]:hidden">
@@ -549,7 +549,7 @@ export function AppSidebar() {
                 className={cn(
                   "pointer-events-none cursor-not-allowed px-3",
                   !isIconMode &&
-                    "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground/90"
+                    "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground/90",
                 )}
               >
                 <Edit className="shrink-0" />
@@ -564,7 +564,7 @@ export function AppSidebar() {
                 className={cn(
                   "cursor-pointer px-3",
                   !isIconMode &&
-                    "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground/90 active:bg-primary/90 active:text-primary-foreground/90"
+                    "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground/90 active:bg-primary/90 active:text-primary-foreground/90",
                 )}
               >
                 <Edit className="shrink-0" />
@@ -590,7 +590,7 @@ export function AppSidebar() {
               <button
                 className={cn(
                   "flex items-center gap-1 cursor-pointer pt-1 text-xs text-muted-foreground",
-                  groupByProject ? "text-primary" : ""
+                  groupByProject ? "text-primary" : "",
                 )}
                 onClick={() => setGroupByProject(!groupByProject)}
               >

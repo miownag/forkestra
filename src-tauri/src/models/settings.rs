@@ -50,6 +50,21 @@ impl Default for AppearanceSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NotificationSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sound_enabled: Option<bool>,
+}
+
+impl Default for NotificationSettings {
+    fn default() -> Self {
+        Self {
+            sound_enabled: Some(true),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub general: Option<GeneralSettings>,
@@ -60,6 +75,8 @@ pub struct AppSettings {
     pub mcp: Option<McpSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skills: Option<SkillSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notification: Option<NotificationSettings>,
 }
 
 impl Default for AppSettings {
@@ -84,6 +101,7 @@ impl Default for AppSettings {
             provider_settings,
             mcp: None,
             skills: None,
+            notification: None,
         }
     }
 }

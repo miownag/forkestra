@@ -41,7 +41,7 @@ const getStatusColor = (
   isStreaming: boolean,
   isResuming: boolean,
   isCreating: boolean,
-  hasPendingPermission: boolean
+  hasPendingPermission: boolean,
 ) => {
   if (hasPendingPermission) {
     return STATUS_BG_COLORS_MAP.pending_permission;
@@ -123,7 +123,7 @@ export function SessionTabBar() {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 5 },
-    })
+    }),
   );
 
   const { state: sidebarState } = useSidebar();
@@ -134,7 +134,7 @@ export function SessionTabBar() {
   const handleDragStart = (event: DragStartEvent) => {
     setDraggingId(String(event.active.id));
     const el = document.querySelector(
-      `[data-tab-id="${event.active.id}"]`
+      `[data-tab-id="${event.active.id}"]`,
     ) as HTMLElement | null;
     if (el) {
       setDraggingWidth(el.getBoundingClientRect().width);
@@ -159,8 +159,8 @@ export function SessionTabBar() {
     <div
       data-tauri-drag-region
       className={cn(
-        "shrink-0 h-13 z-50 flex items-center pr-2 w-full bg-muted/20",
-        !isFullscreen && (sidebarCollapsed ? "pl-6" : "pl-2")
+        "shrink-0 h-11 z-50 flex items-center pr-2 w-full bg-muted/20",
+        !isFullscreen && (sidebarCollapsed ? "pl-8" : "pl-2"),
       )}
     >
       {sidebarState === "collapsed" && (
@@ -263,7 +263,7 @@ function SortableTabItem({
 
   const style = {
     transform: CSS.Transform.toString(
-      transform ? { ...transform, scaleX: 1, scaleY: 1 } : null
+      transform ? { ...transform, scaleX: 1, scaleY: 1 } : null,
     ),
     transition,
   };
@@ -289,7 +289,7 @@ function SortableTabItem({
               : "hover:bg-linear-to-b hover:from-muted/50 hover:to-muted/10",
             session.is_local ? "text-local/75" : "text-worktree/75",
             isActive && (session.is_local ? "text-local" : "text-worktree"),
-            "transition-none"
+            "transition-none",
           )}
         >
           <ProviderColorIcon icon={ProviderIcon} size={14} />
@@ -304,8 +304,8 @@ function SortableTabItem({
                 isStreaming,
                 isResuming,
                 isCreating,
-                hasPendingPermission
-              )
+                hasPendingPermission,
+              ),
             )}
           />
           <span
@@ -323,7 +323,7 @@ function SortableTabItem({
               "rounded p-0.5 shrink-0 ml-auto hover:bg-foreground/10",
               isActive
                 ? "opacity-60 hover:opacity-100"
-                : "opacity-0 group-hover/tab:opacity-100"
+                : "opacity-0 group-hover/tab:opacity-100",
             )}
           >
             <VscClose className="h-3 w-3" />
@@ -358,7 +358,7 @@ function TabOverlay({ session, width }: { session: Session; width: number }) {
         "inline-flex items-center h-8 px-3 pr-1.5 text-xs gap-1.5",
         "select-none rounded-md rounded-b-none border border-b-0 border-border!",
         "bg-linear-to-b from-primary/20 to-primary/2 font-semibold shadow-lg",
-        session.is_local ? "text-local" : "text-worktree"
+        session.is_local ? "text-local" : "text-worktree",
       )}
     >
       <ProviderColorIcon icon={ProviderIcon} size={14} />

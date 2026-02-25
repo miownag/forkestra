@@ -23,6 +23,7 @@ import { Separator } from "@/components/ui/separator";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { homeDir } from "@tauri-apps/api/path";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { TbCodeDots } from "react-icons/tb";
 import { ArrowLeft2, Refresh, Setting2 } from "iconsax-reactjs";
@@ -39,6 +40,8 @@ type SettingSection =
   | "general-project-path"
   | "general-work-mode"
   | "general-post-merge"
+  | "notifications"
+  | "notifications-sound"
   | "appearance"
   | "appearance-theme"
   | "appearance-font-size"
@@ -59,6 +62,13 @@ const SECTION_ITEMS: SectionItem[] = [
       { id: "general-project-path", label: "Default Project Path" },
       { id: "general-work-mode", label: "Preferred Work Mode" },
       { id: "general-post-merge", label: "Post-Merge Action" },
+    ],
+  },
+  {
+    id: "notifications",
+    label: "Notifications",
+    children: [
+      { id: "notifications-sound", label: "Notification Sound" },
     ],
   },
   {
@@ -91,6 +101,7 @@ function RouteComponent() {
     defaultProjectPath,
     defaultWorkMode,
     postMergeAction,
+    soundEnabled,
     loadSettings,
     setTheme,
     setFontSize,
@@ -98,6 +109,7 @@ function RouteComponent() {
     setDefaultProjectPath,
     setDefaultWorkMode,
     setPostMergeAction,
+    setSoundEnabled,
   } = useSelectorSettingsStore([
     "theme",
     "fontSize",
@@ -105,6 +117,7 @@ function RouteComponent() {
     "defaultProjectPath",
     "defaultWorkMode",
     "postMergeAction",
+    "soundEnabled",
     "loadSettings",
     "setTheme",
     "setFontSize",
@@ -112,6 +125,7 @@ function RouteComponent() {
     "setDefaultProjectPath",
     "setDefaultWorkMode",
     "setPostMergeAction",
+    "setSoundEnabled",
   ]);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<SettingsTab>("ui");
@@ -395,6 +409,48 @@ function RouteComponent() {
                             <SelectItem value="cleanup">Clean Up Session</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Notifications Section */}
+                  <div
+                    ref={(el) => {
+                      if (el) sectionRefs.current.set("notifications", el);
+                    }}
+                    data-section="notifications"
+                  >
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold">Notifications</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Configure notification behavior for sessions
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Notification Sound */}
+                      <div
+                        ref={(el) => {
+                          if (el)
+                            sectionRefs.current.set("notifications-sound", el);
+                        }}
+                        data-section="notifications-sound"
+                        className="flex items-center justify-between"
+                      >
+                        <div className="space-y-0.5">
+                          <Label className="text-sm font-medium">
+                            Notification Sound
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Play a sound when a session completes or needs input
+                          </p>
+                        </div>
+                        <Switch
+                          checked={soundEnabled}
+                          onCheckedChange={setSoundEnabled}
+                        />
                       </div>
                     </div>
                   </div>

@@ -20,6 +20,10 @@ interface AppearanceSettings {
   accentColor: AccentColor;
 }
 
+interface NotificationSettings {
+  soundEnabled?: boolean;
+}
+
 interface SettingsState {
   // Theme
   theme: Theme;
@@ -41,6 +45,9 @@ interface SettingsState {
   defaultWorkMode: DefaultWorkMode;
   postMergeAction: PostMergeAction;
 
+  // Notification
+  soundEnabled: boolean;
+
   // Initialization
   isInitialized: boolean;
 
@@ -57,6 +64,7 @@ interface SettingsState {
   setDefaultProjectPath: (path: string | null) => void;
   setDefaultWorkMode: (mode: DefaultWorkMode) => void;
   setPostMergeAction: (action: PostMergeAction) => void;
+  setSoundEnabled: (enabled: boolean) => void;
 
   // File-based storage actions
   loadSettings: () => Promise<void>;
@@ -84,6 +92,8 @@ export const useSettingsStore = create<SettingsState>()(
       defaultProjectPath: null,
       defaultWorkMode: "worktree",
       postMergeAction: "ask",
+
+      soundEnabled: true,
 
       isInitialized: false,
 
@@ -138,11 +148,17 @@ export const useSettingsStore = create<SettingsState>()(
         get().saveSettings();
       },
 
+      setSoundEnabled: (enabled) => {
+        set({ soundEnabled: enabled });
+        get().saveSettings();
+      },
+
       loadSettings: async () => {
         try {
           const settings = await invoke<{
             general?: GeneralSettings;
             appearance?: AppearanceSettings;
+            notification?: NotificationSettings;
           }>("get_ui_settings");
 
           const updates: Partial<SettingsState> = { isInitialized: true };
@@ -163,6 +179,10 @@ export const useSettingsStore = create<SettingsState>()(
               settings.appearance.theme,
               get().systemTheme,
             );
+          }
+
+          if (settings.notification) {
+            updates.soundEnabled = settings.notification.soundEnabled ?? true;
           }
 
           set(updates);
@@ -186,6 +206,9 @@ export const useSettingsStore = create<SettingsState>()(
                 theme: state.theme,
                 fontSize: state.fontSize,
                 accentColor: state.accentColor,
+              },
+              notification: {
+                soundEnabled: state.soundEnabled,
               },
             },
           });
