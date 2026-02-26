@@ -17,6 +17,9 @@ import { cn } from "@/lib/utils";
 import CodeMirror from "@uiw/react-codemirror";
 import { json } from "@codemirror/lang-json";
 import { useSelectorSettingsStore } from "@/stores";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { homeDir } from "@tauri-apps/api/path";
+import { LuFolderGit2 } from "react-icons/lu";
 
 type TransportType = "stdio" | "http" | "sse";
 type DialogTab = "form" | "json";
@@ -25,7 +28,12 @@ interface McpServerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   server?: McpServerConfig | null;
-  onSave: (name: string, transport: McpTransport) => Promise<void>;
+  onSave: (
+    name: string,
+    transport: McpTransport,
+    scope: "global" | "project",
+    projectPath?: string,
+  ) => Promise<void>;
 }
 
 interface KVPair {
@@ -142,6 +150,8 @@ export function McpServerDialog({
   const [envPairs, setEnvPairs] = useState<KVPair[]>([]);
   const [headerPairs, setHeaderPairs] = useState<KVPair[]>([]);
   const [saving, setSaving] = useState(false);
+  const [scope, setScope] = useState<"global" | "project">("global");
+  const [projectPath, setProjectPath] = useState("");
 
   // JSON tab state
   const [jsonText, setJsonText] = useState("");
@@ -166,6 +176,14 @@ export function McpServerDialog({
           setArgs("");
           setEnvPairs([]);
         }
+        // Infer scope from existing server source
+        if (server.source.type === "user_project") {
+          setScope("project");
+          setProjectPath(server.source.project_path);
+        } else {
+          setScope(server.globally_available ? "global" : "project");
+          setProjectPath("");
+        }
       } else {
         setName("");
         setTransportType("stdio");
@@ -174,6 +192,8 @@ export function McpServerDialog({
         setUrl("");
         setEnvPairs([]);
         setHeaderPairs([]);
+        setScope("global");
+        setProjectPath("");
       }
     }
   }, [open, server]);
@@ -271,7 +291,7 @@ export function McpServerDialog({
         }
       }
 
-      await onSave(finalName, transport);
+      await onSave(finalName, transport, scope, scope === "project" ? projectPath : undefined);
       onOpenChange(false);
     } catch {
       // error handled by caller
@@ -281,7 +301,9 @@ export function McpServerDialog({
   };
 
   const canSaveForm =
-    name.trim() && (transportType === "stdio" ? command.trim() : url.trim());
+    name.trim() &&
+    (transportType === "stdio" ? command.trim() : url.trim()) &&
+    (scope === "global" || projectPath.trim());
   const canSaveJson = !jsonError && jsonText.trim();
   const canSave = activeTab === "form" ? canSaveForm : canSaveJson;
 
@@ -301,6 +323,23 @@ export function McpServerDialog({
       ),
     []
   );
+
+  const handleSelectFolder = async () => {
+    try {
+      const home = await homeDir();
+      const selected = await openDialog({
+        defaultPath: home,
+        directory: true,
+        multiple: false,
+        title: "Select Project Directory",
+      });
+      if (selected) {
+        setProjectPath(selected as string);
+      }
+    } catch (err) {
+      console.error("Failed to open folder dialog:", err);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -341,6 +380,69 @@ export function McpServerDialog({
                   placeholder="my-mcp-server"
                 />
               </div>
+
+              {/* Scope */}
+              {!isEditing && (
+                <div className="flex flex-col gap-2">
+                  <Label className="text-sm">Scope</Label>
+                  <div className="flex gap-2">
+                    {[
+                      { value: "global", label: "Global" },
+                      { value: "project", label: "Project" },
+                    ].map((option) => {
+                      const isSelected = scope === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() =>
+                            setScope(option.value as "global" | "project")
+                          }
+                          className={cn(
+                            "relative flex items-center justify-center h-9 rounded-full border transition-all duration-300 ease-out",
+                            "backdrop-blur-xl bg-white/10 dark:bg-white/5",
+                            "border-white/20 dark:border-white/10",
+                            "shadow-[0_2px_8px_rgba(0,0,0,0.04)]",
+                            "hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
+                            "hover:bg-white/20 dark:hover:bg-white/10",
+                            "hover:border-white/30 dark:hover:border-white/20",
+                            isSelected
+                              ? "flex-1 px-4 bg-primary/15 border-primary/30 shadow-[0_2px_12px_rgba(var(--primary),0.15)]"
+                              : "flex-1 px-4 cursor-pointer"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "text-sm font-medium transition-colors duration-300",
+                              isSelected ? "text-primary" : "text-foreground"
+                            )}
+                          >
+                            {option.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {scope === "project" && (
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        value={projectPath}
+                        onChange={(e) => setProjectPath(e.target.value)}
+                        placeholder="/path/to/project"
+                        className="flex-1 text-sm"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={handleSelectFolder}
+                      >
+                        <LuFolderGit2 />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Transport Type */}
               <div className="flex flex-col gap-2">

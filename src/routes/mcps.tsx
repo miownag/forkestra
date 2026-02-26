@@ -1,14 +1,16 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { DragArea } from "@/components/ui/drag-area";
 import { McpServerCard } from "@/components/mcp/mcp-server-card";
 import { McpServerDialog } from "@/components/mcp/mcp-server-dialog";
+import { PROVIDER_ICONS_MAP, ProviderColorIcon } from "@/constants/icons";
 import { useSelectorMcpStore } from "@/stores";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { ArrowLeft2, Refresh, Add } from "iconsax-reactjs";
-import type { McpServerConfig, McpTransport } from "@/types";
+import type { McpServerConfig, McpServerSource, McpTransport, ProviderType } from "@/types";
 
 export const Route = createFileRoute("/mcps")({
   component: RouteComponent,
@@ -26,6 +28,36 @@ const SECTION_ITEMS: SectionItem[] = [
   { id: "user-defined", label: "User Defined" },
 ];
 
+function getSourceInfo(source: McpServerSource): {
+  provider: ProviderType;
+  scope: "global" | "project";
+  projectPath?: string;
+} {
+  switch (source.type) {
+    case "claude_global":
+      return { provider: "claude", scope: "global" };
+    case "claude_project":
+      return { provider: "claude", scope: "project", projectPath: source.project_path };
+    case "kimi_global":
+      return { provider: "kimi", scope: "global" };
+    case "kimi_project":
+      return { provider: "kimi", scope: "project", projectPath: source.project_path };
+    case "codex_global":
+      return { provider: "codex", scope: "global" };
+    case "codex_project":
+      return { provider: "codex", scope: "project", projectPath: source.project_path };
+    default:
+      return { provider: "claude", scope: "global" };
+  }
+}
+
+interface DiscoveredGroup {
+  provider: ProviderType;
+  scope: "global" | "project";
+  projectPath?: string;
+  servers: McpServerConfig[];
+}
+
 function RouteComponent() {
   const {
     servers,
@@ -37,6 +69,7 @@ function RouteComponent() {
     updateServer,
     deleteServer,
     toggleServer,
+    toggleGloballyAvailable,
   } = useSelectorMcpStore([
     "servers",
     "isLoading",
@@ -47,6 +80,7 @@ function RouteComponent() {
     "updateServer",
     "deleteServer",
     "toggleServer",
+    "toggleGloballyAvailable",
   ]);
 
   const router = useRouter();
@@ -99,24 +133,32 @@ function RouteComponent() {
     }
   };
 
-  const discoveredServers = servers.filter((s) => s.source.type !== "user");
-  const userServers = servers.filter((s) => s.source.type === "user");
+  const discoveredServers = servers.filter((s) => s.source.type !== "user" && s.source.type !== "user_project");
+  const userServers = servers.filter((s) => s.source.type === "user" || s.source.type === "user_project");
 
-  // Group discovered servers by source
-  const groupedDiscovered = discoveredServers.reduce<
-    Record<string, McpServerConfig[]>
-  >((groups, server) => {
-    let key: string;
-    if (server.source.type === "claude_global") {
-      key = "Claude Global";
-    } else if (server.source.type === "claude_project") {
-      key = `Claude Project: ${server.source.project_path}`;
-    } else {
-      key = "Other";
+  // Group discovered servers by provider + scope
+  const groupedDiscovered: DiscoveredGroup[] = [];
+  const groupMap = new Map<string, DiscoveredGroup>();
+
+  for (const server of discoveredServers) {
+    const info = getSourceInfo(server.source);
+    const key = info.projectPath
+      ? `${info.provider}:${info.scope}:${info.projectPath}`
+      : `${info.provider}:${info.scope}`;
+
+    let group = groupMap.get(key);
+    if (!group) {
+      group = {
+        provider: info.provider,
+        scope: info.scope,
+        projectPath: info.projectPath,
+        servers: [],
+      };
+      groupMap.set(key, group);
+      groupedDiscovered.push(group);
     }
-    (groups[key] ??= []).push(server);
-    return groups;
-  }, {});
+    group.servers.push(server);
+  }
 
   const handleEdit = useCallback((server: McpServerConfig) => {
     setEditingServer(server);
@@ -129,11 +171,11 @@ function RouteComponent() {
   }, []);
 
   const handleSave = useCallback(
-    async (name: string, transport: McpTransport) => {
+    async (name: string, transport: McpTransport, scope: "global" | "project", projectPath?: string) => {
       if (editingServer) {
         await updateServer({ ...editingServer, name, transport });
       } else {
-        await addServer(name, transport);
+        await addServer(name, transport, scope, projectPath);
       }
     },
     [editingServer, updateServer, addServer]
@@ -206,7 +248,7 @@ function RouteComponent() {
                 <div className="mb-4">
                   <h3 className="text-lg font-semibold">Discovered</h3>
                   <p className="text-sm text-muted-foreground">
-                    MCP servers found in your Claude Code configuration
+                    MCP servers found in your provider configurations
                   </p>
                 </div>
 
@@ -221,24 +263,34 @@ function RouteComponent() {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {Object.entries(groupedDiscovered).map(
-                      ([groupLabel, groupServers]) => (
-                        <div key={groupLabel}>
-                          <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">
-                            {groupLabel}
-                          </p>
-                          <div className="space-y-2">
-                            {groupServers.map((server) => (
-                              <McpServerCard
-                                key={server.id}
-                                server={server}
-                                onToggle={toggleServer}
-                              />
-                            ))}
-                          </div>
+                    {groupedDiscovered.map((group) => (
+                      <div key={`${group.provider}:${group.scope}:${group.projectPath ?? ""}`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <ProviderColorIcon
+                            icon={PROVIDER_ICONS_MAP[group.provider]}
+                            size={16}
+                          />
+                          <Badge variant="secondary" className="text-[0.65rem] px-1.5 py-0 font-medium capitalize">
+                            {group.scope}
+                          </Badge>
+                          {group.projectPath && (
+                            <span className="text-xs text-muted-foreground truncate">
+                              {group.projectPath}
+                            </span>
+                          )}
                         </div>
-                      )
-                    )}
+                        <div className="space-y-2">
+                          {group.servers.map((server) => (
+                            <McpServerCard
+                              key={server.id}
+                              server={server}
+                              onToggle={toggleServer}
+                              onToggleGloballyAvailable={toggleGloballyAvailable}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -281,6 +333,7 @@ function RouteComponent() {
                         key={server.id}
                         server={server}
                         onToggle={toggleServer}
+                        onToggleGloballyAvailable={toggleGloballyAvailable}
                         onEdit={handleEdit}
                         onDelete={deleteServer}
                       />

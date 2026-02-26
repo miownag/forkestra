@@ -125,6 +125,9 @@ pub struct CreateSessionRequest {
     pub use_local: bool,
     #[serde(default = "default_fetch_first")]
     pub fetch_first: bool,
+    /// MCP server IDs to exclude from this session
+    #[serde(default)]
+    pub excluded_mcp_ids: Vec<String>,
 }
 
 fn default_fetch_first() -> bool {

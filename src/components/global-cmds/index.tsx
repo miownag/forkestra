@@ -37,7 +37,6 @@ import {
   CommandSquare,
   Edit2,
   Ghost,
-  Microscope,
   SearchZoomIn,
   SearchZoomOut,
   Setting5,
@@ -45,6 +44,7 @@ import {
   ChemicalGlass,
 } from "iconsax-reactjs";
 import { LuGitMerge, LuGitBranch } from "react-icons/lu";
+import { PiHammer } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import { useSelectorSessionStore } from "@/stores";
 import { useSessionLayoutStore } from "@/stores";
@@ -203,7 +203,7 @@ export function GlobalCommands({ className }: { className?: string }) {
           size="sm"
           className={cn(
             "shrink-0 text-muted-foreground [&_svg]:size-4.5 rounded-xl",
-            className
+            className,
           )}
         >
           <CommandSquare />
@@ -282,7 +282,7 @@ export function GlobalCommands({ className }: { className?: string }) {
                     navigate({ to: "/skills" });
                   }}
                 >
-                  <Microscope />
+                  <PiHammer />
                   <div className="flex items-center gap-1">
                     Skills
                     <ChemicalGlass className="size-2.5 text-muted-foreground" />

@@ -141,6 +141,7 @@ export interface CreateSessionRequest {
   base_branch?: string;
   use_local?: boolean;
   fetch_first?: boolean;
+  excluded_mcp_ids?: string[];
 }
 
 export interface SessionStatusEvent {
@@ -307,8 +308,13 @@ export interface PlanUpdateEvent {
 // MCP types
 export type McpServerSource =
   | { type: "user" }
+  | { type: "user_project"; project_path: string }
   | { type: "claude_global" }
-  | { type: "claude_project"; project_path: string };
+  | { type: "claude_project"; project_path: string }
+  | { type: "kimi_global" }
+  | { type: "kimi_project"; project_path: string }
+  | { type: "codex_global" }
+  | { type: "codex_project"; project_path: string };
 
 export type McpTransport =
   | { type: "stdio"; command: string; args: string[]; env: Record<string, string> }
@@ -321,6 +327,7 @@ export interface McpServerConfig {
   transport: McpTransport;
   enabled: boolean;
   source: McpServerSource;
+  globally_available: boolean;
 }
 
 // Skill types

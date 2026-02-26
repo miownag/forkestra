@@ -68,13 +68,13 @@ import {
   Edit2,
   Trash,
   EmojiSad,
-  Microscope,
   ChemicalGlass,
 } from "iconsax-reactjs";
 import { RiGitRepositoryLine } from "react-icons/ri";
 import { PROVIDER_ICONS_MAP, ProviderColorIcon } from "@/constants/icons";
 import { SessionStatusIcon } from "@/components/session/session-status-icon";
 import { LuChevronDown, LuGitBranch, LuMenu } from "react-icons/lu";
+import { PiHammer } from "react-icons/pi";
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -711,7 +711,7 @@ export function AppSidebar() {
               className="cursor-pointer"
               onClick={handleSkillsClick}
             >
-              <Microscope className="shrink-0" />
+              <PiHammer className="shrink-0" />
               <span className="flex items-center gap-1">
                 Skills
                 <ChemicalGlass className="size-3.5 text-muted-foreground" />

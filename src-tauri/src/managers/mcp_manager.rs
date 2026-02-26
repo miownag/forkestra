@@ -36,6 +36,12 @@ impl McpManager {
         // Scan Claude Code configs
         discovered.extend(self.scan_claude_configs());
 
+        // Scan Kimi CLI configs
+        discovered.extend(self.scan_kimi_configs());
+
+        // Scan Codex configs
+        discovered.extend(self.scan_codex_configs());
+
         // Cache results
         *self.discovered_servers.write() = discovered.clone();
 
@@ -109,6 +115,158 @@ impl McpManager {
             .join(".claude")
     }
 
+    /// Scan Kimi CLI config files for MCP servers.
+    /// Reads ~/.kimi/settings.json
+    fn scan_kimi_configs(&self) -> Vec<McpServerConfig> {
+        let mut servers = Vec::new();
+
+        let kimi_config_dir = self.get_provider_config_dir(
+            &ProviderType::Kimi,
+            "KIMI_CONFIG_DIR",
+            ".kimi",
+        );
+
+        let global_config_path = kimi_config_dir.join("settings.json");
+        if global_config_path.exists() {
+            let global_servers = Self::parse_generic_mcp_config(
+                &global_config_path,
+                McpServerSource::KimiGlobal,
+                "kimi_global",
+            );
+            servers.extend(global_servers);
+
+            // Scan per-project configs from the projects key
+            if let Ok(content) = std::fs::read_to_string(&global_config_path) {
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(projects) = json.get("projects").and_then(|p| p.as_object()) {
+                        for (project_path, project_config) in projects {
+                            if let Some(mcp_obj) =
+                                project_config.get("mcpServers").and_then(|m| m.as_object())
+                            {
+                                let project_servers = Self::parse_mcp_servers_object(
+                                    mcp_obj,
+                                    McpServerSource::KimiProject {
+                                        project_path: project_path.clone(),
+                                    },
+                                    &format!("kimi_project:{}", Self::short_hash(project_path)),
+                                );
+                                servers.extend(project_servers);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        servers
+    }
+
+    /// Scan Codex config files for MCP servers.
+    /// Reads ~/.codex/config.json
+    fn scan_codex_configs(&self) -> Vec<McpServerConfig> {
+        let mut servers = Vec::new();
+
+        let codex_config_dir = self.get_provider_config_dir(
+            &ProviderType::Codex,
+            "CODEX_CONFIG_DIR",
+            ".codex",
+        );
+
+        let global_config_path = codex_config_dir.join("config.json");
+        if global_config_path.exists() {
+            let global_servers = Self::parse_generic_mcp_config(
+                &global_config_path,
+                McpServerSource::CodexGlobal,
+                "codex_global",
+            );
+            servers.extend(global_servers);
+
+            // Scan per-project configs from the projects key
+            if let Ok(content) = std::fs::read_to_string(&global_config_path) {
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(projects) = json.get("projects").and_then(|p| p.as_object()) {
+                        for (project_path, project_config) in projects {
+                            if let Some(mcp_obj) =
+                                project_config.get("mcpServers").and_then(|m| m.as_object())
+                            {
+                                let project_servers = Self::parse_mcp_servers_object(
+                                    mcp_obj,
+                                    McpServerSource::CodexProject {
+                                        project_path: project_path.clone(),
+                                    },
+                                    &format!("codex_project:{}", Self::short_hash(project_path)),
+                                );
+                                servers.extend(project_servers);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        servers
+    }
+
+    /// Get config directory for a provider, respecting env var overrides from settings.
+    fn get_provider_config_dir(
+        &self,
+        provider_type: &ProviderType,
+        env_var_name: &str,
+        default_dir: &str,
+    ) -> PathBuf {
+        let settings = self.settings_manager.get_settings();
+
+        // Check if provider has a custom config dir env var
+        let env_vars = match settings.provider_settings.get(provider_type) {
+            Some(ProviderSettings::Kimi(s)) => &s.env_vars,
+            Some(ProviderSettings::Codex(s)) => &s.env_vars,
+            _ => return dirs::home_dir()
+                .unwrap_or_else(|| PathBuf::from("/"))
+                .join(default_dir),
+        };
+
+        if let Some(config_dir) = env_vars.get(env_var_name) {
+            let expanded = if config_dir.starts_with('~') {
+                if let Some(home) = dirs::home_dir() {
+                    home.join(&config_dir[2..])
+                } else {
+                    PathBuf::from(config_dir)
+                }
+            } else {
+                PathBuf::from(config_dir)
+            };
+            return expanded;
+        }
+
+        dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("/"))
+            .join(default_dir)
+    }
+
+    /// Parse a generic config file for mcpServers (works for any provider config format).
+    fn parse_generic_mcp_config(
+        path: &Path,
+        source: McpServerSource,
+        id_prefix: &str,
+    ) -> Vec<McpServerConfig> {
+        let content = match std::fs::read_to_string(path) {
+            Ok(c) => c,
+            Err(_) => return vec![],
+        };
+
+        let json: serde_json::Value = match serde_json::from_str(&content) {
+            Ok(j) => j,
+            Err(_) => return vec![],
+        };
+
+        let mcp_obj = match json.get("mcpServers").and_then(|m| m.as_object()) {
+            Some(obj) => obj,
+            None => return vec![],
+        };
+
+        Self::parse_mcp_servers_object(mcp_obj, source, id_prefix)
+    }
+
     /// Parse a Claude Code config file and extract global-level mcpServers.
     fn parse_claude_config(path: &Path, source: McpServerSource) -> Vec<McpServerConfig> {
         let content = match std::fs::read_to_string(path) {
@@ -131,6 +289,14 @@ impl McpManager {
             McpServerSource::ClaudeProject { project_path } => {
                 format!("claude_project:{}", Self::short_hash(project_path))
             }
+            McpServerSource::KimiGlobal => "kimi_global".to_string(),
+            McpServerSource::KimiProject { project_path } => {
+                format!("kimi_project:{}", Self::short_hash(project_path))
+            }
+            McpServerSource::CodexGlobal => "codex_global".to_string(),
+            McpServerSource::CodexProject { project_path } => {
+                format!("codex_project:{}", Self::short_hash(project_path))
+            }
             _ => "unknown".to_string(),
         };
 
@@ -147,12 +313,20 @@ impl McpManager {
 
         for (name, config) in mcp_obj {
             if let Some(transport) = Self::parse_transport(config) {
+                let globally_available = matches!(
+                    source,
+                    McpServerSource::ClaudeGlobal
+                        | McpServerSource::KimiGlobal
+                        | McpServerSource::CodexGlobal
+                        | McpServerSource::User
+                );
                 servers.push(McpServerConfig {
                     id: format!("{}:{}", id_prefix, name),
                     name: name.clone(),
                     transport,
                     enabled: true, // Discovered servers default to enabled
                     source: source.clone(),
+                    globally_available,
                 });
             }
         }
@@ -249,7 +423,11 @@ impl McpManager {
         if config.id.is_empty() {
             config.id = uuid::Uuid::new_v4().to_string();
         }
-        config.source = McpServerSource::User;
+        // Preserve UserProject source if provided, otherwise default to User
+        match &config.source {
+            McpServerSource::UserProject { .. } => {}
+            _ => config.source = McpServerSource::User,
+        }
 
         let mut mcp_settings = self.get_mcp_settings();
         mcp_settings.servers.push(config.clone());
@@ -321,7 +499,7 @@ impl McpManager {
 
     // ---- Query ----
 
-    /// Get all servers (discovered + user-defined), with enable state resolved.
+    /// Get all servers (discovered + user-defined), with enable state and globally_available resolved.
     pub fn list_all_servers(&self) -> Vec<McpServerConfig> {
         let mcp_settings = self.get_mcp_settings();
         let discovered = self.discovered_servers.read().clone();
@@ -336,6 +514,10 @@ impl McpManager {
             .into_iter()
             .map(|mut s| {
                 s.enabled = !disabled_set.contains(s.id.as_str());
+                // Apply globally_available override if present
+                if let Some(&override_val) = mcp_settings.globally_available_overrides.get(&s.id) {
+                    s.globally_available = override_val;
+                }
                 s
             })
             .collect();
@@ -351,6 +533,68 @@ impl McpManager {
             .filter(|s| s.enabled)
             .filter_map(|s| Self::to_acp_mcp_server(&s))
             .collect()
+    }
+
+    /// Toggle the globally_available flag on a server.
+    pub fn toggle_globally_available(&self, server_id: &str, globally_available: bool) -> AppResult<()> {
+        let mut mcp_settings = self.get_mcp_settings();
+
+        // Check if it's a user-defined server
+        if let Some(server) = mcp_settings.servers.iter_mut().find(|s| s.id == server_id) {
+            server.globally_available = globally_available;
+        } else {
+            // It's a discovered server - store override
+            mcp_settings
+                .globally_available_overrides
+                .insert(server_id.to_string(), globally_available);
+        }
+
+        self.save_mcp_settings(mcp_settings)
+    }
+
+    /// Get enabled MCP servers applicable to a given project directory.
+    /// Returns: globally_available servers + servers whose project_path matches the directory.
+    pub fn get_servers_for_directory(&self, project_path: &str) -> Vec<McpServerConfig> {
+        self.list_all_servers()
+            .into_iter()
+            .filter(|s| s.enabled)
+            .filter(|s| {
+                if s.globally_available {
+                    return true;
+                }
+                // Check if this server's project_path matches the given directory
+                match &s.source {
+                    McpServerSource::ClaudeProject { project_path: pp }
+                    | McpServerSource::KimiProject { project_path: pp }
+                    | McpServerSource::CodexProject { project_path: pp }
+                    | McpServerSource::UserProject { project_path: pp } => {
+                        Self::paths_match(pp, project_path)
+                    }
+                    _ => false,
+                }
+            })
+            .collect()
+    }
+
+    /// Get enabled ACP servers for a specific directory, optionally excluding some by ID.
+    pub fn get_enabled_acp_servers_for_directory(
+        &self,
+        project_path: &str,
+        excluded_ids: &[String],
+    ) -> Vec<McpServer> {
+        let excluded_set: HashSet<&str> = excluded_ids.iter().map(|s| s.as_str()).collect();
+        self.get_servers_for_directory(project_path)
+            .into_iter()
+            .filter(|s| !excluded_set.contains(s.id.as_str()))
+            .filter_map(|s| Self::to_acp_mcp_server(&s))
+            .collect()
+    }
+
+    /// Compare two paths for equivalence (normalize trailing slashes).
+    fn paths_match(a: &str, b: &str) -> bool {
+        let a = a.trim_end_matches('/');
+        let b = b.trim_end_matches('/');
+        a == b
     }
 
     /// Convert our internal McpServerConfig to the ACP SDK McpServer type.

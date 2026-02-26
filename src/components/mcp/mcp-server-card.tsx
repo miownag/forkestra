@@ -7,6 +7,7 @@ import { Edit2, Trash } from "iconsax-reactjs";
 interface McpServerCardProps {
   server: McpServerConfig;
   onToggle: (id: string, enabled: boolean) => void;
+  onToggleGloballyAvailable?: (id: string, globallyAvailable: boolean) => void;
   onEdit?: (server: McpServerConfig) => void;
   onDelete?: (id: string) => void;
 }
@@ -27,11 +28,21 @@ function getTransportLabel(type: string) {
 function getSourceLabel(source: McpServerConfig["source"]) {
   switch (source.type) {
     case "user":
-      return "User Defined";
+      return "User Global";
+    case "user_project":
+      return "User Project";
     case "claude_global":
       return "Claude Global";
     case "claude_project":
       return "Claude Project";
+    case "kimi_global":
+      return "Kimi Global";
+    case "kimi_project":
+      return "Kimi Project";
+    case "codex_global":
+      return "Codex Global";
+    case "codex_project":
+      return "Codex Project";
     default:
       return "Unknown";
   }
@@ -50,10 +61,11 @@ function getTransportPreview(transport: McpServerConfig["transport"]) {
 export function McpServerCard({
   server,
   onToggle,
+  onToggleGloballyAvailable,
   onEdit,
   onDelete,
 }: McpServerCardProps) {
-  const isUserDefined = server.source.type === "user";
+  const isUserDefined = server.source.type === "user" || server.source.type === "user_project";
   const preview = getTransportPreview(server.transport);
   const envCount =
     server.transport.type === "stdio"
@@ -102,6 +114,21 @@ export function McpServerCard({
               {headerCount > 0 &&
                 `${headerCount} header${headerCount > 1 ? "s" : ""}`}
             </p>
+          )}
+
+          {onToggleGloballyAvailable && (
+            <div className="flex items-center gap-2 mt-2">
+              <Switch
+                checked={server.globally_available}
+                onCheckedChange={(checked) =>
+                  onToggleGloballyAvailable(server.id, checked)
+                }
+                className="scale-75 origin-left"
+              />
+              <span className="text-xs text-muted-foreground">
+                Globally Available
+              </span>
+            </div>
           )}
         </div>
 

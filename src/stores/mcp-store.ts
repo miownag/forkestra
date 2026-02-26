@@ -4,7 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 import { pick } from "es-toolkit";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
-import type { McpServerConfig, McpTransport } from "@/types";
+import type { McpServerConfig, McpServerSource, McpTransport } from "@/types";
 
 interface McpState {
   servers: McpServerConfig[];
@@ -13,10 +13,17 @@ interface McpState {
 
   fetchServers: () => Promise<void>;
   scanServers: () => Promise<void>;
-  addServer: (name: string, transport: McpTransport) => Promise<void>;
+  addServer: (
+    name: string,
+    transport: McpTransport,
+    scope: "global" | "project",
+    projectPath?: string,
+  ) => Promise<void>;
   updateServer: (server: McpServerConfig) => Promise<void>;
   deleteServer: (serverId: string) => Promise<void>;
   toggleServer: (serverId: string, enabled: boolean) => Promise<void>;
+  toggleGloballyAvailable: (serverId: string, globallyAvailable: boolean) => Promise<void>;
+  fetchServersForDirectory: (projectPath: string) => Promise<McpServerConfig[]>;
 }
 
 export const useMcpStore = create<McpState>()(
@@ -50,16 +57,20 @@ export const useMcpStore = create<McpState>()(
         }
       },
 
-      addServer: async (name, transport) => {
+      addServer: async (name, transport, scope, projectPath) => {
         try {
-          // Build a complete config object to match backend expectations
-          // Backend will generate the id if it's empty
+          const source: McpServerSource =
+            scope === "project" && projectPath
+              ? { type: "user_project", project_path: projectPath }
+              : { type: "user" };
+
           const config: McpServerConfig = {
             id: "",
             name,
             transport,
             enabled: true,
-            source: { type: "user" },
+            source,
+            globally_available: scope === "global",
           };
           const server = await invoke<McpServerConfig>("add_mcp_server", {
             config,
@@ -116,6 +127,31 @@ export const useMcpStore = create<McpState>()(
         } catch (err) {
           console.error("Failed to toggle MCP server:", err);
           set({ servers: prev });
+        }
+      },
+
+      toggleGloballyAvailable: async (serverId, globallyAvailable) => {
+        const prev = get().servers;
+        // Optimistic update
+        set({
+          servers: prev.map((s) =>
+            s.id === serverId ? { ...s, globally_available: globallyAvailable } : s
+          ),
+        });
+        try {
+          await invoke("toggle_mcp_globally_available", { serverId, globallyAvailable });
+        } catch (err) {
+          console.error("Failed to toggle globally available:", err);
+          set({ servers: prev });
+        }
+      },
+
+      fetchServersForDirectory: async (projectPath) => {
+        try {
+          return await invoke<McpServerConfig[]>("get_mcp_servers_for_directory", { projectPath });
+        } catch (err) {
+          console.error("Failed to fetch MCP servers for directory:", err);
+          return [];
         }
       },
     }),

@@ -53,3 +53,22 @@ pub async fn toggle_mcp_server(
         .toggle_server(&server_id, enabled)
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn toggle_mcp_globally_available(
+    manager: State<'_, Arc<McpManager>>,
+    server_id: String,
+    globally_available: bool,
+) -> Result<(), String> {
+    manager
+        .toggle_globally_available(&server_id, globally_available)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_mcp_servers_for_directory(
+    manager: State<'_, Arc<McpManager>>,
+    project_path: String,
+) -> Result<Vec<McpServerConfig>, String> {
+    Ok(manager.get_servers_for_directory(&project_path))
+}

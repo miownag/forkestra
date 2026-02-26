@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { homeDir } from "@tauri-apps/api/path";
 import {
   useSelectorSettingsStore,
   useSelectorProviderStore,
   useSelectorSessionStore,
+  useSelectorMcpStore,
 } from "@/stores";
 import {
   Dialog,
@@ -19,11 +20,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 import { BranchSearchSelect } from "./branch-search-select";
-import type { ProviderType } from "@/types";
+import type { McpServerConfig, ProviderType } from "@/types";
 import { LuFolderGit2 } from "react-icons/lu";
 import { PROVIDER_ICONS_MAP } from "@/constants/icons";
 import { cn } from "@/lib/utils";
+import { ArrowDown2, CloseCircle, AddCircle } from "iconsax-reactjs";
 
 interface NewSessionDialogProps {
   open: boolean;
@@ -47,8 +55,13 @@ export function NewSessionDialog({
   const [baseBranch, setBaseBranch] = useState("");
   const [useLocal, setUseLocal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mcpServers, setMcpServers] = useState<McpServerConfig[]>([]);
+  const [excludedMcpIds, setExcludedMcpIds] = useState<Set<string>>(new Set());
+  const [mcpLoading, setMcpLoading] = useState(false);
+  const [mcpOpen, setMcpOpen] = useState(false);
   const { createSession } = useSelectorSessionStore(["createSession"]);
   const { providers } = useSelectorProviderStore(["providers"]);
+  const { fetchServersForDirectory } = useSelectorMcpStore(["fetchServersForDirectory"]);
   const { defaultProjectPath, defaultWorkMode } = useSelectorSettingsStore([
     "defaultProjectPath",
     "defaultWorkMode",
@@ -62,8 +75,46 @@ export function NewSessionDialog({
       setProjectPath(defaultValues?.projectPath || "");
       setBaseBranch(defaultValues?.baseBranch || "");
       setUseLocal(defaultValues?.useLocal ?? defaultWorkMode === "local");
+      setMcpServers([]);
+      setExcludedMcpIds(new Set());
+      setMcpOpen(false);
     }
   }, [open, defaultValues, defaultWorkMode]);
+
+  // Fetch MCP servers when projectPath changes
+  useEffect(() => {
+    if (!projectPath.trim()) {
+      setMcpServers([]);
+      setExcludedMcpIds(new Set());
+      return;
+    }
+
+    let cancelled = false;
+    setMcpLoading(true);
+    fetchServersForDirectory(projectPath).then((servers) => {
+      if (!cancelled) {
+        setMcpServers(servers);
+        setExcludedMcpIds(new Set());
+        setMcpLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectPath, fetchServersForDirectory]);
+
+  const handleExcludeMcp = useCallback((id: string) => {
+    setExcludedMcpIds((prev) => new Set([...prev, id]));
+  }, []);
+
+  const handleRestoreMcp = useCallback((id: string) => {
+    setExcludedMcpIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
 
   const installedProviders = providers.filter((p) => p.installed);
 
@@ -97,6 +148,8 @@ export function NewSessionDialog({
     setProjectPath("");
     setBaseBranch("");
     setUseLocal(false);
+    setMcpServers([]);
+    setExcludedMcpIds(new Set());
 
     // Create session in background - errors will be shown in the session
     try {
@@ -107,6 +160,7 @@ export function NewSessionDialog({
         base_branch: useLocal ? undefined : baseBranch || undefined,
         use_local: useLocal,
         fetch_first: true,
+        excluded_mcp_ids: Array.from(excludedMcpIds),
       });
     } catch (err) {
       console.error("Failed to create session:", err);
@@ -234,6 +288,78 @@ export function NewSessionDialog({
                 Leave empty to use the default branch
               </p>
             </div>
+          )}
+
+          {/* MCP Settings */}
+          {projectPath.trim() && mcpServers.length > 0 && (
+            <Collapsible open={mcpOpen} onOpenChange={setMcpOpen}>
+              <CollapsibleTrigger className="flex items-center gap-2 w-full py-1 cursor-pointer group">
+                <ArrowDown2
+                  size={14}
+                  className={cn(
+                    "text-muted-foreground transition-transform duration-200",
+                    !mcpOpen && "-rotate-90"
+                  )}
+                />
+                <span className="text-sm font-medium">MCP Servers</span>
+                <Badge variant="secondary" className="text-[0.6rem] px-1.5 py-0 font-medium">
+                  {mcpServers.length - excludedMcpIds.size}/{mcpServers.length}
+                </Badge>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="mt-2 space-y-1.5">
+                  {mcpLoading ? (
+                    <p className="text-xs text-muted-foreground py-2 text-center">
+                      Loading MCP servers...
+                    </p>
+                  ) : (
+                    mcpServers.map((server) => {
+                      const isExcluded = excludedMcpIds.has(server.id);
+                      return (
+                        <div
+                          key={server.id}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm",
+                            isExcluded && "opacity-40"
+                          )}
+                        >
+                          <span className="flex-1 truncate">{server.name}</span>
+                          <span className="shrink-0 text-[0.6rem] font-medium px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground">
+                            {server.transport.type === "stdio" ? "Stdio" : server.transport.type.toUpperCase()}
+                          </span>
+                          {server.globally_available && (
+                            <span className="shrink-0 text-[0.6rem] px-1.5 py-0.5 rounded-sm bg-primary/10 text-primary">
+                              Global
+                            </span>
+                          )}
+                          {isExcluded ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 [&_svg]:size-3.5 shrink-0"
+                              onClick={() => handleRestoreMcp(server.id)}
+                            >
+                              <AddCircle />
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 [&_svg]:size-3.5 shrink-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleExcludeMcp(server.id)}
+                            >
+                              <CloseCircle />
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           )}
         </div>
 

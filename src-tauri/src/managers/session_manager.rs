@@ -137,6 +137,8 @@ impl SessionManager {
 
         // Create session with status=Creating (branch_name is already populated)
         let now = Utc::now();
+        let project_path = request.project_path;
+
         let session = Session {
             id: session_id.clone(),
             name: request.name,
@@ -146,7 +148,7 @@ impl SessionManager {
             branch_name,
             created_at: now,
             updated_at: Some(now),
-            project_path: request.project_path,
+            project_path: project_path.clone(),
             is_local: request.use_local,
             acp_session_id: None,
             model: None,
@@ -176,7 +178,13 @@ impl SessionManager {
         }
 
         // Phase 2 (async): Spawn ACP connection in background
-        self.spawn_acp_connection(session_id, worktree_path, request.provider);
+        self.spawn_acp_connection(
+            session_id,
+            worktree_path,
+            request.provider,
+            project_path,
+            request.excluded_mcp_ids,
+        );
 
         Ok(session)
     }
@@ -187,12 +195,17 @@ impl SessionManager {
         session_id: String,
         worktree_path: PathBuf,
         provider: ProviderType,
+        project_path: String,
+        excluded_mcp_ids: Vec<String>,
     ) {
         let sessions = self.sessions.clone();
         let db = self.db.clone();
         let app_handle = self.app_handle.clone();
         let settings_manager = self.settings_manager.clone();
-        let mcp_servers = self.mcp_manager.get_enabled_acp_servers();
+        let mcp_servers = self.mcp_manager.get_enabled_acp_servers_for_directory(
+            &project_path,
+            &excluded_mcp_ids,
+        );
 
         tokio::spawn(async move {
             // Yield to ensure the command response reaches the frontend first
@@ -573,8 +586,11 @@ impl SessionManager {
             );
         });
 
-        // Get enabled MCP servers
-        let mcp_servers = self.mcp_manager.get_enabled_acp_servers();
+        // Get enabled MCP servers for this session's project directory
+        let mcp_servers = self.mcp_manager.get_enabled_acp_servers_for_directory(
+            &session.project_path,
+            &[],
+        );
 
         // Try to load the session if acp_session_id exists
         let load_result = if let Some(ref acp_session_id) = session.acp_session_id {

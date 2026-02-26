@@ -227,6 +227,8 @@ pub fn run() {
             commands::update_mcp_server,
             commands::delete_mcp_server,
             commands::toggle_mcp_server,
+            commands::toggle_mcp_globally_available,
+            commands::get_mcp_servers_for_directory,
             commands::list_skills,
             commands::scan_skills,
             commands::toggle_skill,
