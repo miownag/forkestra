@@ -42,6 +42,9 @@ impl McpManager {
         // Scan Codex configs
         discovered.extend(self.scan_codex_configs());
 
+        // Scan Gemini configs
+        discovered.extend(self.scan_gemini_configs());
+
         // Cache results
         *self.discovered_servers.write() = discovered.clone();
 
@@ -207,6 +210,52 @@ impl McpManager {
         servers
     }
 
+    /// Scan Gemini CLI config files for MCP servers.
+    /// Reads ~/.gemini/settings.json
+    fn scan_gemini_configs(&self) -> Vec<McpServerConfig> {
+        let mut servers = Vec::new();
+
+        let gemini_config_dir = self.get_provider_config_dir(
+            &ProviderType::Gemini,
+            "GEMINI_CONFIG_DIR",
+            ".gemini",
+        );
+
+        let global_config_path = gemini_config_dir.join("settings.json");
+        if global_config_path.exists() {
+            let global_servers = Self::parse_generic_mcp_config(
+                &global_config_path,
+                McpServerSource::GeminiGlobal,
+                "gemini_global",
+            );
+            servers.extend(global_servers);
+
+            // Scan per-project configs from the projects key
+            if let Ok(content) = std::fs::read_to_string(&global_config_path) {
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(projects) = json.get("projects").and_then(|p| p.as_object()) {
+                        for (project_path, project_config) in projects {
+                            if let Some(mcp_obj) =
+                                project_config.get("mcpServers").and_then(|m| m.as_object())
+                            {
+                                let project_servers = Self::parse_mcp_servers_object(
+                                    mcp_obj,
+                                    McpServerSource::GeminiProject {
+                                        project_path: project_path.clone(),
+                                    },
+                                    &format!("gemini_project:{}", Self::short_hash(project_path)),
+                                );
+                                servers.extend(project_servers);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        servers
+    }
+
     /// Get config directory for a provider, respecting env var overrides from settings.
     fn get_provider_config_dir(
         &self,
@@ -220,6 +269,7 @@ impl McpManager {
         let env_vars = match settings.provider_settings.get(provider_type) {
             Some(ProviderSettings::Kimi(s)) => &s.env_vars,
             Some(ProviderSettings::Codex(s)) => &s.env_vars,
+            Some(ProviderSettings::Gemini(s)) => &s.env_vars,
             _ => return dirs::home_dir()
                 .unwrap_or_else(|| PathBuf::from("/"))
                 .join(default_dir),
@@ -297,6 +347,10 @@ impl McpManager {
             McpServerSource::CodexProject { project_path } => {
                 format!("codex_project:{}", Self::short_hash(project_path))
             }
+            McpServerSource::GeminiGlobal => "gemini_global".to_string(),
+            McpServerSource::GeminiProject { project_path } => {
+                format!("gemini_project:{}", Self::short_hash(project_path))
+            }
             _ => "unknown".to_string(),
         };
 
@@ -318,6 +372,7 @@ impl McpManager {
                     McpServerSource::ClaudeGlobal
                         | McpServerSource::KimiGlobal
                         | McpServerSource::CodexGlobal
+                        | McpServerSource::GeminiGlobal
                         | McpServerSource::User
                 );
                 servers.push(McpServerConfig {
@@ -567,6 +622,7 @@ impl McpManager {
                     McpServerSource::ClaudeProject { project_path: pp }
                     | McpServerSource::KimiProject { project_path: pp }
                     | McpServerSource::CodexProject { project_path: pp }
+                    | McpServerSource::GeminiProject { project_path: pp }
                     | McpServerSource::UserProject { project_path: pp } => {
                         Self::paths_match(pp, project_path)
                     }

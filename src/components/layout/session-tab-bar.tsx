@@ -55,6 +55,9 @@ const getStatusColor = (
   if (isStreaming) {
     return STATUS_BG_COLORS_MAP.streaming;
   }
+  if (status === "error") {
+    return STATUS_BG_COLORS_MAP.error;
+  }
   if (status === "terminated") {
     return STATUS_BG_COLORS_MAP.terminated;
   }

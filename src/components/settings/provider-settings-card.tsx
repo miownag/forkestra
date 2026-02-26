@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useProviderSettingsStore } from "@/stores";
 import type { ProviderInfo, ProviderSettings } from "@/types";
-import { isClaudeSettings } from "@/types";
+import { isClaudeSettings, isCodexSettings, isGeminiSettings, isKimiSettings } from "@/types";
 import { LuFolderOpen } from "react-icons/lu";
 import { VscCheck, VscClose } from "react-icons/vsc";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
@@ -87,6 +87,25 @@ export function ProviderSettingsCard({
     }
   };
 
+  const handleSelectShareDir = async () => {
+    const selected = await openDialog({
+      title: "Select Share Directory",
+      multiple: false,
+      directory: true,
+    });
+    if (selected) {
+      const envVars = localSettings.env_vars || {};
+      setLocalSettings({
+        ...localSettings,
+        env_vars: {
+          ...envVars,
+          KIMI_SHARE_DIR: selected as string,
+        },
+      });
+      setIsDirty(true);
+    }
+  };
+
   const handleEnvVarChange = (key: string, value: string) => {
     const envVars = localSettings.env_vars || {};
     if (value.trim() === "") {
@@ -147,7 +166,9 @@ export function ProviderSettingsCard({
             className="text-xs text-muted-foreground truncate max-w-75"
             title={provider.cli_path || ""}
           >
-            {provider.cli_path || `${provider.cli_command} (not found)`}
+            {provider.provider_type === "codex"
+              ? "via npx @zed-industries/codex-acp"
+              : provider.cli_path || `${provider.cli_command} (not found)`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -172,35 +193,254 @@ export function ProviderSettingsCard({
 
       {/* Settings Form */}
       <div className="space-y-4">
-        {/* Custom CLI Path */}
-        <div>
-          <Label className="text-sm">Custom CLI Path (Process Wrapper)</Label>
-          <p className="text-xs text-muted-foreground mb-2">
-            Override the default CLI executable path
-          </p>
-          <div className="flex gap-2">
-            <Input
-              value={localSettings.custom_cli_path || ""}
-              onChange={(e) => {
-                setLocalSettings({
-                  ...localSettings,
-                  custom_cli_path: e.target.value || null,
-                });
-                setIsDirty(true);
-              }}
-              placeholder={provider.cli_path || provider.cli_command}
-              className="flex-1"
-            />
-            <Button variant="outline" size="icon" onClick={handleSelectCliPath}>
-              <LuFolderOpen />
-            </Button>
-            {localSettings.custom_cli_path && (
-              <Button variant="ghost" size="icon" onClick={handleClearPath}>
-                <VscClose />
+        {/* Custom CLI Path (not for Codex) */}
+        {!isCodexSettings(localSettings) && (
+          <div>
+            <Label className="text-sm">Custom CLI Path (Process Wrapper)</Label>
+            <p className="text-xs text-muted-foreground mb-2">
+              Override the default CLI executable path
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={localSettings.custom_cli_path || ""}
+                onChange={(e) => {
+                  setLocalSettings({
+                    ...localSettings,
+                    custom_cli_path: e.target.value || null,
+                  });
+                  setIsDirty(true);
+                }}
+                placeholder={provider.cli_path || provider.cli_command}
+                className="flex-1"
+              />
+              <Button variant="outline" size="icon" onClick={handleSelectCliPath}>
+                <LuFolderOpen />
               </Button>
-            )}
+              {localSettings.custom_cli_path && (
+                <Button variant="ghost" size="icon" onClick={handleClearPath}>
+                  <VscClose />
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Codex-specific: Auth & Environment Variables */}
+        {isCodexSettings(localSettings) && (
+          <>
+            <div>
+              <Label className="text-sm">OPENAI_API_KEY</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                OpenAI API authentication key
+              </p>
+              <Input
+                type="password"
+                value={localSettings.env_vars?.OPENAI_API_KEY || ""}
+                onChange={(e) =>
+                  handleEnvVarChange("OPENAI_API_KEY", e.target.value)
+                }
+                placeholder="sk-..."
+              />
+            </div>
+            <div>
+              <Label className="text-sm">CODEX_API_KEY</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Codex API authentication key
+              </p>
+              <Input
+                type="password"
+                value={localSettings.env_vars?.CODEX_API_KEY || ""}
+                onChange={(e) =>
+                  handleEnvVarChange("CODEX_API_KEY", e.target.value)
+                }
+                placeholder="Custom key"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm">NO_BROWSER</Label>
+                <p className="text-xs text-muted-foreground">
+                  Disable browser login (for remote SSH environments)
+                </p>
+              </div>
+              <Switch
+                checked={!!localSettings.env_vars?.NO_BROWSER}
+                onCheckedChange={(checked) => {
+                  handleEnvVarChange("NO_BROWSER", checked ? "1" : "");
+                }}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Kimi-specific: Auth & Environment Variables */}
+        {isKimiSettings(localSettings) && (
+          <>
+            <div>
+              <Label className="text-sm">KIMI_API_KEY</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Kimi API key
+              </p>
+              <Input
+                type="password"
+                value={localSettings.env_vars?.KIMI_API_KEY || ""}
+                onChange={(e) =>
+                  handleEnvVarChange("KIMI_API_KEY", e.target.value)
+                }
+                placeholder="sk-..."
+              />
+            </div>
+            <div>
+              <Label className="text-sm">KIMI_BASE_URL</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Kimi API base URL
+              </p>
+              <Input
+                value={localSettings.env_vars?.KIMI_BASE_URL || ""}
+                onChange={(e) =>
+                  handleEnvVarChange("KIMI_BASE_URL", e.target.value)
+                }
+                placeholder="https://api.moonshot.cn/v1"
+              />
+            </div>
+            <div>
+              <Label className="text-sm">OPENAI_API_KEY</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                OpenAI provider API key (optional)
+              </p>
+              <Input
+                type="password"
+                value={localSettings.env_vars?.OPENAI_API_KEY || ""}
+                onChange={(e) =>
+                  handleEnvVarChange("OPENAI_API_KEY", e.target.value)
+                }
+                placeholder="sk-..."
+              />
+            </div>
+            <div>
+              <Label className="text-sm">OPENAI_BASE_URL</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                OpenAI provider base URL (optional)
+              </p>
+              <Input
+                value={localSettings.env_vars?.OPENAI_BASE_URL || ""}
+                onChange={(e) =>
+                  handleEnvVarChange("OPENAI_BASE_URL", e.target.value)
+                }
+                placeholder="https://api.openai.com/v1"
+              />
+            </div>
+            <div>
+              <Label className="text-sm">KIMI_SHARE_DIR</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Custom share directory (defaults to ~/.kimi)
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  value={localSettings.env_vars?.KIMI_SHARE_DIR || ""}
+                  onChange={(e) =>
+                    handleEnvVarChange("KIMI_SHARE_DIR", e.target.value)
+                  }
+                  placeholder="~/.kimi"
+                  className="flex-1"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleSelectShareDir}
+                >
+                  <LuFolderOpen />
+                </Button>
+                {localSettings.env_vars?.KIMI_SHARE_DIR && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRemoveEnvVar("KIMI_SHARE_DIR")}
+                  >
+                    <VscClose />
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm">KIMI_CLI_NO_AUTO_UPDATE</Label>
+                <p className="text-xs text-muted-foreground">
+                  Disable auto-update check
+                </p>
+              </div>
+              <Switch
+                checked={!!localSettings.env_vars?.KIMI_CLI_NO_AUTO_UPDATE}
+                onCheckedChange={(checked) => {
+                  handleEnvVarChange(
+                    "KIMI_CLI_NO_AUTO_UPDATE",
+                    checked ? "1" : ""
+                  );
+                }}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Gemini-specific: Auth & Environment Variables */}
+        {isGeminiSettings(localSettings) && (
+          <>
+            <div>
+              <Label className="text-sm">GEMINI_API_KEY</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Gemini API authentication key
+              </p>
+              <Input
+                type="password"
+                value={localSettings.env_vars?.GEMINI_API_KEY || ""}
+                onChange={(e) =>
+                  handleEnvVarChange("GEMINI_API_KEY", e.target.value)
+                }
+                placeholder="AIza..."
+              />
+            </div>
+            <div>
+              <Label className="text-sm">GOOGLE_API_KEY</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Google API key (optional, alternative to GEMINI_API_KEY)
+              </p>
+              <Input
+                type="password"
+                value={localSettings.env_vars?.GOOGLE_API_KEY || ""}
+                onChange={(e) =>
+                  handleEnvVarChange("GOOGLE_API_KEY", e.target.value)
+                }
+                placeholder="AIza..."
+              />
+            </div>
+            <div>
+              <Label className="text-sm">GOOGLE_CLOUD_PROJECT</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Google Cloud project ID (optional, for Vertex AI)
+              </p>
+              <Input
+                value={localSettings.env_vars?.GOOGLE_CLOUD_PROJECT || ""}
+                onChange={(e) =>
+                  handleEnvVarChange("GOOGLE_CLOUD_PROJECT", e.target.value)
+                }
+                placeholder="my-project-id"
+              />
+            </div>
+            <div>
+              <Label className="text-sm">GOOGLE_CLOUD_LOCATION</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Google Cloud location (optional, for Vertex AI)
+              </p>
+              <Input
+                value={localSettings.env_vars?.GOOGLE_CLOUD_LOCATION || ""}
+                onChange={(e) =>
+                  handleEnvVarChange("GOOGLE_CLOUD_LOCATION", e.target.value)
+                }
+                placeholder="us-central1"
+              />
+            </div>
+          </>
+        )}
 
         {/* Claude-specific: Disable Login Prompt */}
         {/* {isClaudeSettings(localSettings) && (
@@ -271,6 +511,30 @@ export function ProviderSettingsCard({
           <div className="space-y-2">
             {Object.entries(localSettings.env_vars || {})
               .filter(([key]) => key !== "CLAUDE_CONFIG_DIR") // Don't show CLAUDE_CONFIG_DIR here
+              .filter(([key]) =>
+                !isCodexSettings(localSettings) ||
+                !["OPENAI_API_KEY", "CODEX_API_KEY", "NO_BROWSER"].includes(key)
+              ) // Don't show Codex-specific vars here
+              .filter(([key]) =>
+                !isKimiSettings(localSettings) ||
+                ![
+                  "KIMI_API_KEY",
+                  "KIMI_BASE_URL",
+                  "OPENAI_API_KEY",
+                  "OPENAI_BASE_URL",
+                  "KIMI_SHARE_DIR",
+                  "KIMI_CLI_NO_AUTO_UPDATE",
+                ].includes(key)
+              ) // Don't show Kimi-specific vars here
+              .filter(([key]) =>
+                !isGeminiSettings(localSettings) ||
+                ![
+                  "GEMINI_API_KEY",
+                  "GOOGLE_API_KEY",
+                  "GOOGLE_CLOUD_PROJECT",
+                  "GOOGLE_CLOUD_LOCATION",
+                ].includes(key)
+              ) // Don't show Gemini-specific vars here
               .map(([key, value]) => (
                 <div key={key} className="flex gap-2">
                   <Input

@@ -54,6 +54,7 @@ interface SessionItemProps {
   isResuming?: boolean;
   isCreating?: boolean;
   hasPendingPermission?: boolean;
+  errorMessage?: string | null;
 }
 
 export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
@@ -67,6 +68,7 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
       isResuming = false,
       isCreating = false,
       hasPendingPermission = false,
+      errorMessage,
     },
     ref
   ) => {
@@ -187,6 +189,7 @@ export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
                   isResuming={isResuming}
                   isCreating={isCreating}
                   hasPendingPermission={hasPendingPermission}
+                  errorMessage={errorMessage}
                 />
                 {session.updated_at && (
                   <div className="text-[0.65rem] text-muted-foreground/70">

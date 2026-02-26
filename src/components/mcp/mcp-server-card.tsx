@@ -43,6 +43,10 @@ function getSourceLabel(source: McpServerConfig["source"]) {
       return "Codex Global";
     case "codex_project":
       return "Codex Project";
+    case "gemini_global":
+      return "Gemini Global";
+    case "gemini_project":
+      return "Gemini Project";
     default:
       return "Unknown";
   }

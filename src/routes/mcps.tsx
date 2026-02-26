@@ -46,6 +46,10 @@ function getSourceInfo(source: McpServerSource): {
       return { provider: "codex", scope: "global" };
     case "codex_project":
       return { provider: "codex", scope: "project", projectPath: source.project_path };
+    case "gemini_global":
+      return { provider: "gemini", scope: "global" };
+    case "gemini_project":
+      return { provider: "gemini", scope: "project", projectPath: source.project_path };
     default:
       return { provider: "claude", scope: "global" };
   }

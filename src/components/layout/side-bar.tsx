@@ -99,6 +99,7 @@ interface SessionSidebarItemProps {
   isResuming?: boolean;
   isCreating?: boolean;
   hasPendingPermission?: boolean;
+  errorMessage?: string | null;
 }
 
 // ---- SessionSidebarItem ----
@@ -117,6 +118,7 @@ const SessionSidebarItem = forwardRef<
       isResuming = false,
       isCreating = false,
       hasPendingPermission = false,
+      errorMessage,
     },
     ref,
   ) => {
@@ -203,6 +205,7 @@ const SessionSidebarItem = forwardRef<
                   isResuming={isResuming}
                   isCreating={isCreating}
                   hasPendingPermission={hasPendingPermission}
+                  errorMessage={errorMessage}
                   className="size-3.5"
                 />
                 {session.updated_at && (
@@ -332,6 +335,7 @@ export function AppSidebar() {
     resumingSessions,
     creatingSessions,
     interactionPrompts,
+    sessionErrors,
   } = useSelectorSessionStore([
     "sessions",
     "activeSessionId",
@@ -341,6 +345,7 @@ export function AppSidebar() {
     "resumingSessions",
     "creatingSessions",
     "interactionPrompts",
+    "sessionErrors",
   ]);
   const { providers } = useSelectorProviderStore(["providers"]);
   const { resolvedTheme, isFullscreen, sidebarCollapsed, toggleSidebar } =
@@ -658,6 +663,7 @@ export function AppSidebar() {
                               hasPendingPermission={
                                 !!interactionPrompts[session.id]
                               }
+                              errorMessage={sessionErrors[session.id]}
                             />
                           </SidebarMenuItem>
                         ))}
@@ -685,6 +691,7 @@ export function AppSidebar() {
                       isResuming={resumingSessions.has(session.id)}
                       isCreating={creatingSessions.has(session.id)}
                       hasPendingPermission={!!interactionPrompts[session.id]}
+                      errorMessage={sessionErrors[session.id]}
                     />
                   </SidebarMenuItem>
                 ))}

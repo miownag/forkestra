@@ -72,7 +72,7 @@ impl ProviderDetector {
 
     /// Detect all available providers
     pub fn detect_all() -> Vec<ProviderInfo> {
-        let providers = vec![ProviderType::Claude, ProviderType::Kimi, ProviderType::Codex];
+        let providers = vec![ProviderType::Claude, ProviderType::Kimi, ProviderType::Codex, ProviderType::Gemini];
 
         providers
             .into_iter()
@@ -85,11 +85,13 @@ impl ProviderDetector {
         claude_custom_path: Option<&str>,
         kimi_custom_path: Option<&str>,
         codex_custom_path: Option<&str>,
+        gemini_custom_path: Option<&str>,
     ) -> Vec<ProviderInfo> {
         vec![
             Self::detect_provider(&ProviderType::Claude, claude_custom_path),
             Self::detect_provider(&ProviderType::Kimi, kimi_custom_path),
             Self::detect_provider(&ProviderType::Codex, codex_custom_path),
+            Self::detect_provider(&ProviderType::Gemini, gemini_custom_path),
         ]
     }
 
@@ -98,6 +100,18 @@ impl ProviderDetector {
         provider_type: &ProviderType,
         custom_cli_path: Option<&str>,
     ) -> ProviderInfo {
+        // Codex doesn't need a local CLI binary - it runs via npx
+        if matches!(provider_type, ProviderType::Codex) {
+            return ProviderInfo {
+                provider_type: provider_type.clone(),
+                name: provider_type.display_name().to_string(),
+                cli_command: provider_type.cli_command().to_string(),
+                cli_path: None,
+                installed: true,
+                version: None,
+            };
+        }
+
         let cli_command = provider_type.cli_command();
 
         // Try custom CLI path first, then fall back to PATH

@@ -143,16 +143,20 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
                     className={`px-2 py-0.5 rounded text-xs font-medium ${
                       session.status === "active"
                         ? "bg-green-500/10 text-green-600"
-                        : isCreating
-                          ? "bg-yellow-500/10 text-yellow-600"
-                          : "bg-muted text-muted-foreground"
+                        : session.status === "error"
+                          ? "bg-red-500/10 text-red-600"
+                          : isCreating
+                            ? "bg-yellow-500/10 text-yellow-600"
+                            : "bg-muted text-muted-foreground"
                     }`}
                   >
                     {session.status === "active"
                       ? "Active"
-                      : isCreating
-                        ? "Creating..."
-                        : session.status}
+                      : session.status === "error"
+                        ? "Error"
+                        : isCreating
+                          ? "Creating..."
+                          : session.status}
                   </span>
                 </div>
               </div>

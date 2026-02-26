@@ -21,6 +21,10 @@ pub enum McpServerSource {
     CodexGlobal,
     /// Discovered from Codex project config
     CodexProject { project_path: String },
+    /// Discovered from Gemini CLI global config (~/.gemini/settings.json)
+    GeminiGlobal,
+    /// Discovered from Gemini CLI project config
+    GeminiProject { project_path: String },
 }
 
 /// Transport configuration for an MCP server.

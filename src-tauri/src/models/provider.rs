@@ -6,6 +6,7 @@ pub enum ProviderType {
     Claude,
     Kimi,
     Codex,
+    Gemini,
 }
 
 impl ProviderType {
@@ -14,6 +15,7 @@ impl ProviderType {
             ProviderType::Claude => "claude",
             ProviderType::Kimi => "kimi",
             ProviderType::Codex => "codex",
+            ProviderType::Gemini => "gemini",
         }
     }
 
@@ -22,6 +24,7 @@ impl ProviderType {
             ProviderType::Claude => "Claude Code",
             ProviderType::Kimi => "Kimi Code",
             ProviderType::Codex => "Codex",
+            ProviderType::Gemini => "Gemini CLI",
         }
     }
 }
@@ -114,6 +117,25 @@ impl Default for CodexProviderSettings {
     }
 }
 
+// Gemini-specific settings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GeminiProviderSettings {
+    pub enabled: bool,
+    pub custom_cli_path: Option<String>,
+    #[serde(default)]
+    pub env_vars: std::collections::HashMap<String, String>,
+}
+
+impl Default for GeminiProviderSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            custom_cli_path: None,
+            env_vars: std::collections::HashMap::new(),
+        }
+    }
+}
+
 // Tagged enum for all provider settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "provider_type", rename_all = "snake_case")]
@@ -121,6 +143,7 @@ pub enum ProviderSettings {
     Claude(ClaudeProviderSettings),
     Kimi(KimiProviderSettings),
     Codex(CodexProviderSettings),
+    Gemini(GeminiProviderSettings),
 }
 
 impl ProviderSettings {
@@ -129,6 +152,7 @@ impl ProviderSettings {
             ProviderSettings::Claude(_) => ProviderType::Claude,
             ProviderSettings::Kimi(_) => ProviderType::Kimi,
             ProviderSettings::Codex(_) => ProviderType::Codex,
+            ProviderSettings::Gemini(_) => ProviderType::Gemini,
         }
     }
 
@@ -137,6 +161,7 @@ impl ProviderSettings {
             ProviderSettings::Claude(s) => s.custom_cli_path.as_deref(),
             ProviderSettings::Kimi(s) => s.custom_cli_path.as_deref(),
             ProviderSettings::Codex(s) => s.custom_cli_path.as_deref(),
+            ProviderSettings::Gemini(s) => s.custom_cli_path.as_deref(),
         }
     }
 
@@ -145,6 +170,7 @@ impl ProviderSettings {
             ProviderSettings::Claude(s) => s.enabled,
             ProviderSettings::Kimi(s) => s.enabled,
             ProviderSettings::Codex(s) => s.enabled,
+            ProviderSettings::Gemini(s) => s.enabled,
         }
     }
 }

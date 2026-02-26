@@ -1,5 +1,5 @@
 // Provider types
-export type ProviderType = "claude" | "kimi" | "codex";
+export type ProviderType = "claude" | "kimi" | "codex" | "gemini";
 
 export interface ProviderInfo {
   provider_type: ProviderType;
@@ -40,8 +40,15 @@ export interface CodexProviderSettings {
   env_vars?: Record<string, string>;
 }
 
+export interface GeminiProviderSettings {
+  provider_type: "gemini";
+  enabled: boolean;
+  custom_cli_path: string | null;
+  env_vars?: Record<string, string>;
+}
+
 // Discriminated union for all provider settings
-export type ProviderSettings = ClaudeProviderSettings | KimiProviderSettings | CodexProviderSettings;
+export type ProviderSettings = ClaudeProviderSettings | KimiProviderSettings | CodexProviderSettings | GeminiProviderSettings;
 
 // Type guards
 export function isClaudeSettings(
@@ -60,6 +67,12 @@ export function isCodexSettings(
   settings: ProviderSettings
 ): settings is CodexProviderSettings {
   return settings.provider_type === "codex";
+}
+
+export function isGeminiSettings(
+  settings: ProviderSettings
+): settings is GeminiProviderSettings {
+  return settings.provider_type === "gemini";
 }
 
 // Default settings factory
@@ -85,6 +98,13 @@ export function createDefaultProviderSettings(
     case "codex":
       return {
         provider_type: "codex",
+        enabled: true,
+        custom_cli_path: null,
+        env_vars: {},
+      };
+    case "gemini":
+      return {
+        provider_type: "gemini",
         enabled: true,
         custom_cli_path: null,
         env_vars: {},
@@ -314,7 +334,9 @@ export type McpServerSource =
   | { type: "kimi_global" }
   | { type: "kimi_project"; project_path: string }
   | { type: "codex_global" }
-  | { type: "codex_project"; project_path: string };
+  | { type: "codex_project"; project_path: string }
+  | { type: "gemini_global" }
+  | { type: "gemini_project"; project_path: string };
 
 export type McpTransport =
   | { type: "stdio"; command: string; args: string[]; env: Record<string, string> }

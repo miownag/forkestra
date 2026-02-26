@@ -8,6 +8,7 @@ import type {
   ClaudeProviderSettings,
   KimiProviderSettings,
   CodexProviderSettings,
+  GeminiProviderSettings,
 } from "@/types";
 import { createDefaultProviderSettings } from "@/types";
 import { useShallow } from "zustand/react/shallow";
@@ -24,7 +25,7 @@ interface ProviderSettingsState {
   updateProviderSettings: (settings: ProviderSettings) => Promise<void>;
   getProviderSettings: <T extends ProviderType>(
     providerType: T
-  ) => T extends "claude" ? ClaudeProviderSettings : T extends "kimi" ? KimiProviderSettings : CodexProviderSettings;
+  ) => T extends "claude" ? ClaudeProviderSettings : T extends "kimi" ? KimiProviderSettings : T extends "gemini" ? GeminiProviderSettings : CodexProviderSettings;
 
   // Claude-specific helpers
   setClaudeCliPath: (path: string | null) => Promise<void>;
@@ -35,6 +36,9 @@ interface ProviderSettingsState {
 
   // Codex-specific helpers
   setCodexCliPath: (path: string | null) => Promise<void>;
+
+  // Gemini-specific helpers
+  setGeminiCliPath: (path: string | null) => Promise<void>;
 }
 
 export const useProviderSettingsStore = create<ProviderSettingsState>()(
@@ -46,6 +50,7 @@ export const useProviderSettingsStore = create<ProviderSettingsState>()(
             createDefaultProviderSettings("claude") as ClaudeProviderSettings,
           kimi: createDefaultProviderSettings("kimi") as KimiProviderSettings,
           codex: createDefaultProviderSettings("codex") as CodexProviderSettings,
+          gemini: createDefaultProviderSettings("gemini") as GeminiProviderSettings,
         },
         isLoading: false,
         error: null,
@@ -117,6 +122,15 @@ export const useProviderSettingsStore = create<ProviderSettingsState>()(
         // Codex helpers
         setCodexCliPath: async (path) => {
           const current = get().settings.codex as CodexProviderSettings;
+          await get().updateProviderSettings({
+            ...current,
+            custom_cli_path: path,
+          });
+        },
+
+        // Gemini helpers
+        setGeminiCliPath: async (path) => {
+          const current = get().settings.gemini as GeminiProviderSettings;
           await get().updateProviderSettings({
             ...current,
             custom_cli_path: path,

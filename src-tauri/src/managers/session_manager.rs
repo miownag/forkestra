@@ -16,7 +16,7 @@ use crate::models::{
     AvailableCommand, CreateSessionRequest, PlanEntry, PromptContent, ProviderSettings, ProviderType, Session, SessionStatus,
     SessionStatusEvent, StreamChunk,
 };
-use crate::providers::{ClaudeAdapter, CodexAdapter, KimiAdapter, ProviderAdapter};
+use crate::providers::{ClaudeAdapter, CodexAdapter, GeminiAdapter, KimiAdapter, ProviderAdapter};
 
 /// Code-level switch: set to `true` to prepend skill contents into the first
 /// message of each ACP session. This is an experimental feature for internal use.
@@ -233,6 +233,13 @@ impl SessionManager {
                         Box::new(CodexAdapter::with_settings(&settings))
                     } else {
                         Box::new(CodexAdapter::new())
+                    }
+                }
+                ProviderType::Gemini => {
+                    if let Some(ProviderSettings::Gemini(settings)) = provider_settings {
+                        Box::new(GeminiAdapter::with_settings(&settings))
+                    } else {
+                        Box::new(GeminiAdapter::new())
                     }
                 }
             };
@@ -556,6 +563,13 @@ impl SessionManager {
                     Box::new(CodexAdapter::with_settings(&settings))
                 } else {
                     Box::new(CodexAdapter::new())
+                }
+            }
+            ProviderType::Gemini => {
+                if let Some(ProviderSettings::Gemini(settings)) = provider_settings {
+                    Box::new(GeminiAdapter::with_settings(&settings))
+                } else {
+                    Box::new(GeminiAdapter::new())
                 }
             }
         };

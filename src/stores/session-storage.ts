@@ -44,6 +44,7 @@ interface SessionState {
   creatingSessions: Set<string>; // Track sessions currently being created
   messageQueue: Record<string, PromptContent[][]>; // Queue messages for creating sessions
   interactionPrompts: Record<string, InteractionPrompt | null>;
+  sessionErrors: Record<string, string>; // Per-session error messages
   error: string | null;
 
   // Actions
@@ -116,6 +117,7 @@ export const useSessionStore = create<SessionState>()(
         creatingSessions: new Set(),
         messageQueue: {},
         interactionPrompts: {},
+        sessionErrors: {},
         error: null,
 
         // Actions
@@ -875,6 +877,7 @@ export const useSessionStore = create<SessionState>()(
             });
           } else if (status === "error") {
             // ACP connection failed
+            const errorMessage = error || "Failed to establish ACP connection";
             set((state) => {
               const newCreatingSessions = new Set(state.creatingSessions);
               newCreatingSessions.delete(session_id);
@@ -894,7 +897,11 @@ export const useSessionStore = create<SessionState>()(
                 ),
                 creatingSessions: newCreatingSessions,
                 messageQueue: remainingQueue,
-                error: error || "Failed to establish ACP connection",
+                sessionErrors: {
+                  ...state.sessionErrors,
+                  [session_id]: errorMessage,
+                },
+                error: errorMessage,
               };
             });
           }
