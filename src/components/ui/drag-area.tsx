@@ -16,8 +16,8 @@ export function DragArea() {
     <div
       data-tauri-drag-region
       className={cn(
-        "shrink-0 h-11 z-50 flex items-center pr-4 justify-between w-full bg-muted/20",
-        !isFullscreen && (sidebarCollapsed ? "pl-10" : "pl-2"),
+        "shrink-0 h-[48px] z-50 flex items-center pr-4 justify-between w-full bg-muted/20",
+        !isFullscreen && (sidebarCollapsed ? "pl-[48px]" : "pl-[8px]"),
       )}
     >
       <div className="flex items-center gap-2">

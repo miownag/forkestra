@@ -87,7 +87,7 @@ function TextStep({ content, isLast }: { content: string; isLast: boolean }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     },
-    [content]
+    [content],
   );
 
   return (
@@ -104,7 +104,7 @@ function TextStep({ content, isLast }: { content: string; isLast: boolean }) {
             className={cn(
               "text-muted-foreground p-1 rounded-md opacity-0",
               "group-hover:opacity-100",
-              !copied && "hover:bg-muted"
+              !copied && "hover:bg-muted",
             )}
             title="Copy content"
           >
@@ -240,7 +240,7 @@ function PlanStep({
                     <span
                       className={cn(
                         "text-xs font-medium uppercase",
-                        getPriorityColor(entry.priority)
+                        getPriorityColor(entry.priority),
                       )}
                     >
                       {entry.priority}
@@ -262,7 +262,7 @@ function PlanStep({
 
 function renderToolCallContent(
   content: ToolCallContentItem[] | null,
-  tcId: string
+  tcId: string,
 ) {
   if (!content || content.length === 0) return null;
 
@@ -437,7 +437,7 @@ export function Steps({ message }: StepsProps) {
       (!planEntries || planEntries.length === 0)
     ) {
       if (message.is_streaming) {
-        return <Loader variant="dots" className="ml-1 text-foreground" />;
+        return <Loader variant="dots" className="ml-1 text-foreground mt-2" />;
       }
       return null;
     }
@@ -520,7 +520,7 @@ export function Steps({ message }: StepsProps) {
       </ChainOfThought>
       {message.is_streaming &&
         !message.tool_calls?.some((tc) => tc.status === "running") && (
-          <Loader variant="dots" className="ml-1 text-foreground" />
+          <Loader variant="dots" className="ml-1 text-foreground mt-2" />
         )}
     </>
   );

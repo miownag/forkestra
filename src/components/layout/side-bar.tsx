@@ -487,7 +487,7 @@ export function AppSidebar() {
         <div
           data-tauri-drag-region
           className={cn(
-            "shrink-0 h-11 z-50 flex items-center justify-end",
+            "shrink-0 h-[48px] z-50 flex items-center justify-end",
             !isIconMode && "pr-2",
           )}
         >

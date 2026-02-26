@@ -159,8 +159,8 @@ export function SessionTabBar() {
     <div
       data-tauri-drag-region
       className={cn(
-        "shrink-0 h-11 z-50 flex items-center pr-2 w-full bg-muted/20",
-        !isFullscreen && (sidebarCollapsed ? "pl-8" : "pl-2"),
+        "shrink-0 h-[48px] z-50 flex items-center pr-2 w-full bg-muted/20",
+        !isFullscreen && (sidebarCollapsed ? "pl-[48px]" : "pl-[8px]"),
       )}
     >
       {sidebarState === "collapsed" && (
