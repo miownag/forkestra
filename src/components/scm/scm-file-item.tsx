@@ -2,11 +2,18 @@ import { cn } from "@/lib/utils";
 import type { GitFileStatus, GitFileStatusKind } from "@/types";
 import { Button } from "@/components/ui/button";
 import { LuPlus, LuMinus, LuUndo2, LuFileWarning } from "react-icons/lu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DocumentText1 } from "iconsax-reactjs";
+import { FILE_EXT_SETI_ICONS_MAP } from "@/constants/icons";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ScmFileItemProps {
   file: GitFileStatus;
   group: "staged" | "unstaged" | "untracked" | "conflicts";
+  selected?: boolean;
   onStage?: () => void;
   onUnstage?: () => void;
   onDiscard?: () => void;
@@ -29,6 +36,7 @@ const STATUS_CONFIG: Record<
 export function ScmFileItem({
   file,
   group,
+  selected,
   onStage,
   onUnstage,
   onDiscard,
@@ -39,16 +47,25 @@ export function ScmFileItem({
   const dirPath = file.path.includes("/")
     ? file.path.substring(0, file.path.lastIndexOf("/"))
     : "";
+  const fileIconSrc =
+    FILE_EXT_SETI_ICONS_MAP[
+      fileName.split(".").pop() as keyof typeof FILE_EXT_SETI_ICONS_MAP
+    ] || "";
 
   return (
     <div
-      className="flex items-center gap-1 px-2 py-0.5 hover:bg-muted/50 rounded group/item cursor-pointer text-xs"
+      className={cn(
+        "flex items-center gap-0.5 px-2 py-0.5 rounded group/item cursor-pointer text-xs",
+        selected ? "bg-muted/70" : "hover:bg-muted/30",
+      )}
       onClick={onClick}
       title={file.path}
     >
-      <span className={cn("font-mono w-4 shrink-0 text-center", config.color)}>
-        {config.label}
-      </span>
+      {fileIconSrc ? (
+        <img src={fileIconSrc} alt="" className="size-4 shrink-0" />
+      ) : (
+        <DocumentText1 className="size-3.5 shrink-0" />
+      )}
       <span className="truncate flex-1 min-w-0">
         <span>{fileName}</span>
         {dirPath && (
@@ -57,7 +74,7 @@ export function ScmFileItem({
       </span>
 
       {/* Hover actions */}
-      <div className="hidden group-hover/item:flex items-center gap-0.5 shrink-0">
+      <div className="invisible group-hover/item:visible flex items-center gap-0.5 shrink-0">
         {group === "staged" && onUnstage && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -149,6 +166,9 @@ export function ScmFileItem({
           </Tooltip>
         )}
       </div>
+      <span className={cn("font-mono shrink-0 text-center w-4", config.color)}>
+        {config.label}
+      </span>
     </div>
   );
 }

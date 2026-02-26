@@ -65,9 +65,12 @@ export const useScmStore = create<ScmState>((set, get) => ({
   operationInProgress: {},
 
   fetchScmStatus: async (sessionId, repoPath) => {
-    set((state) => ({
-      loading: { ...state.loading, [sessionId]: true },
-    }));
+    const hasExistingStatus = !!get().statuses[sessionId];
+    if (!hasExistingStatus) {
+      set((state) => ({
+        loading: { ...state.loading, [sessionId]: true },
+      }));
+    }
     try {
       const status = await invoke<GitScmStatus>("git_scm_status", { repoPath });
       set((state) => ({

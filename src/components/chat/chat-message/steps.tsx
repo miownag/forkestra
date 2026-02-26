@@ -33,12 +33,31 @@ import {
   Copy,
   CopySuccess,
   MessageText,
-  TaskSquare,
-  CloseSquare,
+  Task,
+  CloseCircle,
   Forbidden,
   Gallery,
 } from "iconsax-reactjs";
 import { CUSTOM_COMPONENTS_FOR_MARKDOWN } from "@/constants";
+
+/**
+ * Detect if a "completed" tool call actually contains an error in its output.
+ * Workaround for Claude Code ACP reporting some failed tool calls (e.g. WebSearch)
+ * as "completed" with error text in raw_output.
+ */
+function getEffectiveStatus(tc: ToolCallInfo): string {
+  if (tc.status !== "completed") return tc.status;
+
+  // Claude Code WebSearch: ACP reports completed but output contains API Error
+  if (tc.tool_name === "WebSearch" && tc.raw_output) {
+    const raw = JSON.stringify(tc.raw_output);
+    if (raw.includes("API Error") || raw.includes("error_code")) {
+      return "error";
+    }
+  }
+
+  return tc.status;
+}
 
 function getToolIcon(status: string, kind?: ToolKind) {
   // Status-based icons take precedence
@@ -48,7 +67,7 @@ function getToolIcon(status: string, kind?: ToolKind) {
     case "completed":
       return <LuCircleCheckBig className="size-4 text-green-500" />;
     case "error":
-      return <CloseSquare className="size-4 text-red-500" />;
+      return <CloseCircle className="size-4 text-red-500" />;
     case "interrupted":
       return <Forbidden className="size-4 text-yellow-500" />;
   }
@@ -71,9 +90,10 @@ function getToolIcon(status: string, kind?: ToolKind) {
 }
 
 function getToolTitle(tc: ToolCallInfo) {
-  if (tc.title) return tc.title;
-  if (tc.tool_name) return tc.tool_name;
-  return "Tool Call";
+  if (tc.tool_name === "WebSearch") {
+    return `${tc.tool_name} - ${tc.title}`;
+  }
+  return tc.title || tc.tool_name || "Tool Call";
 }
 
 function TextStep({ content, isLast }: { content: string; isLast: boolean }) {
@@ -213,7 +233,7 @@ function PlanStep({
   return (
     <ChainOfThoughtStep defaultOpen isLast={isLast}>
       <ChainOfThoughtTrigger
-        leftIcon={<TaskSquare className="size-4 text-foreground" />}
+        leftIcon={<Task className="size-4 text-primary" />}
         swapIconOnHover={false}
       >
         <div className="flex items-center gap-2">
@@ -231,7 +251,7 @@ function PlanStep({
                 key={idx}
                 className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-2.5"
               >
-                <div className="mt-0.5">{getPlanStatusIcon(entry.status)}</div>
+                <div className="mt-1">{getPlanStatusIcon(entry.status)}</div>
                 <div className="flex-1 space-y-1">
                   <div className="text-sm leading-relaxed text-foreground">
                     {entry.content}
@@ -286,7 +306,7 @@ function renderToolCallContent(
                 ) : item.content.type === "resource_link" ? (
                   <a
                     href={item.content.uri}
-                    className="text-blue-500 hover:underline text-sm"
+                    className="text-cyan-600 hover:text-cyan-500 dark:text-cyan-400 dark:hover:text-cyan-300 hover:underline text-sm"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -346,7 +366,7 @@ function ToolStep({ tc, isLast }: { tc: ToolCallInfo; isLast: boolean }) {
       isLast={isLast}
     >
       <ChainOfThoughtTrigger
-        leftIcon={getToolIcon(tc.status, tc.kind)}
+        leftIcon={getToolIcon(getEffectiveStatus(tc), tc.kind)}
         swapIconOnHover={false}
       >
         <Markdown components={CUSTOM_COMPONENTS_FOR_MARKDOWN}>

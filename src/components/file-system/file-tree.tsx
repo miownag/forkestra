@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Collapsible,
@@ -11,7 +10,6 @@ import {
   FileIcon,
   FolderIcon,
   FolderOpenIcon,
-  RefreshCwIcon,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import type { FileEntry } from "@/types";
@@ -37,9 +35,9 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { RiGitRepositoryLine } from "react-icons/ri";
 import { FILE_EXT_SETI_ICONS_MAP } from "@/constants/icons";
 import { DocumentText1 } from "iconsax-reactjs";
+import { LeftPanelHeader } from "@/components/ui/left-panel-header";
 
 interface FileTreeProps {
   projectPath: string;
@@ -662,25 +660,13 @@ export function FileTree({ projectPath, sessionId }: FileTreeProps) {
 
   return (
     <div className="flex flex-col h-full w-full overflow-auto file-tree-container">
-      <div className="px-3 py-2 shrink-0 flex items-center justify-between border-b border-dashed">
-        <h3 className="flex items-center gap-2 text-xs font-medium">
-          <RiGitRepositoryLine className="size-4 opacity-75 shrink-0" />
-          <span className="truncate" title={projectPath}>
-            {projectPath}
-          </span>
-        </h3>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 w-6 p-0"
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-        >
-          <RefreshCwIcon
-            className={cn("opacity-75", isRefreshing && "animate-spin")}
-          />
-        </Button>
-      </div>
+      <LeftPanelHeader
+        sessionId={sessionId}
+        mode="file-tree"
+        label={projectPath}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
+      />
       <div className="flex-1 overflow-y-auto p-2" tabIndex={0}>
         <DndContext
           sensors={sensors}

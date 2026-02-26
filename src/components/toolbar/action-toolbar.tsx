@@ -3,8 +3,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSelectorTerminalStore } from "@/stores/terminal-store";
 import { useSessionLayoutStore } from "@/stores";
-import { Code1, Discover } from "iconsax-reactjs";
-import { LuGitBranch, LuGitMerge } from "react-icons/lu";
+import { Code1, Discover, Hierarchy, Hierarchy2 } from "iconsax-reactjs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { MergeRebaseDialog } from "@/components/scm/merge-rebase-dialog";
 import { PostMergeDialog } from "@/components/scm/post-merge-dialog";
@@ -24,20 +23,19 @@ export function ActionToolbar({ sessionId, sessionCwd }: ActionToolbarProps) {
       "getOrCreateTerminalForSession",
     ]);
 
-  const { getLayout, setLeftPanelMode } =
-    useSessionLayoutStore();
+  const { getLayout, toggleFileTree, setLeftPanelMode } = useSessionLayoutStore();
   const { sessions } = useSelectorSessionStore(["sessions"]);
   const session = sessions.find((s) => s.id === sessionId);
-  const layout = getLayout(sessionId);
 
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [showPostMergeDialog, setShowPostMergeDialog] = useState(false);
 
   const panelOpen = panelOpenSessions[sessionId] ?? false;
-  const isScmMode = layout.showFileTree && layout.leftPanelMode === "scm";
 
   const postMergeAction = useSettingsStore((s) => s.postMergeAction);
-  const terminateSession = useSelectorSessionStore(["terminateSession"]).terminateSession;
+  const terminateSession = useSelectorSessionStore([
+    "terminateSession",
+  ]).terminateSession;
 
   const handleTerminalClick = async () => {
     if (!panelOpen) {
@@ -48,8 +46,9 @@ export function ActionToolbar({ sessionId, sessionCwd }: ActionToolbarProps) {
   };
 
   const handleScmClick = () => {
-    if (isScmMode) {
-      setLeftPanelMode(sessionId, "file-tree");
+    const layout = getLayout(sessionId);
+    if (layout.showFileTree && layout.leftPanelMode === "scm") {
+      toggleFileTree(sessionId);
     } else {
       setLeftPanelMode(sessionId, "scm");
     }
@@ -83,15 +82,10 @@ export function ActionToolbar({ sessionId, sessionCwd }: ActionToolbarProps) {
           <Button
             variant="ghost"
             size="icon"
-            className={cn(
-              "w-8 h-8 shrink-0 [&_svg]:size-4 rounded-md",
-              isScmMode
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            )}
+            className="w-8 h-8 shrink-0 [&_svg]:size-4 rounded-md text-muted-foreground hover:text-foreground"
             onClick={handleScmClick}
           >
-            <LuGitBranch />
+            <Hierarchy2 />
           </Button>
         </TooltipTrigger>
         <TooltipContent>Source Control</TooltipContent>
@@ -105,7 +99,7 @@ export function ActionToolbar({ sessionId, sessionCwd }: ActionToolbarProps) {
             className="w-8 h-8 shrink-0 text-muted-foreground [&_svg]:size-4 rounded-md hover:text-foreground"
             onClick={() => setShowMergeDialog(true)}
           >
-            <LuGitMerge />
+            <Hierarchy />
           </Button>
         </TooltipTrigger>
         <TooltipContent>Merge / Rebase</TooltipContent>
@@ -120,7 +114,7 @@ export function ActionToolbar({ sessionId, sessionCwd }: ActionToolbarProps) {
               "w-8 h-8 shrink-0 [&_svg]:size-4.5 rounded-md",
               panelOpen
                 ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:text-foreground"
+                : "text-muted-foreground hover:text-foreground",
             )}
             onClick={handleTerminalClick}
           >

@@ -4,10 +4,9 @@ import { ScmFileGroup } from "./scm-file-group";
 import { ScmMergeBar } from "./scm-merge-bar";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Refresh } from "iconsax-reactjs";
-import { LuGitBranch, LuCheck, LuPlus } from "react-icons/lu";
-import { cn } from "@/lib/utils";
+import { LuCheck } from "react-icons/lu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { LeftPanelHeader } from "@/components/ui/left-panel-header";
 
 interface ScmPanelProps {
   sessionId: string;
@@ -33,10 +32,12 @@ export function ScmPanel({ sessionId, repoPath }: ScmPanelProps) {
     continueRebase,
   } = useScmStore();
 
-  const { selectFile, setFileViewerContext } = useSessionLayoutStore();
+  const { selectFile, setFileViewerContext, getLayout } =
+    useSessionLayoutStore();
 
   const status = statuses[sessionId];
   const isLoading = loading[sessionId];
+  const selectedFile = getLayout(sessionId).selectedFile;
 
   // Poll SCM status every 3 seconds
   const refreshStatus = useCallback(() => {
@@ -117,23 +118,13 @@ export function ScmPanel({ sessionId, repoPath }: ScmPanelProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="px-3 py-2 border-b flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-1.5 text-xs font-medium min-w-0">
-          <LuGitBranch className="size-3.5 shrink-0" />
-          <span className="truncate">{status?.branch_name ?? "..."}</span>
-        </div>
-        <button
-          onClick={refreshStatus}
-          className={cn(
-            "p-1 rounded hover:bg-muted transition-colors cursor-pointer",
-            isLoading && "animate-spin"
-          )}
-          title="Refresh"
-        >
-          <Refresh className="size-3" />
-        </button>
-      </div>
+      <LeftPanelHeader
+        sessionId={sessionId}
+        mode="scm"
+        label={status?.branch_name ?? "..."}
+        onRefresh={refreshStatus}
+        isRefreshing={isLoading}
+      />
 
       <ScrollArea className="flex-1">
         <div className="flex flex-col gap-1 p-1">
@@ -153,38 +144,25 @@ export function ScmPanel({ sessionId, repoPath }: ScmPanelProps) {
               value={commitMessage}
               onChange={(e) => setCommitMessage(e.target.value)}
               placeholder="Commit message..."
-              className="w-full text-xs resize-none border rounded-md p-2 bg-background outline-none focus:ring-1 focus:ring-ring min-h-[3.5rem]"
+              className="w-full text-xs resize-none border rounded-md p-2 bg-background outline-none focus:ring-1 focus:ring-ring min-h-14"
               rows={2}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                   handleCommit();
                 }
               }}
+              autoCapitalize="off"
+              autoComplete="off"
             />
-            <div className="flex items-center gap-1 mt-1">
-              <Button
-                size="sm"
-                className="h-6 text-xs flex-1 [&_svg]:size-3"
-                disabled={!canCommit || committing}
-                onClick={handleCommit}
-              >
-                <LuCheck />
-                Commit
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 text-xs [&_svg]:size-3"
-                onClick={handleStageAll}
-                disabled={
-                  (status?.unstaged.length ?? 0) === 0 &&
-                  (status?.untracked.length ?? 0) === 0
-                }
-              >
-                <LuPlus />
-                Stage All
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              className="h-6 text-xs w-full mt-1 [&_svg]:size-3"
+              disabled={!canCommit || committing}
+              onClick={handleCommit}
+            >
+              <LuCheck />
+              Commit
+            </Button>
           </div>
 
           {/* File groups */}
@@ -200,6 +178,7 @@ export function ScmPanel({ sessionId, repoPath }: ScmPanelProps) {
             files={status?.conflicts ?? []}
             group="conflicts"
             defaultOpen
+            selectedFile={selectedFile}
             onFileClick={(path) => handleFileClick(path, true)}
           />
 
@@ -209,6 +188,7 @@ export function ScmPanel({ sessionId, repoPath }: ScmPanelProps) {
             files={status?.staged ?? []}
             group="staged"
             defaultOpen
+            selectedFile={selectedFile}
             onUnstageFile={(path) => unstageFile(sessionId, repoPath, path)}
             onFileClick={(path) => handleFileClick(path, false)}
           />
@@ -219,6 +199,8 @@ export function ScmPanel({ sessionId, repoPath }: ScmPanelProps) {
             files={status?.unstaged ?? []}
             group="unstaged"
             defaultOpen
+            selectedFile={selectedFile}
+            onStageAll={handleStageAll}
             onStageFile={(path) => stageFile(sessionId, repoPath, path)}
             onDiscardFile={(path) => discardFile(sessionId, repoPath, path)}
             onFileClick={(path) => handleFileClick(path, false)}
@@ -230,6 +212,8 @@ export function ScmPanel({ sessionId, repoPath }: ScmPanelProps) {
             files={status?.untracked ?? []}
             group="untracked"
             defaultOpen={false}
+            selectedFile={selectedFile}
+            onStageAll={handleStageAll}
             onStageFile={(path) => stageFile(sessionId, repoPath, path)}
             onFileClick={(path) => handleFileClick(path, false)}
           />

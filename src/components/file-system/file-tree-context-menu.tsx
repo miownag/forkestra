@@ -27,7 +27,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FileIcon, FolderIcon } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import type { FileEntry } from "@/types";
 import { toast } from "sonner";
@@ -35,7 +34,14 @@ import {
   useFileOperationsStore,
   storeFileContentForUndo,
 } from "@/stores/file-operations-store";
-import { Copy, Edit2, MessageAdd1, Trash } from "iconsax-reactjs";
+import {
+  Copy,
+  DocumentText1,
+  Edit2,
+  FolderAdd,
+  MessageAdd1,
+  Trash,
+} from "iconsax-reactjs";
 import { useChatInputStore } from "@/stores";
 
 interface FileTreeContextMenuProps {
@@ -238,7 +244,7 @@ export function FileTreeContextMenu({
                   setShowNewFileDialog(true);
                 }}
               >
-                <FileIcon className="mr-2 size-4" />
+                <DocumentText1 className="mr-2 size-4" />
                 New File
               </ContextMenuItem>
               <ContextMenuItem
@@ -247,7 +253,7 @@ export function FileTreeContextMenu({
                   setShowNewFolderDialog(true);
                 }}
               >
-                <FolderIcon className="mr-2 size-4" />
+                <FolderAdd className="mr-2 size-4" />
                 New Folder
               </ContextMenuItem>
               <ContextMenuSeparator />

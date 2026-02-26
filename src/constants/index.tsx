@@ -19,7 +19,7 @@ const CUSTOM_COMPONENTS_FOR_MARKDOWN: Partial<Components> = {
         <span
           className={cn(
             className,
-            "bg-muted rounded-sm px-1 font-google-sans-code text-sm"
+            "bg-muted rounded-sm px-1 font-google-sans-code text-sm",
           )}
           {...props}
         >
@@ -37,6 +37,18 @@ const CUSTOM_COMPONENTS_FOR_MARKDOWN: Partial<Components> = {
   },
   pre: function PreComponent({ children }) {
     return <>{children}</>;
+  },
+  a: function AnchorComponent({ href, children, ...props }) {
+    return (
+      <a
+        href={href}
+        className="text-cyan-600 hover:text-cyan-500 dark:text-cyan-400 dark:hover:text-cyan-300"
+        target="_blank"
+        {...props}
+      >
+        {children}
+      </a>
+    );
   },
 };
 

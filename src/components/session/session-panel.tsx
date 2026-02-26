@@ -4,6 +4,7 @@ import {
   useSelectorTerminalStore,
   useSelectorSessionStore,
   useSessionLayoutStore,
+  useScmStore,
 } from "@/stores";
 import { ChatWindow } from "@/components/chat/chat-window";
 import { TerminalPanel } from "@/components/terminal/terminal-panel";
@@ -37,6 +38,7 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
   ]);
   const { getLayout, toggleFileTree, setFileViewerMode, closeFileViewer, setFileViewerContext } =
     useSessionLayoutStore();
+  const scmStatus = useScmStore((s) => s.statuses[sessionId]);
 
   const session = sessions.find((s) => s.id === sessionId);
   const isCreating =
@@ -189,7 +191,7 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
                   sessionId={session.id}
                   repoPath={repoPath}
                   filePath={selectedFile}
-                  staged={false}
+                  staged={scmStatus?.staged.some((f) => f.path === selectedFile) ?? false}
                   onClose={() => closeFileViewer(session.id)}
                 />
               ) : (
