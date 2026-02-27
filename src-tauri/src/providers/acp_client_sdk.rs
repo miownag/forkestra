@@ -391,8 +391,32 @@ async fn handle_session_update(
                 );
             }
         }
-        SessionUpdate::CurrentModeUpdate(_) => {
-            println!("[ACP] Received mode_update");
+        SessionUpdate::CurrentModeUpdate(mode_update) => {
+            let new_mode_id = mode_update.current_mode_id.0.to_string();
+            println!("[ACP] Received mode_update: new mode = {}", new_mode_id);
+
+            // Update SessionManager in-memory state
+            if let Some(manager) = app_handle.try_state::<SessionManager>() {
+                manager
+                    .update_session_mode(session_id, &new_mode_id)
+                    .await;
+            }
+
+            // Emit event to frontend
+            #[derive(serde::Serialize, Clone)]
+            struct ModeUpdatePayload {
+                session_id: String,
+                mode_id: String,
+            }
+
+            let payload = ModeUpdatePayload {
+                session_id: session_id.to_string(),
+                mode_id: new_mode_id,
+            };
+
+            if let Err(e) = app_handle.emit("mode-update", &payload) {
+                eprintln!("[ACP] Failed to emit mode-update event: {}", e);
+            }
         }
         SessionUpdate::Plan(plan) => {
             let entries: Vec<PlanEntry> = plan

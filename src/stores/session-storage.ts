@@ -81,6 +81,7 @@ interface SessionState {
     sessionId: string,
     configOptions: ConfigOption[],
   ) => void;
+  updateSessionMode: (sessionId: string, modeId: string) => void;
   addMessage: (sessionId: string, message: ChatMessage) => void;
   handleStreamChunk: (chunk: StreamChunk) => void;
   handleSessionStatusChanged: (event: SessionStatusEvent) => void;
@@ -673,14 +674,28 @@ export const useSessionStore = create<SessionState>()(
             const session = state.sessions.find((s) => s.id === sessionId);
             if (!session) return state;
 
+            // Sync session.mode from the mode config option's currentValue
+            const modeOption = configOptions.find((o) => o.category === "mode");
+            const newMode = modeOption ? modeOption.currentValue : session.mode;
+
             return {
               sessions: state.sessions.map((s) =>
                 s.id === sessionId
-                  ? { ...s, config_options: configOptions }
+                  ? { ...s, config_options: configOptions, mode: newMode }
                   : s,
               ),
             };
           });
+        },
+
+        updateSessionMode: (sessionId, modeId) => {
+          set((state) => ({
+            sessions: state.sessions.map((s) =>
+              s.id === sessionId
+                ? { ...s, mode: modeId }
+                : s,
+            ),
+          }));
         },
 
         addMessage: (sessionId, message) => {

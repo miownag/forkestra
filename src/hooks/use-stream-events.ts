@@ -37,13 +37,14 @@ function flushStreamingMessages() {
 }
 
 export function useStreamEvents() {
-  const { handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged, setAvailableCommands, setPlanEntries, updateSessionConfigOptions } = useSelectorSessionStore([
+  const { handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged, setAvailableCommands, setPlanEntries, updateSessionConfigOptions, updateSessionMode } = useSelectorSessionStore([
     "handleStreamChunk",
     "setInteractionPrompt",
     "handleSessionStatusChanged",
     "setAvailableCommands",
     "setPlanEntries",
     "updateSessionConfigOptions",
+    "updateSessionMode",
   ]);
 
   useEffect(() => {
@@ -55,6 +56,7 @@ export function useStreamEvents() {
     let unlistenCommandsFn: (() => void) | null = null;
     let unlistenPlanFn: (() => void) | null = null;
     let unlistenConfigOptionsFn: (() => void) | null = null;
+    let unlistenModeFn: (() => void) | null = null;
 
     const setupListeners = async () => {
       console.log("[useStreamEvents] Starting listener setup...");
@@ -147,6 +149,24 @@ export function useStreamEvents() {
         }
       });
 
+      // Listen for mode updates (agent-initiated mode changes)
+      const unlistenMode = await listen<{
+        session_id: string;
+        mode_id: string;
+      }>("mode-update", (event) => {
+        console.log(
+          "[useStreamEvents] Received mode-update:",
+          event.payload.session_id,
+          event.payload.mode_id
+        );
+        if (isActive) {
+          updateSessionMode(
+            event.payload.session_id,
+            event.payload.mode_id,
+          );
+        }
+      });
+
       if (isActive) {
         unlistenStreamFn = unlistenStream;
         unlistenPromptFn = unlistenPrompt;
@@ -154,6 +174,7 @@ export function useStreamEvents() {
         unlistenCommandsFn = unlistenCommands;
         unlistenPlanFn = unlistenPlan;
         unlistenConfigOptionsFn = unlistenConfigOptions;
+        unlistenModeFn = unlistenMode;
         console.log("[useStreamEvents] All listeners setup complete");
       } else {
         unlistenStream();
@@ -162,6 +183,7 @@ export function useStreamEvents() {
         unlistenCommands();
         unlistenPlan();
         unlistenConfigOptions();
+        unlistenMode();
       }
     };
 
@@ -188,8 +210,11 @@ export function useStreamEvents() {
       if (unlistenConfigOptionsFn) {
         unlistenConfigOptionsFn();
       }
+      if (unlistenModeFn) {
+        unlistenModeFn();
+      }
     };
-  }, [handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged, setAvailableCommands, setPlanEntries, updateSessionConfigOptions]);
+  }, [handleStreamChunk, setInteractionPrompt, handleSessionStatusChanged, setAvailableCommands, setPlanEntries, updateSessionConfigOptions, updateSessionMode]);
 
   // Flush streaming messages to DB on window close / refresh
   useEffect(() => {

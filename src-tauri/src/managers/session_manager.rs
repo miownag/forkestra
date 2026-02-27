@@ -850,6 +850,14 @@ impl SessionManager {
         }
     }
 
+    /// Update mode for a session (called when agent pushes a mode change via ACP)
+    pub async fn update_session_mode(&self, session_id: &str, mode_id: &str) {
+        let mut sessions = self.sessions.write().await;
+        if let Some(entry) = sessions.get_mut(session_id) {
+            entry.session.mode = Some(mode_id.to_string());
+        }
+    }
+
     /// Update plan entries for a session
     pub async fn update_session_plan(&self, session_id: &str, plan_entries: Vec<PlanEntry>) {
         let mut sessions = self.sessions.write().await;
