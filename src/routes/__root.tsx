@@ -5,6 +5,7 @@ import {
   useSelectorSessionStore,
   useSelectorSettingsStore,
 } from "@/stores";
+import { useSelectorTerminalStore } from "@/stores/terminal-store";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/side-bar";
 import { listen } from "@tauri-apps/api/event";
@@ -20,6 +21,7 @@ export const Route = createRootRoute({
 function RootComponent() {
   const { fetchSessions } = useSelectorSessionStore(["fetchSessions"]);
   const { detectProviders } = useSelectorProviderStore(["detectProviders"]);
+  const { restoreTerminals } = useSelectorTerminalStore(["restoreTerminals"]);
   const {
     resolvedTheme,
     fontSize,
@@ -43,7 +45,8 @@ function RootComponent() {
   useEffect(() => {
     detectProviders();
     fetchSessions();
-  }, [detectProviders, fetchSessions]);
+    restoreTerminals();
+  }, [detectProviders, fetchSessions, restoreTerminals]);
 
   // Load settings from file on app start
   useEffect(() => {

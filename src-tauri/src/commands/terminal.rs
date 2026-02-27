@@ -1,6 +1,7 @@
 use tauri::State;
 
 use crate::error::AppResult;
+use crate::managers::terminal_manager::TerminalInfo;
 use crate::managers::TerminalManager;
 
 #[derive(serde::Deserialize)]
@@ -13,6 +14,13 @@ pub struct CreateTerminalRequest {
 #[derive(serde::Serialize)]
 pub struct TerminalResponse {
     pub terminal_id: String,
+}
+
+#[tauri::command]
+pub async fn list_terminals(
+    terminal_manager: State<'_, TerminalManager>,
+) -> AppResult<Vec<TerminalInfo>> {
+    Ok(terminal_manager.list_terminals().await)
 }
 
 #[tauri::command]

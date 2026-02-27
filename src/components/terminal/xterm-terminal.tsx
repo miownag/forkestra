@@ -3,6 +3,7 @@ import { Terminal, type ITheme } from "xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "xterm/css/xterm.css";
+import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { cn } from "@/lib/utils";
 
 interface XtermTerminalProps {
@@ -121,7 +122,12 @@ export function XtermTerminal({
     });
 
     const fitAddon = new FitAddon();
-    const webLinksAddon = new WebLinksAddon();
+    const webLinksAddon = new WebLinksAddon((_event, uri) => {
+      console.log("[WebLinksAddon] link clicked, uri:", uri);
+      openUrl(uri)
+        .then(() => console.log("[WebLinksAddon] openUrl succeeded"))
+        .catch((err) => console.error("[WebLinksAddon] openUrl failed:", err));
+    });
 
     terminal.loadAddon(fitAddon);
     terminal.loadAddon(webLinksAddon);
@@ -142,18 +148,12 @@ export function XtermTerminal({
     fitAddonRef.current = fitAddon;
     setIsReady(true);
 
-    // Disable bracketed paste mode in the terminal emulator
-    // This prevents xterm.js from wrapping pasted text with \x1b[200~ and \x1b[201~
-    terminal.write("\x1b[?2004l");
-
-    // Notify parent that terminal is ready
-    onReady?.(
-      (data: string) => terminal.write(data),
-      () => terminal.clear(),
-    );
-
-    // Initial fit - only if container is visible (has dimensions)
+    // Initial fit and notify parent after renderer is ready
     requestAnimationFrame(() => {
+      // Disable bracketed paste mode in the terminal emulator
+      // This prevents xterm.js from wrapping pasted text with \x1b[200~ and \x1b[201~
+      terminal.write("\x1b[?2004l");
+
       if (containerRef.current?.offsetWidth && containerRef.current?.offsetHeight) {
         try {
           fitAddon.fit();
@@ -161,6 +161,12 @@ export function XtermTerminal({
           // Terminal may not be visible yet, ResizeObserver will handle it later
         }
       }
+
+      // Notify parent that terminal is ready
+      onReady?.(
+        (data: string) => terminal.write(data),
+        () => terminal.clear(),
+      );
     });
 
     return () => {

@@ -212,6 +212,7 @@ pub fn run() {
             commands::update_provider_settings,
             commands::get_ui_settings,
             commands::update_ui_settings,
+            commands::list_terminals,
             commands::create_terminal,
             commands::close_terminal,
             commands::send_terminal_input,

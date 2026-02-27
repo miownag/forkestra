@@ -212,13 +212,15 @@ interface TerminalInstanceProps {
 }
 
 function TerminalInstance({ terminal, isActive }: TerminalInstanceProps) {
-  const { sendInput, clearOutput } = useSelectorTerminalStore([
+  const { sendInput, clearOutput, consumeScrollback } = useSelectorTerminalStore([
     "sendInput",
     "clearOutput",
+    "consumeScrollback",
   ]);
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermWriteRef = useRef<((data: string) => void) | null>(null);
   const xtermClearRef = useRef<(() => void) | null>(null);
+  const scrollbackRef = useRef<string | null | undefined>(undefined); // undefined = not yet consumed from store
 
   // Listen for terminal output
   useEffect(() => {
@@ -269,8 +271,19 @@ function TerminalInstance({ terminal, isActive }: TerminalInstanceProps) {
     (write: (data: string) => void, clear: () => void) => {
       xtermWriteRef.current = write;
       xtermClearRef.current = clear;
+
+      // Consume scrollback from store on first call, cache in ref for replays
+      if (scrollbackRef.current === undefined) {
+        scrollbackRef.current = consumeScrollback(terminal.id);
+      }
+      const scrollback = scrollbackRef.current;
+      console.log("[terminal-panel] handleXtermReady", terminal.id, "scrollback:", scrollback ? scrollback.length : null);
+      if (scrollback) {
+        write(scrollback);
+      }
     },
-    []
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [terminal.id]
   );
 
   return (

@@ -247,6 +247,18 @@ export function extractFileTags(editor: Editor): FileTagAttrs[] {
   return tags;
 }
 
+// Helper: append a newline to the last text part, or push a new text part
+function appendNewline(
+  parts: Array<{ type: "text" | "fileTag"; content: string | FileTagAttrs }>
+) {
+  if (parts.length > 0 && parts[parts.length - 1].type === "text") {
+    parts[parts.length - 1].content =
+      (parts[parts.length - 1].content as string) + "\n";
+  } else {
+    parts.push({ type: "text", content: "\n" });
+  }
+}
+
 // Helper: extract content parts in order (text and file tags interspersed)
 export function extractContentParts(
   editor: Editor
@@ -256,8 +268,25 @@ export function extractContentParts(
     content: string | FileTagAttrs;
   }> = [];
 
+  let isFirstParagraph = true;
+
   // Traverse the document tree in order
   editor.state.doc.descendants((node) => {
+    // Insert newline between paragraphs (not before the first one)
+    if (node.type.name === "paragraph") {
+      if (!isFirstParagraph) {
+        appendNewline(parts);
+      }
+      isFirstParagraph = false;
+      return true; // continue into children
+    }
+
+    // hardBreak (Shift+Enter) → newline
+    if (node.type.name === "hardBreak") {
+      appendNewline(parts);
+      return false;
+    }
+
     if (node.isText) {
       const text = node.text || "";
       // Merge consecutive text parts
@@ -270,7 +299,7 @@ export function extractContentParts(
     } else if (node.type.name === "fileTag") {
       parts.push({ type: "fileTag", content: node.attrs as FileTagAttrs });
     }
-    // For other node types (paragraph, hardBreak, etc.), continue traversing their children
+
     return true;
   });
 

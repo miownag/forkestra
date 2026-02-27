@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::io::{Read, Write};
 use std::sync::Arc;
 
@@ -9,6 +10,47 @@ use uuid::Uuid;
 
 use crate::error::{AppError, AppResult};
 
+/// Maximum bytes to keep in the scrollback buffer per terminal
+const SCROLLBACK_BUFFER_CAP: usize = 256 * 1024; // 256 KB
+
+/// A ring buffer that keeps the most recent bytes up to a capacity.
+struct ScrollbackBuffer {
+    buf: VecDeque<u8>,
+    cap: usize,
+}
+
+impl ScrollbackBuffer {
+    fn new(cap: usize) -> Self {
+        Self {
+            buf: VecDeque::with_capacity(cap),
+            cap,
+        }
+    }
+
+    fn push(&mut self, data: &[u8]) {
+        for &b in data {
+            if self.buf.len() == self.cap {
+                self.buf.pop_front();
+            }
+            self.buf.push_back(b);
+        }
+    }
+
+    fn as_bytes(&self) -> Vec<u8> {
+        self.buf.iter().copied().collect()
+    }
+}
+
+#[derive(serde::Serialize, Clone)]
+pub struct TerminalInfo {
+    pub id: String,
+    pub session_id: String,
+    pub name: String,
+    pub cwd: String,
+    /// Base64-encoded scrollback buffer content for restoration
+    pub scrollback: String,
+}
+
 pub struct TerminalInstance {
     pub id: String,
     pub session_id: String,
@@ -17,6 +59,7 @@ pub struct TerminalInstance {
     writer: Arc<Mutex<Box<dyn Write + Send>>>,
     killer: Arc<Mutex<Box<dyn ChildKiller + Send + Sync>>>,
     pid: Option<u32>,
+    scrollback: Arc<std::sync::Mutex<ScrollbackBuffer>>,
 }
 
 pub struct TerminalManager {
@@ -85,6 +128,8 @@ impl TerminalManager {
 
         let app_handle = self.app_handle.clone();
         let terminal_id_clone = terminal_id.clone();
+        let scrollback = Arc::new(std::sync::Mutex::new(ScrollbackBuffer::new(SCROLLBACK_BUFFER_CAP)));
+        let scrollback_writer = scrollback.clone();
 
         // Spawn a task to read output and emit events
         tokio::task::spawn_blocking(move || {
@@ -103,6 +148,11 @@ impl TerminalManager {
                         break;
                     }
                     Ok(n) => {
+                        // Append raw bytes to scrollback buffer
+                        if let Ok(mut sb) = scrollback_writer.lock() {
+                            sb.push(&buffer[..n]);
+                        }
+
                         let data = String::from_utf8_lossy(&buffer[..n]);
                         let _ = app_handle.emit(
                             "terminal:output",
@@ -140,6 +190,7 @@ impl TerminalManager {
             writer: Arc::new(Mutex::new(writer)),
             killer: Arc::new(Mutex::new(killer)),
             pid,
+            scrollback,
         };
 
         self.terminals.lock().await.insert(terminal_id.clone(), instance);
@@ -202,6 +253,30 @@ impl TerminalManager {
         // calling resize on it. For now, this is a placeholder.
         // In a full implementation, we'd need to refactor how we store the PTY.
         Ok(())
+    }
+
+    /// List all active terminals with scrollback content
+    pub async fn list_terminals(&self) -> Vec<TerminalInfo> {
+        use base64::Engine;
+        let terminals = self.terminals.lock().await;
+        terminals
+            .values()
+            .map(|t| {
+                let scrollback_bytes = t
+                    .scrollback
+                    .lock()
+                    .map(|sb| sb.as_bytes())
+                    .unwrap_or_default();
+                let scrollback = base64::engine::general_purpose::STANDARD.encode(&scrollback_bytes);
+                TerminalInfo {
+                    id: t.id.clone(),
+                    session_id: t.session_id.clone(),
+                    name: t.name.clone(),
+                    cwd: t.cwd.clone(),
+                    scrollback,
+                }
+            })
+            .collect()
     }
 
     /// Get all terminals for a session

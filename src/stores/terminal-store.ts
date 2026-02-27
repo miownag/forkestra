@@ -30,8 +30,11 @@ interface TerminalState {
   position: TerminalPosition;
   panelSize: number; // width when right, height when bottom
   outputs: Record<string, string>;
+  pendingScrollback: Record<string, string>; // terminalId -> raw scrollback data to replay
 
   // Actions
+  restoreTerminals: () => Promise<void>;
+  consumeScrollback: (terminalId: string) => string | null;
   createTerminal: (sessionId: string, cwd: string, name?: string) => Promise<string>;
   closeTerminal: (terminalId: string) => Promise<void>;
   setActiveTerminal: (terminalId: string | null) => void;
@@ -65,8 +68,68 @@ export const useTerminalStore = create<TerminalState>()(
         position: "bottom",
         panelSize: DEFAULT_PANEL_SIZE.bottom,
         outputs: {},
+        pendingScrollback: {},
 
         // Actions
+        restoreTerminals: async () => {
+          try {
+            const backendTerminals = await invoke<Array<{
+              id: string;
+              session_id: string;
+              name: string;
+              cwd: string;
+              scrollback: string;
+            }>>("list_terminals");
+
+            if (backendTerminals.length === 0) return;
+
+            const restoredTerminals: TerminalInstance[] = backendTerminals.map((t) => ({
+              id: t.id,
+              sessionId: t.session_id,
+              name: t.name,
+              cwd: t.cwd,
+              status: "idle" as TerminalStatus,
+              createdAt: Date.now(),
+            }));
+
+            const panelOpenSessions: Record<string, boolean> = {};
+            const pendingScrollback: Record<string, string> = {};
+            for (const t of backendTerminals) {
+              panelOpenSessions[t.session_id] = true;
+              if (t.scrollback) {
+                // Decode base64 to raw string
+                try {
+                  const bytes = Uint8Array.from(atob(t.scrollback), (c) => c.charCodeAt(0));
+                  pendingScrollback[t.id] = new TextDecoder().decode(bytes);
+                } catch (e) {
+                  console.error("[terminal-store] scrollback decode error for", t.id, e);
+                }
+              }
+            }
+
+            set((state) => ({
+              terminals: restoredTerminals,
+              activeTerminalId: restoredTerminals[0]?.id ?? null,
+              panelOpenSessions: { ...state.panelOpenSessions, ...panelOpenSessions },
+              pendingScrollback,
+            }));
+          } catch (error) {
+            console.error("Failed to restore terminals:", error);
+          }
+        },
+
+        consumeScrollback: (terminalId: string) => {
+          const data = get().pendingScrollback[terminalId] ?? null;
+          if (data) {
+            set((state) => {
+              const newScrollback = { ...state.pendingScrollback };
+              delete newScrollback[terminalId];
+              return { pendingScrollback: newScrollback };
+            });
+          }
+          return data;
+        },
+
         createTerminal: async (sessionId: string, cwd: string, name?: string) => {
           const terminalName = name || `Terminal ${get().terminals.filter(t => t.sessionId === sessionId).length + 1}`;
 

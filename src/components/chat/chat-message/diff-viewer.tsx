@@ -144,7 +144,7 @@ export function DiffViewer({ path, oldText, newText }: DiffViewerProps) {
           safeOldText,
           safeNewText,
           "",
-          ""
+          "",
         );
 
         // Convert to git diff format
@@ -163,9 +163,7 @@ export function DiffViewer({ path, oldText, newText }: DiffViewerProps) {
     }
 
     try {
-      console.log("Parsing git diff text:", gitDiffText);
       const parsed = parseDiff(gitDiffText);
-      console.log("Parsed result:", parsed);
 
       // Validate that hunks exist and are properly formatted
       const validFiles = parsed.filter((file) => {
@@ -186,7 +184,6 @@ export function DiffViewer({ path, oldText, newText }: DiffViewerProps) {
         return allHunksValid;
       });
 
-      console.log("Valid files after filtering:", validFiles);
       return validFiles;
     } catch (e) {
       console.error("Error parsing diff:", e);
@@ -219,17 +216,22 @@ export function DiffViewer({ path, oldText, newText }: DiffViewerProps) {
   return (
     <div className="rounded-md border border-border overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border bg-muted/30 px-3 py-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-foreground flex items-center">
-            {iconSrc ? (
-              <img src={iconSrc} alt="" className="size-5.5 shrink-0" />
-            ) : (
-              <DocumentText1 className="size-4 shrink-0" />
-            )}
+      <div className="flex items-center justify-between border-b border-border bg-muted/30 px-3 py-2 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          {iconSrc ? (
+            <img src={iconSrc} alt="" className="size-5.5 shrink-0" />
+          ) : (
+            <DocumentText1 className="size-4 shrink-0" />
+          )}
+          <span
+            className="text-xs font-medium text-foreground truncate"
+            title={fileName}
+          >
             {fileName}
           </span>
-          <span className="text-xs text-muted-foreground">{path}</span>
+          <span className="text-xs text-muted-foreground truncate" title={path}>
+            {path}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -244,7 +246,7 @@ export function DiffViewer({ path, oldText, newText }: DiffViewerProps) {
             onClick={handleCopy}
             className={cn(
               "text-muted-foreground p-1 rounded-md",
-              !copied && "hover:bg-muted cursor-pointer"
+              !copied && "hover:bg-muted cursor-pointer",
             )}
             title="Copy new content"
           >
@@ -262,7 +264,7 @@ export function DiffViewer({ path, oldText, newText }: DiffViewerProps) {
         className={cn(
           "diff-viewer overflow-x-auto relative ",
           resolvedTheme === "dark" ? "diff-theme-dark" : "diff-theme-light",
-          !expanded && "max-h-60 overflow-y-hidden"
+          !expanded && "max-h-60 overflow-y-hidden",
         )}
       >
         {files.length > 0 ? (
@@ -286,7 +288,7 @@ export function DiffViewer({ path, oldText, newText }: DiffViewerProps) {
                   "absolute bottom-2 right-2",
                   "rounded-md p-2",
                   "text-xs font-semibold text-muted-foreground",
-                  "bg-muted hover:bg-muted/50 "
+                  "bg-muted hover:bg-muted/50 ",
                 )}
                 onClick={() => setExpanded((pre) => !pre)}
               >

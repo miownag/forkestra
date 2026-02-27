@@ -20,7 +20,7 @@ function UserMessageContent({ message }: { message: ChatMessageType }) {
   // Render based on message parts order (text and resource_link parts are interspersed)
   if (message.parts && message.parts.length > 0) {
     return (
-      <p className="max-w-none whitespace-pre-wrap flex items-center">
+      <p className="max-w-none whitespace-pre-wrap">
         {message.parts.map((part, index) => {
           if (part.type === "text") {
             return <span key={index}>{part.content}</span>;
@@ -29,7 +29,7 @@ function UserMessageContent({ message }: { message: ChatMessageType }) {
             return (
               <span
                 key={index}
-                className="inline-flex items-center gap-1 rounded bg-muted-foreground px-1.5 py-0.5 text-xs font-medium text-muted align-baseline mx-0.5"
+                className="inline-flex items-center gap-1 rounded bg-muted-foreground px-1.5 py-0.5 text-xs font-medium text-muted align-middle mx-0.5"
               >
                 {isFolder ? (
                   <VscFolder className="size-3 shrink-0" />

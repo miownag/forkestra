@@ -43,4 +43,5 @@ agent-client-protocol = { version = "0.9.4", features = ["unstable_session_model
 tokio-util = { version = "0.7", features = ["compat"] }
 libc = "0.2"
 tauri-plugin-notification = "2"
+base64 = "0.22.1"
 
