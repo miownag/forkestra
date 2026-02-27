@@ -46,12 +46,39 @@ pub async fn detect_providers(
             _ => None,
         });
 
+    let open_code_custom_path: Option<String> = settings
+        .provider_settings
+        .get(&ProviderType::OpenCode)
+        .and_then(|s| match s {
+            ProviderSettings::OpenCode(o) => o.custom_cli_path.clone(),
+            _ => None,
+        });
+
+    let qoder_custom_path: Option<String> = settings
+        .provider_settings
+        .get(&ProviderType::Qoder)
+        .and_then(|s| match s {
+            ProviderSettings::Qoder(q) => q.custom_cli_path.clone(),
+            _ => None,
+        });
+
+    let qwen_code_custom_path: Option<String> = settings
+        .provider_settings
+        .get(&ProviderType::QwenCode)
+        .and_then(|s| match s {
+            ProviderSettings::QwenCode(q) => q.custom_cli_path.clone(),
+            _ => None,
+        });
+
     let result = tokio::task::spawn_blocking(move || {
         ProviderDetector::detect_all_with_settings(
             claude_custom_path.as_deref(),
             kimi_custom_path.as_deref(),
             codex_custom_path.as_deref(),
             gemini_custom_path.as_deref(),
+            open_code_custom_path.as_deref(),
+            qoder_custom_path.as_deref(),
+            qwen_code_custom_path.as_deref(),
         )
     })
     .await

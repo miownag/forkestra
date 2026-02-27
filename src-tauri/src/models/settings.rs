@@ -3,7 +3,9 @@ use std::collections::HashMap;
 
 use super::mcp::McpSettings;
 use super::provider::{
-    ClaudeProviderSettings, CodexProviderSettings, GeminiProviderSettings, KimiProviderSettings, ProviderSettings, ProviderType,
+    ClaudeProviderSettings, CodexProviderSettings, GeminiProviderSettings, KimiProviderSettings,
+    OpenCodeProviderSettings, QoderProviderSettings, QwenCodeProviderSettings,
+    ProviderSettings, ProviderType,
 };
 use super::skill::SkillSettings;
 
@@ -97,6 +99,18 @@ impl Default for AppSettings {
         provider_settings.insert(
             ProviderType::Gemini,
             ProviderSettings::Gemini(GeminiProviderSettings::default()),
+        );
+        provider_settings.insert(
+            ProviderType::OpenCode,
+            ProviderSettings::OpenCode(OpenCodeProviderSettings::default()),
+        );
+        provider_settings.insert(
+            ProviderType::Qoder,
+            ProviderSettings::Qoder(QoderProviderSettings::default()),
+        );
+        provider_settings.insert(
+            ProviderType::QwenCode,
+            ProviderSettings::QwenCode(QwenCodeProviderSettings::default()),
         );
 
         Self {

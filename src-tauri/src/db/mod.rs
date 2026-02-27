@@ -572,6 +572,9 @@ fn provider_type_to_str(p: &ProviderType) -> &'static str {
         ProviderType::Kimi => "kimi",
         ProviderType::Codex => "codex",
         ProviderType::Gemini => "gemini",
+        ProviderType::OpenCode => "open_code",
+        ProviderType::Qoder => "qoder",
+        ProviderType::QwenCode => "qwen_code",
     }
 }
 
@@ -580,6 +583,9 @@ fn str_to_provider_type(s: &str) -> ProviderType {
         "kimi" => ProviderType::Kimi,
         "codex" => ProviderType::Codex,
         "gemini" => ProviderType::Gemini,
+        "open_code" => ProviderType::OpenCode,
+        "qoder" => ProviderType::Qoder,
+        "qwen_code" => ProviderType::QwenCode,
         _ => ProviderType::Claude,
     }
 }

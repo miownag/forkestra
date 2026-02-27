@@ -5,11 +5,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useProviderSettingsStore } from "@/stores";
 import type { ProviderInfo, ProviderSettings } from "@/types";
-import { isClaudeSettings, isCodexSettings, isGeminiSettings, isKimiSettings } from "@/types";
+import { isClaudeSettings, isCodexSettings, isGeminiSettings, isKimiSettings, isOpenCodeSettings, isQoderSettings, isQwenCodeSettings } from "@/types";
 import { LuFolderOpen } from "react-icons/lu";
 import { VscCheck, VscClose } from "react-icons/vsc";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { PROVIDER_ICONS_MAP } from "@/constants/icons";
+import { PROVIDER_ICONS_MAP, ProviderCombineIcon } from "@/constants/icons";
 import { Trash } from "iconsax-reactjs";
 
 interface ProviderSettingsCardProps {
@@ -157,7 +157,8 @@ export function ProviderSettingsCard({
       {/* Provider Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <ProviderIcon.Combine
+          <ProviderCombineIcon
+            icon={ProviderIcon}
             size={20}
             className="flex items-center gap-1 mb-1"
             type="color"
@@ -442,6 +443,66 @@ export function ProviderSettingsCard({
           </>
         )}
 
+        {/* OpenCode-specific: Auth & Environment Variables */}
+        {isOpenCodeSettings(localSettings) && (
+          <>
+            <div>
+              <Label className="text-sm">OPENCODE_API_KEY</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                OpenCode API authentication key
+              </p>
+              <Input
+                type="password"
+                value={localSettings.env_vars?.OPENCODE_API_KEY || ""}
+                onChange={(e) =>
+                  handleEnvVarChange("OPENCODE_API_KEY", e.target.value)
+                }
+                placeholder="sk-..."
+              />
+            </div>
+          </>
+        )}
+
+        {/* Qoder-specific: Auth & Environment Variables */}
+        {isQoderSettings(localSettings) && (
+          <>
+            <div>
+              <Label className="text-sm">QODER_API_KEY</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Qoder CLI API authentication key
+              </p>
+              <Input
+                type="password"
+                value={localSettings.env_vars?.QODER_API_KEY || ""}
+                onChange={(e) =>
+                  handleEnvVarChange("QODER_API_KEY", e.target.value)
+                }
+                placeholder="sk-..."
+              />
+            </div>
+          </>
+        )}
+
+        {/* QwenCode-specific: Auth & Environment Variables */}
+        {isQwenCodeSettings(localSettings) && (
+          <>
+            <div>
+              <Label className="text-sm">DASHSCOPE_API_KEY</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                DashScope API key for Qwen Code
+              </p>
+              <Input
+                type="password"
+                value={localSettings.env_vars?.DASHSCOPE_API_KEY || ""}
+                onChange={(e) =>
+                  handleEnvVarChange("DASHSCOPE_API_KEY", e.target.value)
+                }
+                placeholder="sk-..."
+              />
+            </div>
+          </>
+        )}
+
         {/* Claude-specific: Disable Login Prompt */}
         {/* {isClaudeSettings(localSettings) && (
           <div className="flex items-center justify-between">
@@ -535,6 +596,18 @@ export function ProviderSettingsCard({
                   "GOOGLE_CLOUD_LOCATION",
                 ].includes(key)
               ) // Don't show Gemini-specific vars here
+              .filter(([key]) =>
+                !isOpenCodeSettings(localSettings) ||
+                !["OPENCODE_API_KEY"].includes(key)
+              ) // Don't show OpenCode-specific vars here
+              .filter(([key]) =>
+                !isQoderSettings(localSettings) ||
+                !["QODER_API_KEY"].includes(key)
+              ) // Don't show Qoder-specific vars here
+              .filter(([key]) =>
+                !isQwenCodeSettings(localSettings) ||
+                !["DASHSCOPE_API_KEY"].includes(key)
+              ) // Don't show QwenCode-specific vars here
               .map(([key, value]) => (
                 <div key={key} className="flex gap-2">
                   <Input

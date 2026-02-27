@@ -29,7 +29,7 @@ import {
 import { BranchSearchSelect } from "./branch-search-select";
 import type { McpServerConfig, ProviderType } from "@/types";
 import { LuFolderGit2 } from "react-icons/lu";
-import { PROVIDER_ICONS_MAP } from "@/constants/icons";
+import { PROVIDER_ICONS_MAP, ProviderCombineIcon } from "@/constants/icons";
 import { cn } from "@/lib/utils";
 import { ArrowDown2, CloseCircle, AddCircle } from "iconsax-reactjs";
 
@@ -216,7 +216,8 @@ export function NewSessionDialog({
                   >
                     {isSelected ? (
                       <span className="px-2 flex items-center justify-center">
-                        <Icon.Combine
+                        <ProviderCombineIcon
+                          icon={Icon}
                           className="flex items-center gap-1"
                           size={18}
                           type="color"

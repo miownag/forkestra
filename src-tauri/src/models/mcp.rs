@@ -25,6 +25,18 @@ pub enum McpServerSource {
     GeminiGlobal,
     /// Discovered from Gemini CLI project config
     GeminiProject { project_path: String },
+    /// Discovered from OpenCode global config
+    OpenCodeGlobal,
+    /// Discovered from OpenCode project config
+    OpenCodeProject { project_path: String },
+    /// Discovered from Qoder CLI global config
+    QoderGlobal,
+    /// Discovered from Qoder CLI project config
+    QoderProject { project_path: String },
+    /// Discovered from Qwen Code global config
+    QwenCodeGlobal,
+    /// Discovered from Qwen Code project config
+    QwenCodeProject { project_path: String },
 }
 
 /// Transport configuration for an MCP server.

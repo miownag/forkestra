@@ -9,6 +9,9 @@ import type {
   KimiProviderSettings,
   CodexProviderSettings,
   GeminiProviderSettings,
+  OpenCodeProviderSettings,
+  QoderProviderSettings,
+  QwenCodeProviderSettings,
 } from "@/types";
 import { createDefaultProviderSettings } from "@/types";
 import { useShallow } from "zustand/react/shallow";
@@ -25,7 +28,7 @@ interface ProviderSettingsState {
   updateProviderSettings: (settings: ProviderSettings) => Promise<void>;
   getProviderSettings: <T extends ProviderType>(
     providerType: T
-  ) => T extends "claude" ? ClaudeProviderSettings : T extends "kimi" ? KimiProviderSettings : T extends "gemini" ? GeminiProviderSettings : CodexProviderSettings;
+  ) => T extends "claude" ? ClaudeProviderSettings : T extends "kimi" ? KimiProviderSettings : T extends "gemini" ? GeminiProviderSettings : T extends "open_code" ? OpenCodeProviderSettings : T extends "qoder" ? QoderProviderSettings : T extends "qwen_code" ? QwenCodeProviderSettings : CodexProviderSettings;
 
   // Claude-specific helpers
   setClaudeCliPath: (path: string | null) => Promise<void>;
@@ -39,6 +42,15 @@ interface ProviderSettingsState {
 
   // Gemini-specific helpers
   setGeminiCliPath: (path: string | null) => Promise<void>;
+
+  // OpenCode-specific helpers
+  setOpenCodeCliPath: (path: string | null) => Promise<void>;
+
+  // Qoder-specific helpers
+  setQoderCliPath: (path: string | null) => Promise<void>;
+
+  // QwenCode-specific helpers
+  setQwenCodeCliPath: (path: string | null) => Promise<void>;
 }
 
 export const useProviderSettingsStore = create<ProviderSettingsState>()(
@@ -51,6 +63,9 @@ export const useProviderSettingsStore = create<ProviderSettingsState>()(
           kimi: createDefaultProviderSettings("kimi") as KimiProviderSettings,
           codex: createDefaultProviderSettings("codex") as CodexProviderSettings,
           gemini: createDefaultProviderSettings("gemini") as GeminiProviderSettings,
+          open_code: createDefaultProviderSettings("open_code") as OpenCodeProviderSettings,
+          qoder: createDefaultProviderSettings("qoder") as QoderProviderSettings,
+          qwen_code: createDefaultProviderSettings("qwen_code") as QwenCodeProviderSettings,
         },
         isLoading: false,
         error: null,
@@ -131,6 +146,33 @@ export const useProviderSettingsStore = create<ProviderSettingsState>()(
         // Gemini helpers
         setGeminiCliPath: async (path) => {
           const current = get().settings.gemini as GeminiProviderSettings;
+          await get().updateProviderSettings({
+            ...current,
+            custom_cli_path: path,
+          });
+        },
+
+        // OpenCode helpers
+        setOpenCodeCliPath: async (path) => {
+          const current = get().settings.open_code as OpenCodeProviderSettings;
+          await get().updateProviderSettings({
+            ...current,
+            custom_cli_path: path,
+          });
+        },
+
+        // Qoder helpers
+        setQoderCliPath: async (path) => {
+          const current = get().settings.qoder as QoderProviderSettings;
+          await get().updateProviderSettings({
+            ...current,
+            custom_cli_path: path,
+          });
+        },
+
+        // QwenCode helpers
+        setQwenCodeCliPath: async (path) => {
+          const current = get().settings.qwen_code as QwenCodeProviderSettings;
           await get().updateProviderSettings({
             ...current,
             custom_cli_path: path,

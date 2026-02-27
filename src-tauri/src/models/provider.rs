@@ -7,6 +7,9 @@ pub enum ProviderType {
     Kimi,
     Codex,
     Gemini,
+    OpenCode,
+    Qoder,
+    QwenCode,
 }
 
 impl ProviderType {
@@ -16,6 +19,9 @@ impl ProviderType {
             ProviderType::Kimi => "kimi",
             ProviderType::Codex => "codex",
             ProviderType::Gemini => "gemini",
+            ProviderType::OpenCode => "opencode",
+            ProviderType::Qoder => "qodercli",
+            ProviderType::QwenCode => "qwen",
         }
     }
 
@@ -25,6 +31,9 @@ impl ProviderType {
             ProviderType::Kimi => "Kimi Code",
             ProviderType::Codex => "Codex",
             ProviderType::Gemini => "Gemini CLI",
+            ProviderType::OpenCode => "OpenCode",
+            ProviderType::Qoder => "Qoder CLI",
+            ProviderType::QwenCode => "Qwen Code",
         }
     }
 }
@@ -136,6 +145,63 @@ impl Default for GeminiProviderSettings {
     }
 }
 
+// OpenCode-specific settings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenCodeProviderSettings {
+    pub enabled: bool,
+    pub custom_cli_path: Option<String>,
+    #[serde(default)]
+    pub env_vars: std::collections::HashMap<String, String>,
+}
+
+impl Default for OpenCodeProviderSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            custom_cli_path: None,
+            env_vars: std::collections::HashMap::new(),
+        }
+    }
+}
+
+// Qoder-specific settings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QoderProviderSettings {
+    pub enabled: bool,
+    pub custom_cli_path: Option<String>,
+    #[serde(default)]
+    pub env_vars: std::collections::HashMap<String, String>,
+}
+
+impl Default for QoderProviderSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            custom_cli_path: None,
+            env_vars: std::collections::HashMap::new(),
+        }
+    }
+}
+
+// QwenCode-specific settings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QwenCodeProviderSettings {
+    pub enabled: bool,
+    pub custom_cli_path: Option<String>,
+    #[serde(default)]
+    pub env_vars: std::collections::HashMap<String, String>,
+}
+
+impl Default for QwenCodeProviderSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            custom_cli_path: None,
+            env_vars: std::collections::HashMap::new(),
+        }
+    }
+}
+
 // Tagged enum for all provider settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "provider_type", rename_all = "snake_case")]
@@ -144,6 +210,9 @@ pub enum ProviderSettings {
     Kimi(KimiProviderSettings),
     Codex(CodexProviderSettings),
     Gemini(GeminiProviderSettings),
+    OpenCode(OpenCodeProviderSettings),
+    Qoder(QoderProviderSettings),
+    QwenCode(QwenCodeProviderSettings),
 }
 
 impl ProviderSettings {
@@ -153,6 +222,9 @@ impl ProviderSettings {
             ProviderSettings::Kimi(_) => ProviderType::Kimi,
             ProviderSettings::Codex(_) => ProviderType::Codex,
             ProviderSettings::Gemini(_) => ProviderType::Gemini,
+            ProviderSettings::OpenCode(_) => ProviderType::OpenCode,
+            ProviderSettings::Qoder(_) => ProviderType::Qoder,
+            ProviderSettings::QwenCode(_) => ProviderType::QwenCode,
         }
     }
 
@@ -162,6 +234,9 @@ impl ProviderSettings {
             ProviderSettings::Kimi(s) => s.custom_cli_path.as_deref(),
             ProviderSettings::Codex(s) => s.custom_cli_path.as_deref(),
             ProviderSettings::Gemini(s) => s.custom_cli_path.as_deref(),
+            ProviderSettings::OpenCode(s) => s.custom_cli_path.as_deref(),
+            ProviderSettings::Qoder(s) => s.custom_cli_path.as_deref(),
+            ProviderSettings::QwenCode(s) => s.custom_cli_path.as_deref(),
         }
     }
 
@@ -171,6 +246,9 @@ impl ProviderSettings {
             ProviderSettings::Kimi(s) => s.enabled,
             ProviderSettings::Codex(s) => s.enabled,
             ProviderSettings::Gemini(s) => s.enabled,
+            ProviderSettings::OpenCode(s) => s.enabled,
+            ProviderSettings::Qoder(s) => s.enabled,
+            ProviderSettings::QwenCode(s) => s.enabled,
         }
     }
 }

@@ -1,5 +1,5 @@
 // Provider types
-export type ProviderType = "claude" | "kimi" | "codex" | "gemini";
+export type ProviderType = "claude" | "kimi" | "codex" | "gemini" | "open_code" | "qoder" | "qwen_code";
 
 export interface ProviderInfo {
   provider_type: ProviderType;
@@ -47,8 +47,29 @@ export interface GeminiProviderSettings {
   env_vars?: Record<string, string>;
 }
 
+export interface OpenCodeProviderSettings {
+  provider_type: "open_code";
+  enabled: boolean;
+  custom_cli_path: string | null;
+  env_vars?: Record<string, string>;
+}
+
+export interface QoderProviderSettings {
+  provider_type: "qoder";
+  enabled: boolean;
+  custom_cli_path: string | null;
+  env_vars?: Record<string, string>;
+}
+
+export interface QwenCodeProviderSettings {
+  provider_type: "qwen_code";
+  enabled: boolean;
+  custom_cli_path: string | null;
+  env_vars?: Record<string, string>;
+}
+
 // Discriminated union for all provider settings
-export type ProviderSettings = ClaudeProviderSettings | KimiProviderSettings | CodexProviderSettings | GeminiProviderSettings;
+export type ProviderSettings = ClaudeProviderSettings | KimiProviderSettings | CodexProviderSettings | GeminiProviderSettings | OpenCodeProviderSettings | QoderProviderSettings | QwenCodeProviderSettings;
 
 // Type guards
 export function isClaudeSettings(
@@ -73,6 +94,24 @@ export function isGeminiSettings(
   settings: ProviderSettings
 ): settings is GeminiProviderSettings {
   return settings.provider_type === "gemini";
+}
+
+export function isOpenCodeSettings(
+  settings: ProviderSettings
+): settings is OpenCodeProviderSettings {
+  return settings.provider_type === "open_code";
+}
+
+export function isQoderSettings(
+  settings: ProviderSettings
+): settings is QoderProviderSettings {
+  return settings.provider_type === "qoder";
+}
+
+export function isQwenCodeSettings(
+  settings: ProviderSettings
+): settings is QwenCodeProviderSettings {
+  return settings.provider_type === "qwen_code";
 }
 
 // Default settings factory
@@ -105,6 +144,27 @@ export function createDefaultProviderSettings(
     case "gemini":
       return {
         provider_type: "gemini",
+        enabled: true,
+        custom_cli_path: null,
+        env_vars: {},
+      };
+    case "open_code":
+      return {
+        provider_type: "open_code",
+        enabled: true,
+        custom_cli_path: null,
+        env_vars: {},
+      };
+    case "qoder":
+      return {
+        provider_type: "qoder",
+        enabled: true,
+        custom_cli_path: null,
+        env_vars: {},
+      };
+    case "qwen_code":
+      return {
+        provider_type: "qwen_code",
         enabled: true,
         custom_cli_path: null,
         env_vars: {},
@@ -342,7 +402,13 @@ export type McpServerSource =
   | { type: "codex_global" }
   | { type: "codex_project"; project_path: string }
   | { type: "gemini_global" }
-  | { type: "gemini_project"; project_path: string };
+  | { type: "gemini_project"; project_path: string }
+  | { type: "open_code_global" }
+  | { type: "open_code_project"; project_path: string }
+  | { type: "qoder_global" }
+  | { type: "qoder_project"; project_path: string }
+  | { type: "qwen_code_global" }
+  | { type: "qwen_code_project"; project_path: string };
 
 export type McpTransport =
   | { type: "stdio"; command: string; args: string[]; env: Record<string, string> }

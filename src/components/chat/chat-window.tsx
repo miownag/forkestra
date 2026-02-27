@@ -4,7 +4,7 @@ import { ChatMessage } from "./chat-message";
 import { ChatInput } from "./chat-input";
 import { InteractionPromptPanel } from "./interaction-prompt";
 import { Button } from "@/components/ui/button";
-import { PROVIDER_ICONS_MAP } from "@/constants/icons";
+import { PROVIDER_ICONS_MAP, ProviderCombineIcon } from "@/constants/icons";
 import { ProviderType, PromptContent } from "@/types";
 import { Loader } from "@/components/prompt-kit/loader";
 import {
@@ -127,7 +127,8 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
         /* Empty state - centered layout with input below icon */
         <div className="flex-1 flex flex-col items-center justify-center px-8 -mt-24">
           <div className="flex flex-col items-center text-muted-foreground mb-8">
-            <ProviderIcon.Combine
+            <ProviderCombineIcon
+              icon={ProviderIcon}
               size={48}
               type="color"
               className="flex items-center justify-center"

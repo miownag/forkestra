@@ -16,7 +16,7 @@ use crate::models::{
     AvailableCommand, CreateSessionRequest, PlanEntry, PromptContent, ProviderSettings, ProviderType, Session, SessionStatus,
     SessionStatusEvent, StreamChunk,
 };
-use crate::providers::{ClaudeAdapter, CodexAdapter, GeminiAdapter, KimiAdapter, ProviderAdapter};
+use crate::providers::{ClaudeAdapter, CodexAdapter, GeminiAdapter, KimiAdapter, OpenCodeAdapter, QoderAdapter, QwenCodeAdapter, ProviderAdapter};
 
 /// Code-level switch: set to `true` to prepend skill contents into the first
 /// message of each ACP session. This is an experimental feature for internal use.
@@ -241,6 +241,27 @@ impl SessionManager {
                         Box::new(GeminiAdapter::with_settings(&settings))
                     } else {
                         Box::new(GeminiAdapter::new())
+                    }
+                }
+                ProviderType::OpenCode => {
+                    if let Some(ProviderSettings::OpenCode(settings)) = provider_settings {
+                        Box::new(OpenCodeAdapter::with_settings(&settings))
+                    } else {
+                        Box::new(OpenCodeAdapter::new())
+                    }
+                }
+                ProviderType::Qoder => {
+                    if let Some(ProviderSettings::Qoder(settings)) = provider_settings {
+                        Box::new(QoderAdapter::with_settings(&settings))
+                    } else {
+                        Box::new(QoderAdapter::new())
+                    }
+                }
+                ProviderType::QwenCode => {
+                    if let Some(ProviderSettings::QwenCode(settings)) = provider_settings {
+                        Box::new(QwenCodeAdapter::with_settings(&settings))
+                    } else {
+                        Box::new(QwenCodeAdapter::new())
                     }
                 }
             };
@@ -572,6 +593,27 @@ impl SessionManager {
                     Box::new(GeminiAdapter::with_settings(&settings))
                 } else {
                     Box::new(GeminiAdapter::new())
+                }
+            }
+            ProviderType::OpenCode => {
+                if let Some(ProviderSettings::OpenCode(settings)) = provider_settings {
+                    Box::new(OpenCodeAdapter::with_settings(&settings))
+                } else {
+                    Box::new(OpenCodeAdapter::new())
+                }
+            }
+            ProviderType::Qoder => {
+                if let Some(ProviderSettings::Qoder(settings)) = provider_settings {
+                    Box::new(QoderAdapter::with_settings(&settings))
+                } else {
+                    Box::new(QoderAdapter::new())
+                }
+            }
+            ProviderType::QwenCode => {
+                if let Some(ProviderSettings::QwenCode(settings)) = provider_settings {
+                    Box::new(QwenCodeAdapter::with_settings(&settings))
+                } else {
+                    Box::new(QwenCodeAdapter::new())
                 }
             }
         };

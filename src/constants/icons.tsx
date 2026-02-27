@@ -1,4 +1,4 @@
-import { Claude, OpenAI, Kimi } from "@lobehub/icons";
+import { Claude, OpenAI, Kimi, Qwen, Cline, Alibaba } from "@lobehub/icons";
 import { Gemini } from "@lobehub/icons";
 
 // Import seti icons from public/seti
@@ -46,6 +46,9 @@ const PROVIDER_ICONS_MAP = {
   gemini: Gemini,
   kimi: Kimi,
   codex: OpenAI,
+  open_code: Cline,
+  qoder: Alibaba,
+  qwen_code: Qwen,
 } as const;
 
 type ProviderIconMap = typeof PROVIDER_ICONS_MAP;
@@ -65,6 +68,42 @@ function ProviderColorIcon({
   if ("Color" in icon && icon.Color) {
     const ColorComponent = icon.Color as React.ComponentType<{ size: number }>;
     return <ColorComponent size={size} />;
+  }
+  return <icon.Avatar size={size} />;
+}
+
+/**
+ * Render a provider icon's Combine variant if available, otherwise fall back
+ * to Color or Avatar. Some icons (e.g. Alibaba) don't expose Combine.
+ */
+function ProviderCombineIcon({
+  icon,
+  size,
+  className,
+  type,
+}: {
+  icon: ProviderIconType;
+  size: number;
+  className?: string;
+  type?: string;
+}) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const iconAny = icon as any;
+  if ("Combine" in icon && iconAny.Combine) {
+    const CombineComponent = iconAny.Combine as React.ComponentType<{
+      size: number;
+      className?: string;
+      type?: string;
+    }>;
+    return <CombineComponent size={size} className={className} type={type} />;
+  }
+  // Fallback: try Color, then Avatar
+  if ("Color" in icon && iconAny.Color) {
+    const ColorComponent = iconAny.Color as React.ComponentType<{
+      size: number;
+      className?: string;
+    }>;
+    return <ColorComponent size={size} className={className} />;
   }
   return <icon.Avatar size={size} />;
 }
@@ -180,6 +219,7 @@ const MD_LANG_TYPE_SETI_ICONS_MAP = {
 export {
   PROVIDER_ICONS_MAP,
   ProviderColorIcon,
+  ProviderCombineIcon,
   FILE_EXT_SETI_ICONS_MAP,
   MD_LANG_TYPE_SETI_ICONS_MAP,
 };

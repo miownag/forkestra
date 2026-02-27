@@ -5,6 +5,9 @@ pub mod codex;
 pub mod detector;
 pub mod gemini;
 pub mod kimi;
+pub mod open_code;
+pub mod qoder;
+pub mod qwen_code;
 
 pub use adapter::ProviderAdapter;
 pub use claude::ClaudeAdapter;
@@ -12,3 +15,6 @@ pub use codex::CodexAdapter;
 pub use detector::ProviderDetector;
 pub use gemini::GeminiAdapter;
 pub use kimi::KimiAdapter;
+pub use open_code::OpenCodeAdapter;
+pub use qoder::QoderAdapter;
+pub use qwen_code::QwenCodeAdapter;
