@@ -7,7 +7,7 @@ import {
 } from "iconsax-reactjs";
 import { FaCircleCheck } from "react-icons/fa6";
 import { cn } from "@/lib/utils";
-import type { Session } from "@/types";
+import type { Session, SessionError } from "@/types";
 import {
   Tooltip,
   TooltipContent,
@@ -21,7 +21,7 @@ interface SessionStatusIconProps {
   isResuming: boolean;
   isCreating: boolean;
   hasPendingPermission: boolean;
-  errorMessage?: string | null;
+  errorMessage?: SessionError | null;
   className?: string;
 }
 
@@ -52,7 +52,7 @@ export function SessionStatusIcon({
       <Danger
         size={16}
         variant="Bold"
-        className={cn("shrink-0 text-red-600 dark:text-red-500", className)}
+        className={cn("shrink-0 text-destructive", className)}
       />
     );
 
@@ -60,11 +60,12 @@ export function SessionStatusIcon({
       return (
         <TooltipProvider delayDuration={200}>
           <Tooltip>
-            <TooltipTrigger asChild>
-              {icon}
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-xs">
-              <p className="text-xs">{errorMessage}</p>
+            <TooltipTrigger asChild>{icon}</TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              className="max-w-xs bg-destructive text-xs text-destructive-foreground"
+            >
+              {errorMessage.message}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -80,7 +81,7 @@ export function SessionStatusIcon({
         size={16}
         className={cn(
           "shrink-0 animate-spin text-yellow-600 dark:text-yellow-500",
-          className
+          className,
         )}
       />
     );
@@ -101,7 +102,7 @@ export function SessionStatusIcon({
         size={16}
         className={cn(
           "shrink-0 animate-spin text-blue-600 dark:text-blue-500",
-          className
+          className,
         )}
       />
     );

@@ -152,6 +152,7 @@ export interface Session {
   available_modes: ModeInfo[];
   available_commands: AvailableCommand[];
   config_options: ConfigOption[];
+  error?: SessionError | null;
 }
 
 export interface CreateSessionRequest {
@@ -164,11 +165,16 @@ export interface CreateSessionRequest {
   excluded_mcp_ids?: string[];
 }
 
+export interface SessionError {
+  code: string;
+  message: string;
+}
+
 export interface SessionStatusEvent {
   session_id: string;
   status: SessionStatus;
   session?: Session | null;
-  error?: string | null;
+  error?: SessionError | null;
 }
 
 // Message types

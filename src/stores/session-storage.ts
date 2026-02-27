@@ -9,6 +9,7 @@ import type {
   ChatMessage,
   StreamChunk,
   SessionStatusEvent,
+  SessionError,
   MessagePart,
   AvailableCommand,
   PlanEntry,
@@ -44,7 +45,7 @@ interface SessionState {
   creatingSessions: Set<string>; // Track sessions currently being created
   messageQueue: Record<string, PromptContent[][]>; // Queue messages for creating sessions
   interactionPrompts: Record<string, InteractionPrompt | null>;
-  sessionErrors: Record<string, string>; // Per-session error messages
+  sessionErrors: Record<string, SessionError>; // Per-session structured error
   error: string | null;
 
   // Actions
@@ -138,11 +139,21 @@ export const useSessionStore = create<SessionState>()(
             const resolvedActiveId =
               activeId && reconciledTabIds.includes(activeId)
                 ? activeId
-                : reconciledTabIds[0] ?? null;
+                : (reconciledTabIds[0] ?? null);
+
+            // Restore sessionErrors from persisted session.error fields
+            const restoredErrors: Record<string, SessionError> = {};
+            for (const s of sessions) {
+              if (s.error) {
+                restoredErrors[s.id] = s.error;
+              }
+            }
+
             set({
               sessions,
               openTabIds: reconciledTabIds,
               activeSessionId: resolvedActiveId,
+              sessionErrors: restoredErrors,
               isLoading: false,
             });
             // Lazy-load messages for the restored active session
@@ -283,9 +294,7 @@ export const useSessionStore = create<SessionState>()(
               const parts: string[] = [];
               if (hasImages) parts.push("[Image]");
               if (fileNames.length > 0)
-                parts.push(
-                  fileNames.map((n) => `[File: ${n}]`).join(" ")
-                );
+                parts.push(fileNames.map((n) => `[File: ${n}]`).join(" "));
               return parts.join(" ") || "[Attachment]";
             })();
 
@@ -319,7 +328,10 @@ export const useSessionStore = create<SessionState>()(
               set((state) => ({
                 messageQueue: {
                   ...state.messageQueue,
-                  [sessionId]: [...(state.messageQueue[sessionId] || []), content],
+                  [sessionId]: [
+                    ...(state.messageQueue[sessionId] || []),
+                    content,
+                  ],
                 },
               }));
 
@@ -372,7 +384,9 @@ export const useSessionStore = create<SessionState>()(
 
             // Auto-rename session if it's the first message and has default name
             if (isFirstMessage && hasDefaultName && textMessage) {
-              const newName = textMessage.trim().slice(0, SESSION_NAME_MAX_LENGTH);
+              const newName = textMessage
+                .trim()
+                .slice(0, SESSION_NAME_MAX_LENGTH);
               if (newName) {
                 // Fire and forget - don't block on rename
                 get()
@@ -408,9 +422,7 @@ export const useSessionStore = create<SessionState>()(
 
               // Mark running tool calls as interrupted
               const toolCalls = m.tool_calls?.map((tc) =>
-                tc.status === "running"
-                  ? { ...tc, status: "interrupted" }
-                  : tc,
+                tc.status === "running" ? { ...tc, status: "interrupted" } : tc,
               );
               const parts = m.parts?.map((p) =>
                 p.type === "tool_call" && p.tool_call.status === "running"
@@ -431,10 +443,7 @@ export const useSessionStore = create<SessionState>()(
               // Persist interrupted message to DB
               invoke("save_message", { message: stoppedMessage }).catch(
                 (err) => {
-                  console.error(
-                    "Failed to persist interrupted message:",
-                    err,
-                  );
+                  console.error("Failed to persist interrupted message:", err);
                 },
               );
 
@@ -460,13 +469,19 @@ export const useSessionStore = create<SessionState>()(
           try {
             await invoke("terminate_session", { sessionId, cleanupWorktree });
             set((state) => {
-              const newTabIds = state.openTabIds.filter((id) => id !== sessionId);
+              const newTabIds = state.openTabIds.filter(
+                (id) => id !== sessionId,
+              );
               const needNewActive = state.activeSessionId === sessionId;
               const newActiveId = needNewActive
-                ? (newTabIds.length > 0 ? newTabIds[Math.min(
-                    state.openTabIds.indexOf(sessionId),
-                    newTabIds.length - 1,
-                  )] : null)
+                ? newTabIds.length > 0
+                  ? newTabIds[
+                      Math.min(
+                        state.openTabIds.indexOf(sessionId),
+                        newTabIds.length - 1,
+                      )
+                    ]
+                  : null
                 : state.activeSessionId;
 
               if (cleanupWorktree) {
@@ -588,10 +603,7 @@ export const useSessionStore = create<SessionState>()(
               sessionId,
               modelId,
             });
-            console.log(
-              "[SessionStorage] Session model set:",
-              session
-            );
+            console.log("[SessionStorage] Session model set:", session);
             set((state) => ({
               sessions: state.sessions.map((s) =>
                 s.id === sessionId ? session : s,
@@ -608,10 +620,7 @@ export const useSessionStore = create<SessionState>()(
               sessionId,
               modeId,
             });
-            console.log(
-              "[SessionStorage] Session mode set:",
-              session
-            );
+            console.log("[SessionStorage] Session mode set:", session);
             set((state) => ({
               sessions: state.sessions.map((s) =>
                 s.id === sessionId ? session : s,
@@ -647,7 +656,9 @@ export const useSessionStore = create<SessionState>()(
 
             return {
               sessions: state.sessions.map((s) =>
-                s.id === sessionId ? { ...s, config_options: configOptions } : s,
+                s.id === sessionId
+                  ? { ...s, config_options: configOptions }
+                  : s,
               ),
             };
           });
@@ -682,10 +693,7 @@ export const useSessionStore = create<SessionState>()(
                 const completedMessage = updatedMessages[existingMessageIndex];
                 invoke("save_message", { message: completedMessage }).catch(
                   (err) => {
-                    console.error(
-                      "Failed to persist assistant message:",
-                      err,
-                    );
+                    console.error("Failed to persist assistant message:", err);
                   },
                 );
 
@@ -711,8 +719,7 @@ export const useSessionStore = create<SessionState>()(
 
             const isToolCall =
               chunk.chunk_type === "tool_call" && chunk.tool_call;
-            const isImage =
-              chunk.chunk_type === "image" && chunk.image_content;
+            const isImage = chunk.chunk_type === "image" && chunk.image_content;
 
             if (existingMessageIndex >= 0) {
               const updatedMessages = [...sessionMessages];
@@ -750,8 +757,7 @@ export const useSessionStore = create<SessionState>()(
                 const existingPartIndex = parts.findIndex(
                   (p) =>
                     p.type === "tool_call" &&
-                    p.tool_call.tool_call_id ===
-                      chunk.tool_call!.tool_call_id,
+                    p.tool_call.tool_call_id === chunk.tool_call!.tool_call_id,
                 );
                 if (existingPartIndex >= 0) {
                   parts[existingPartIndex] = {
@@ -854,15 +860,19 @@ export const useSessionStore = create<SessionState>()(
               if (queuedMessages.length > 0) {
                 setTimeout(() => {
                   for (const message of queuedMessages) {
-                    get().sendMessage(session_id, message).catch((err) => {
-                      console.error("Failed to send queued message:", err);
-                    });
+                    get()
+                      .sendMessage(session_id, message)
+                      .catch((err) => {
+                        console.error("Failed to send queued message:", err);
+                      });
                   }
                 }, 0);
               }
 
               // Session might not be in the store yet if event arrived before command response
-              const sessionExists = state.sessions.some((s) => s.id === session_id);
+              const sessionExists = state.sessions.some(
+                (s) => s.id === session_id,
+              );
               if (!sessionExists) {
                 return state;
               }
@@ -876,32 +886,33 @@ export const useSessionStore = create<SessionState>()(
               };
             });
           } else if (status === "error") {
+            console.error("Session error:", error, session_id);
             // ACP connection failed
-            const errorMessage = error || "Failed to establish ACP connection";
+            const sessionError: SessionError = error || { code: "unknown", message: "Failed to establish ACP connection" };
             set((state) => {
               const newCreatingSessions = new Set(state.creatingSessions);
               newCreatingSessions.delete(session_id);
 
               const { [session_id]: _, ...remainingQueue } = state.messageQueue;
 
-              const sessionExists = state.sessions.some((s) => s.id === session_id);
+              const sessionExists = state.sessions.some(
+                (s) => s.id === session_id,
+              );
               if (!sessionExists) {
                 return state;
               }
 
               return {
                 sessions: state.sessions.map((s) =>
-                  s.id === session_id
-                    ? { ...s, status: "error" as const }
-                    : s,
+                  s.id === session_id ? { ...s, status: "error" as const } : s,
                 ),
                 creatingSessions: newCreatingSessions,
                 messageQueue: remainingQueue,
                 sessionErrors: {
                   ...state.sessionErrors,
-                  [session_id]: errorMessage,
+                  [session_id]: sessionError,
                 },
-                error: errorMessage,
+                error: sessionError.message,
               };
             });
           }
@@ -933,9 +944,7 @@ export const useSessionStore = create<SessionState>()(
         setAvailableCommands: (sessionId, commands) => {
           set((state) => ({
             sessions: state.sessions.map((s) =>
-              s.id === sessionId
-                ? { ...s, available_commands: commands }
-                : s,
+              s.id === sessionId ? { ...s, available_commands: commands } : s,
             ),
           }));
         },
@@ -944,9 +953,7 @@ export const useSessionStore = create<SessionState>()(
             messages: {
               ...state.messages,
               [sessionId]: (state.messages[sessionId] || []).map((msg) =>
-                msg.id === messageId
-                  ? { ...msg, plan_entries: entries }
-                  : msg,
+                msg.id === messageId ? { ...msg, plan_entries: entries } : msg,
               ),
             },
           }));

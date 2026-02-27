@@ -158,6 +158,7 @@ impl SessionManager {
             available_commands: vec![],
             plan_entries: vec![],
             config_options: vec![],
+            error: None,
         };
 
         // Store session in memory
@@ -326,26 +327,27 @@ impl SessionManager {
                     }
                 }
                 Err(e) => {
-                    let error_msg = format!("{}", e);
+                    let session_error = e.to_session_error();
                     eprintln!(
-                        "[SessionManager] Failed to start ACP session for {}: {}",
-                        session_id, error_msg
+                        "[SessionManager] Failed to start ACP session for {}: [{}] {}",
+                        session_id, session_error.code, session_error.message
                     );
 
-                    // Update session to Error state
+                    // Update session to Error state with error info
                     let mut sessions_guard = sessions.write().await;
                     if let Some(entry) = sessions_guard.get_mut(&session_id) {
                         if entry.session.status != SessionStatus::Creating {
                             return;
                         }
                         entry.session.status = SessionStatus::Error;
+                        entry.session.error = Some(session_error.clone());
 
-                        // Persist error status to database
+                        // Persist error status and error info to database
                         if let Err(db_err) =
-                            db.update_session_status(&session_id, &SessionStatus::Error)
+                            db.update_session_error(&session_id, &SessionStatus::Error, &session_error)
                         {
                             eprintln!(
-                                "[SessionManager] Failed to update session error status in DB: {}",
+                                "[SessionManager] Failed to update session error in DB: {}",
                                 db_err
                             );
                         }
@@ -356,7 +358,7 @@ impl SessionManager {
                         session_id: session_id.clone(),
                         status: SessionStatus::Error,
                         session: None,
-                        error: Some(error_msg),
+                        error: Some(session_error),
                     };
                     if let Err(e) = app_handle.emit("session-status-changed", &event) {
                         eprintln!(

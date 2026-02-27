@@ -113,6 +113,8 @@ pub struct Session {
     pub plan_entries: Vec<PlanEntry>,
     #[serde(default)]
     pub config_options: Vec<SessionConfigOption>,
+    #[serde(default)]
+    pub error: Option<SessionError>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -135,9 +137,15 @@ fn default_fetch_first() -> bool {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionError {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionStatusEvent {
     pub session_id: String,
     pub status: SessionStatus,
     pub session: Option<Session>,
-    pub error: Option<String>,
+    pub error: Option<SessionError>,
 }

@@ -22,6 +22,12 @@ import {
   ResizableHandle,
 } from "@/components/ui/resizable";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Driving, Refresh } from "iconsax-reactjs";
 import { toast } from "sonner";
 
@@ -32,12 +38,16 @@ interface SessionTabContentProps {
 
 function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
   const { position } = useSelectorTerminalStore(["position"]);
-  const { sessions, creatingSessions } = useSelectorSessionStore([
-    "sessions",
-    "creatingSessions",
-  ]);
-  const { getLayout, toggleFileTree, setFileViewerMode, closeFileViewer, setFileViewerContext } =
-    useSessionLayoutStore();
+  const { sessions, creatingSessions, sessionErrors } = useSelectorSessionStore(
+    ["sessions", "creatingSessions", "sessionErrors"],
+  );
+  const {
+    getLayout,
+    toggleFileTree,
+    setFileViewerMode,
+    closeFileViewer,
+    setFileViewerContext,
+  } = useSessionLayoutStore();
   const scmStatus = useScmStore((s) => s.statuses[sessionId]);
 
   const session = sessions.find((s) => s.id === sessionId);
@@ -45,7 +55,14 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
     session?.status === "creating" || creatingSessions.has(sessionId);
 
   const layout = getLayout(sessionId);
-  const { showFileTree, showFileViewer, selectedFile, fileViewerMode, leftPanelMode, fileViewerContext } = layout;
+  const {
+    showFileTree,
+    showFileViewer,
+    selectedFile,
+    fileViewerMode,
+    leftPanelMode,
+    fileViewerContext,
+  } = layout;
 
   const repoPath = session
     ? session.is_local
@@ -59,7 +76,7 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
     <div
       className={cn(
         "flex-1 flex h-full overflow-hidden",
-        !isActive && "hidden"
+        !isActive && "hidden",
       )}
     >
       <ResizablePanelGroup orientation="horizontal" className="w-full">
@@ -139,25 +156,41 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
                     sessionCwd={session.worktree_path}
                   />
 
-                  <span
-                    className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      session.status === "active"
-                        ? "bg-green-500/10 text-green-600"
-                        : session.status === "error"
-                          ? "bg-red-500/10 text-red-600"
-                          : isCreating
-                            ? "bg-yellow-500/10 text-yellow-600"
-                            : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {session.status === "active"
-                      ? "Active"
-                      : session.status === "error"
-                        ? "Error"
+                  {session.status === "error" && sessionErrors[session.id] ? (
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-600 cursor-default">
+                            Error
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="bottom"
+                          className="max-w-sm bg-destructive text-destructive-foreground"
+                        >
+                          {sessionErrors[session.id].message}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    <span
+                      className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        session.status === "active"
+                          ? "bg-green-500/10 text-green-600"
+                          : session.status === "error"
+                            ? "bg-red-500/10 text-red-600"
+                            : isCreating
+                              ? "bg-yellow-500/10 text-yellow-600"
+                              : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {session.status === "active"
+                        ? "Active"
                         : isCreating
                           ? "Creating..."
                           : session.status}
-                  </span>
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -195,7 +228,10 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
                   sessionId={session.id}
                   repoPath={repoPath}
                   filePath={selectedFile}
-                  staged={scmStatus?.staged.some((f) => f.path === selectedFile) ?? false}
+                  staged={
+                    scmStatus?.staged.some((f) => f.path === selectedFile) ??
+                    false
+                  }
                   onClose={() => closeFileViewer(session.id)}
                 />
               ) : (
@@ -374,7 +410,7 @@ function SyncButton({ projectPath }: SyncButtonProps) {
         disabled={isSyncing}
         className={cn(
           "p-0.5 rounded hover:bg-muted transition-colors cursor-pointer",
-          isSyncing && "animate-spin"
+          isSyncing && "animate-spin",
         )}
         title="Sync with remote"
       >

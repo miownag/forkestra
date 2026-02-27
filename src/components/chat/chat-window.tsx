@@ -38,6 +38,7 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
     resumingSessions,
     creatingSessions,
     interactionPrompts,
+    sessionErrors,
     error: storeError,
     clearError,
   } = useSelectorSessionStore([
@@ -52,6 +53,7 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
     "resumingSessions",
     "creatingSessions",
     "interactionPrompts",
+    "sessionErrors",
     "error",
     "clearError",
   ]);
@@ -68,10 +70,11 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
   const isResuming = resumingSessions.has(sessionId);
   const hasCreateError = !!storeError && isCreating;
   const hasResumeError = !!storeError && canResume && !isResuming;
+  const sessionError = sessionErrors[sessionId];
 
   const messages = useMemo(
     () => messagesMap[sessionId] ?? EMPTY_MESSAGES,
-    [messagesMap, sessionId]
+    [messagesMap, sessionId],
   );
 
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
@@ -129,13 +132,15 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
               type="color"
               className="flex items-center justify-center"
             />
-            <Typewriter
-              className="font-short-stack text-lg mt-4"
-              text="How can I assist you with your code today?"
-              speed={30}
-              delay={300}
-              deps={[isActive]}
-            />
+            {!sessionError && (
+              <Typewriter
+                className="font-short-stack text-lg mt-4"
+                text="How can I assist you with your code today?"
+                speed={30}
+                delay={300}
+                deps={[isActive]}
+              />
+            )}
           </div>
 
           {/* Input with floating notifications */}
@@ -146,9 +151,16 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-destructive/20 text-destructive">
                   <Warning2 className="size-4" />
                 </div>
-                <p className="text-sm text-destructive/90">
-                  Failed to create session: {storeError}
-                </p>
+                <div>
+                  <p className="text-sm text-destructive/90">
+                    {sessionError?.message || storeError}
+                  </p>
+                  {sessionError?.code && (
+                    <p className="text-xs text-destructive/60 mt-0.5">
+                      Code: {sessionError.code}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -186,9 +198,16 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-destructive/20 text-destructive">
                     <FiAlertCircle className="size-4" />
                   </div>
-                  <p className="text-sm text-destructive/90">
-                    Failed to resume session: {storeError}
-                  </p>
+                  <div>
+                    <p className="text-sm text-destructive/90">
+                      {sessionError?.message || storeError}
+                    </p>
+                    {sessionError?.code && (
+                      <p className="text-xs text-destructive/60 mt-0.5">
+                        Code: {sessionError.code}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <div className="flex gap-2 pl-11">
                   <Button
@@ -237,6 +256,7 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
               disabled={isTerminated || isResuming || hasCreateError}
               session={session}
               hasMessage={false}
+              sessionError={sessionError}
             />
           </div>
         </div>
@@ -315,9 +335,16 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-destructive/20 text-destructive">
                     <FiAlertCircle className="size-4" />
                   </div>
-                  <p className="text-sm text-destructive/90">
-                    Failed to resume session: {storeError}
-                  </p>
+                  <div>
+                    <p className="text-sm text-destructive/90">
+                      {sessionError?.message || storeError}
+                    </p>
+                    {sessionError?.code && (
+                      <p className="text-xs text-destructive/60 mt-0.5">
+                        Code: {sessionError.code}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <div className="flex gap-2 pl-11">
                   <Button
@@ -365,6 +392,7 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
               isLoading={isLoading}
               disabled={isTerminated || isResuming || hasCreateError}
               session={session}
+              sessionError={sessionError}
             />
           </div>
         </>

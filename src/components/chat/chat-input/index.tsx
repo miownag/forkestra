@@ -1,6 +1,6 @@
 import { PromptInput } from "@/components/prompt-kit/prompt-input";
-import { useState, useCallback, useMemo } from "react";
-import type { Session, AvailableCommand, PromptContent } from "@/types";
+import { useState, useCallback } from "react";
+import type { Session, SessionError, AvailableCommand, PromptContent } from "@/types";
 import { ChatInputInner } from "./input-inner";
 import { RotatingTip, TipItem } from "@/components/ui/rotating-tip";
 import {
@@ -9,8 +9,75 @@ import {
   Flashy,
   GalleryAdd,
   Keyboard,
+  Warning2,
 } from "iconsax-reactjs";
 import { cn } from "@/lib/utils";
+
+// Mock tips for the rotating tip component
+const tips: TipItem[] = [
+  {
+    id: "1",
+    content: (
+      <span className="flex items-center gap-1.5">
+        <Keyboard className="size-4" />
+        Press{" "}
+        <kbd className="px-1 bg-muted text-[0.65rem] font-mono rounded">
+          Enter
+        </kbd>{" "}
+        to send,{" "}
+        <kbd className="px-1 bg-muted text-[0.65rem] font-mono rounded">
+          Shift + Enter
+        </kbd>{" "}
+        for new line
+      </span>
+    ),
+  },
+  {
+    id: "2",
+    content: (
+      <span className="flex items-center gap-1.5">
+        <GalleryAdd className="size-3.5" />
+        <kbd className="px-1 bg-muted text-[0.65rem] font-mono rounded">
+          ⌘ + V
+        </kbd>{" "}
+        to attach images in context
+      </span>
+    ),
+  },
+  {
+    id: "3",
+    content: (
+      <span className="flex items-center gap-1.5">
+        <DocumentText1 className="size-3.5" />
+        Type <span className="text-primary/90 font-medium">@</span> to reference
+        files in your project
+      </span>
+    ),
+  },
+  {
+    id: "4",
+    content: (
+      <span className="flex items-center gap-1.5">
+        <Flashy className="size-3.5" />
+        Use <span className="text-primary/90 font-medium">/</span> commands for
+        quick actions like /init
+      </span>
+    ),
+  },
+  {
+    id: "5",
+    content: (
+      <span className="flex items-center gap-1.5">
+        <Command className="size-3" />
+        Use{" "}
+        <kbd className="px-1 py-0.5 text-[0.65rem] bg-muted font-mono rounded">
+          ⌘ + ⌥ + N
+        </kbd>{" "}
+        to quickly create a new session based on the current one
+      </span>
+    ),
+  },
+];
 
 export function ChatInput({
   onSend,
@@ -19,6 +86,7 @@ export function ChatInput({
   disabled,
   session,
   hasMessage,
+  sessionError,
 }: {
   onSend: (content: PromptContent[]) => Promise<void>;
   onStop: () => void;
@@ -26,6 +94,7 @@ export function ChatInput({
   disabled?: boolean;
   session?: Session;
   hasMessage?: boolean;
+  sessionError?: SessionError | null;
 }) {
   const [input, setInput] = useState("");
   const [inlineSlashOpen, setInlineSlashOpen] = useState(false);
@@ -46,7 +115,7 @@ export function ChatInput({
         const query = slashMatch[2];
         const hasMatches = query
           ? commands.some((c) =>
-              c.name.toLowerCase().startsWith(query.toLowerCase())
+              c.name.toLowerCase().startsWith(query.toLowerCase()),
             )
           : true;
         if (hasMatches) {
@@ -70,7 +139,7 @@ export function ChatInput({
         setInlineFileOpen(false);
       }
     },
-    [commands]
+    [commands],
   );
 
   const handleCommandSelect = useCallback(
@@ -81,7 +150,7 @@ export function ChatInput({
       setInput("");
       await onSend([{ type: "text", text: `/${command.name}` }]);
     },
-    [onSend]
+    [onSend],
   );
 
   const handleSlashButtonClick = () => {
@@ -90,91 +159,41 @@ export function ChatInput({
     }
   };
 
-  // Mock tips for the rotating tip component
-  const tips: TipItem[] = useMemo(
-    () => [
-      {
-        id: "1",
-        content: (
-          <span className="flex items-center gap-1.5">
-            <Keyboard className="size-4" />
-            Press{" "}
-            <kbd className="px-1 bg-muted text-[0.65rem] font-mono rounded">
-              Enter
-            </kbd>{" "}
-            to send,{" "}
-            <kbd className="px-1 bg-muted text-[0.65rem] font-mono rounded">
-              Shift + Enter
-            </kbd>{" "}
-            for new line
-          </span>
-        ),
-      },
-      {
-        id: "2",
-        content: (
-          <span className="flex items-center gap-1.5">
-            <GalleryAdd className="size-3.5" />
-            <kbd className="px-1 bg-muted text-[0.65rem] font-mono rounded">
-              ⌘ + V
-            </kbd>{" "}
-            to attach images in context
-          </span>
-        ),
-      },
-      {
-        id: "3",
-        content: (
-          <span className="flex items-center gap-1.5">
-            <DocumentText1 className="size-3.5" />
-            Type <span className="text-primary/90 font-medium">@</span> to
-            reference files in your project
-          </span>
-        ),
-      },
-      {
-        id: "4",
-        content: (
-          <span className="flex items-center gap-1.5">
-            <Flashy className="size-3.5" />
-            Use <span className="text-primary/90 font-medium">/</span> commands
-            for quick actions like /init
-          </span>
-        ),
-      },
-      {
-        id: "5",
-        content: (
-          <span className="flex items-center gap-1.5">
-            <Command className="size-3" />
-            Use{" "}
-            <kbd className="px-1 py-0.5 text-[0.65rem] bg-muted font-mono rounded">
-              ⌘ + ⌥ + N
-            </kbd>{" "}
-            to quickly create a new session based on the current one
-          </span>
-        ),
-      },
-    ],
-    []
-  );
-
   return (
     <div
       className={cn(
         "w-full mx-auto mb-4",
         hasMessage && "space-y-3",
-        !hasMessage && "space-y-1.5"
+        !hasMessage && "space-y-1.5",
       )}
     >
-      <RotatingTip
-        tips={tips}
-        interval={5000}
-        showNavigation={false}
-        showBgAndBorder={hasMessage}
-        showCloseButton={hasMessage}
-        showIndicator={hasMessage}
-      />
+      {sessionError ? (
+        <div
+          className={cn(
+            "flex items-center gap-2 px-3 py-2 rounded-lg",
+            hasMessage && "border border-destructive/20! bg-destructive/10",
+          )}
+        >
+          <Warning2 className="size-3.5 shrink-0 text-destructive" />
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <p className="text-xs text-destructive/90 truncate">
+              {sessionError.message}
+            </p>
+            <p className="text-[10px] text-destructive/60 truncate">
+              Code: {sessionError.code}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <RotatingTip
+          tips={tips}
+          interval={5000}
+          showNavigation={false}
+          showBgAndBorder={hasMessage}
+          showCloseButton={hasMessage}
+          showIndicator={hasMessage}
+        />
+      )}
       <PromptInput
         value={input}
         onValueChange={handleInputChange}

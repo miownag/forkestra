@@ -5,8 +5,8 @@ use tauri::{AppHandle, Manager};
 
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    ChatMessage, MessageContentType, MessageRole, ProviderType, Session, SessionStatus,
-    ToolCallInfo, ToolUseInfo,
+    ChatMessage, MessageContentType, MessageRole, ProviderType, Session, SessionError,
+    SessionStatus, ToolCallInfo, ToolUseInfo,
 };
 
 pub struct Database {
@@ -193,6 +193,33 @@ impl Database {
             println!("[Database] Migrated: added updated_at column to sessions");
         }
 
+        // Migration for error_code and error_message columns in sessions
+        let has_error_code_col: bool = conn
+            .prepare("PRAGMA table_info(sessions)")
+            .and_then(|mut stmt| {
+                let cols: Vec<String> = stmt
+                    .query_map([], |row| row.get::<_, String>(1))
+                    .unwrap()
+                    .filter_map(|r| r.ok())
+                    .collect();
+                Ok(cols.contains(&"error_code".to_string()))
+            })
+            .unwrap_or(false);
+
+        if !has_error_code_col {
+            conn.execute_batch(
+                "ALTER TABLE sessions ADD COLUMN error_code TEXT;
+                 ALTER TABLE sessions ADD COLUMN error_message TEXT;",
+            )
+            .map_err(|e| {
+                AppError::Database(format!(
+                    "Failed to add error_code/error_message columns: {}",
+                    e
+                ))
+            })?;
+            println!("[Database] Migrated: added error_code and error_message columns to sessions");
+        }
+
         Ok(())
     }
 
@@ -210,8 +237,9 @@ impl Database {
         conn.execute(
             "INSERT OR REPLACE INTO sessions
              (id, name, provider, status, worktree_path, branch_name,
-              project_path, is_local, created_at, updated_at, acp_session_id, model, config_options)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+              project_path, is_local, created_at, updated_at, acp_session_id, model,
+              config_options, error_code, error_message)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             params![
                 session.id,
                 session.name,
@@ -226,6 +254,8 @@ impl Database {
                 session.acp_session_id,
                 session.model.as_deref(),
                 config_options_json,
+                session.error.as_ref().map(|e| e.code.as_str()),
+                session.error.as_ref().map(|e| e.message.as_str()),
             ],
         )
         .map_err(|e| AppError::Database(format!("Failed to save session: {}", e)))?;
@@ -246,6 +276,29 @@ impl Database {
             params![session_status_to_str(status), session_id],
         )
         .map_err(|e| AppError::Database(format!("Failed to update session status: {}", e)))?;
+        Ok(())
+    }
+
+    pub fn update_session_error(
+        &self,
+        session_id: &str,
+        status: &SessionStatus,
+        error: &SessionError,
+    ) -> AppResult<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Database(format!("Database lock poisoned: {}", e)))?;
+        conn.execute(
+            "UPDATE sessions SET status = ?1, error_code = ?2, error_message = ?3 WHERE id = ?4",
+            params![
+                session_status_to_str(status),
+                error.code,
+                error.message,
+                session_id,
+            ],
+        )
+        .map_err(|e| AppError::Database(format!("Failed to update session error: {}", e)))?;
         Ok(())
     }
 
@@ -309,7 +362,7 @@ impl Database {
             .prepare(
                 "SELECT id, name, provider, status, worktree_path,
                         branch_name, project_path, is_local, created_at, updated_at,
-                        acp_session_id, model, config_options
+                        acp_session_id, model, config_options, error_code, error_message
                  FROM sessions ORDER BY created_at DESC",
             )
             .map_err(|e| AppError::Database(format!("Failed to prepare query: {}", e)))?;
@@ -322,10 +375,17 @@ impl Database {
                 let updated_at_str: Option<String> = row.get(9)?;
                 let model_str: Option<String> = row.get(11)?;
                 let config_options_str: Option<String> = row.get(12)?;
+                let error_code: Option<String> = row.get(13)?;
+                let error_message: Option<String> = row.get(14)?;
 
                 let config_options = config_options_str
                     .and_then(|s| serde_json::from_str(&s).ok())
                     .unwrap_or_default();
+
+                let error = match (error_code, error_message) {
+                    (Some(code), Some(message)) => Some(SessionError { code, message }),
+                    _ => None,
+                };
 
                 Ok(Session {
                     id: row.get(0)?,
@@ -352,6 +412,7 @@ impl Database {
                     available_commands: vec![],
                     plan_entries: vec![],
                     config_options,
+                    error,
                 })
             })
             .map_err(|e| AppError::Database(format!("Failed to query sessions: {}", e)))?;

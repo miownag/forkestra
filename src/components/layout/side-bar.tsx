@@ -57,7 +57,7 @@ import {
 } from "@/stores";
 import { NewSessionDialog } from "@/components/session/new-session-dialog";
 import { cn, formatTimeAgo } from "@/lib/utils";
-import type { Session } from "@/types";
+import type { Session, SessionError } from "@/types";
 import { useStreamEvents } from "@/hooks/use-stream-events";
 import { useRouter, useLocation } from "@tanstack/react-router";
 import {
@@ -99,7 +99,7 @@ interface SessionSidebarItemProps {
   isResuming?: boolean;
   isCreating?: boolean;
   hasPendingPermission?: boolean;
-  errorMessage?: string | null;
+  errorMessage?: SessionError | null;
 }
 
 // ---- SessionSidebarItem ----

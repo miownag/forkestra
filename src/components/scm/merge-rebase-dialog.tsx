@@ -74,14 +74,12 @@ export function MergeRebaseDialog({
         toast.success(
           direction === "update_from"
             ? `Updated from ${branch}`
-            : `Merged to ${branch}`
+            : `Merged to ${branch}`,
         );
       } else if (result === "up_to_date") {
         toast.info("Already up to date");
       } else if (typeof result === "object" && "conflicts" in result) {
-        toast.warning(
-          `${result.conflicts.length} conflict(s) need resolution`
-        );
+        toast.warning(`${result.conflicts.length} conflict(s) need resolution`);
       }
 
       onResult?.(result, direction);
@@ -108,7 +106,7 @@ export function MergeRebaseDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 pb-4">
           {/* Direction */}
           <div className="grid gap-2">
             <Label className="text-sm">Direction</Label>
@@ -155,6 +153,7 @@ export function MergeRebaseDialog({
               value={branch}
               onChange={setBranch}
               includeRemote
+              excludeBranch={currentBranch}
               placeholder="Select branch..."
             />
           </div>

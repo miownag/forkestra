@@ -23,6 +23,7 @@ interface BranchSearchSelectProps {
   onChange: (value: string) => void;
   placeholder?: string;
   includeRemote?: boolean;
+  excludeBranch?: string;
 }
 
 export function BranchSearchSelect({
@@ -31,6 +32,7 @@ export function BranchSearchSelect({
   onChange,
   placeholder = "Select branch...",
   includeRemote = false,
+  excludeBranch,
 }: BranchSearchSelectProps) {
   const [open, setOpen] = useState(false);
   const [branches, setBranches] = useState<string[]>([]);
@@ -90,6 +92,7 @@ export function BranchSearchSelect({
                 <CommandItem
                   key={branch}
                   value={branch}
+                  disabled={!!excludeBranch && branch === excludeBranch}
                   onSelect={(currentValue) => {
                     onChange(currentValue === value ? "" : currentValue);
                     setOpen(false);

@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSessionStore } from "@/stores";
-import type { Session } from "@/types";
+import type { Session, SessionError } from "@/types";
 import { cn, formatTimeAgo } from "@/lib/utils";
 import { NewSessionDialog } from "./new-session-dialog";
 import { MergeRebaseDialog } from "@/components/scm/merge-rebase-dialog";
@@ -54,7 +54,7 @@ interface SessionItemProps {
   isResuming?: boolean;
   isCreating?: boolean;
   hasPendingPermission?: boolean;
-  errorMessage?: string | null;
+  errorMessage?: SessionError | null;
 }
 
 export const SessionItem = forwardRef<SessionItemRef, SessionItemProps>(
