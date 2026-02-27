@@ -79,175 +79,204 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
         !isActive && "hidden",
       )}
     >
-      <ResizablePanelGroup orientation="horizontal" className="w-full">
-        {/* Left: File Tree or SCM Panel (conditional) */}
-        {showFileTree && (
-          <>
-            <ResizablePanel defaultSize="10%" minSize="10%" maxSize="15%">
-              {leftPanelMode === "scm" ? (
-                <ScmPanel sessionId={session.id} repoPath={repoPath} />
-              ) : (
-                <FileTree
-                  projectPath={session.project_path}
-                  sessionId={session.id}
-                />
-              )}
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-          </>
-        )}
-
-        {/* Middle: Chat Area (always visible) */}
-        <ResizablePanel defaultSize="40%" minSize="40%" maxSize="50%">
-          <div
-            className="flex flex-col h-full w-full"
-            style={{
-              flexDirection: position === "right" ? "row" : "column",
-            }}
+      {(() => {
+        const isMultiPanel = showFileTree || (showFileViewer && selectedFile);
+        return (
+          <ResizablePanelGroup
+            orientation="horizontal"
+            className={cn("w-full", isMultiPanel && "gap-1 p-1")}
           >
-            {/* Chat Area */}
-            <div className="flex-1 flex flex-col min-w-0 min-h-0">
-              {/* Session Header */}
-              <div className="border-b px-4 py-3 flex items-center justify-between bg-muted/20 shrink-0">
-                <div className="flex items-center gap-3 min-w-0">
-                  {/* File Tree Toggle Button */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-8 h-8 shrink-0 [&_svg]:size-4.5 rounded-md opacity-60"
-                    onClick={() => toggleFileTree(session.id)}
-                    title="Toggle file tree"
-                  >
-                    <LuFolderTree />
-                  </Button>
+            {/* Left: File Tree or SCM Panel (conditional) */}
+            {showFileTree && (
+              <>
+                <ResizablePanel
+                  defaultSize="10%"
+                  minSize="10%"
+                  maxSize="15%"
+                  className="rounded-lg overflow-hidden border"
+                >
+                  {leftPanelMode === "scm" ? (
+                    <ScmPanel sessionId={session.id} repoPath={repoPath} />
+                  ) : (
+                    <FileTree
+                      projectPath={session.project_path}
+                      sessionId={session.id}
+                    />
+                  )}
+                </ResizablePanel>
+                <ResizableHandle className="w-0 bg-transparent after:w-0.5 data-[separator=hover]:after:bg-primary data-[separator=active]:after:bg-primary after:rounded-full after:delay-200" />
+              </>
+            )}
 
-                  <div className="min-w-0">
-                    <h2
-                      className="font-medium text-sm truncate"
-                      title={session.name}
-                    >
-                      {session.name}
-                    </h2>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <LuGitBranch className="size-3" />
-                        {session.branch_name || "-"}
-                        <SyncButton projectPath={session.project_path} />
-                      </span>
-                      <span
-                        className="flex items-center gap-1 truncate"
-                        title={session.project_path || "-"}
+            {/* Middle: Chat Area (always visible) */}
+            <ResizablePanel
+              defaultSize="40%"
+              minSize="40%"
+              maxSize="50%"
+              className={cn(
+                isMultiPanel && "rounded-lg overflow-hidden border",
+              )}
+            >
+              <div
+                className="flex flex-col h-full w-full"
+                style={{
+                  flexDirection: position === "right" ? "row" : "column",
+                }}
+              >
+                {/* Chat Area */}
+                <div className="flex-1 flex flex-col min-w-0 min-h-0">
+                  {/* Session Header */}
+                  <div className="border-b px-4 py-3 flex items-center justify-between bg-muted/20 shrink-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* File Tree Toggle Button */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-8 h-8 shrink-0 [&_svg]:size-4.5 rounded-md opacity-60"
+                        onClick={() => toggleFileTree(session.id)}
+                        title="Toggle file tree"
                       >
-                        <LuFolderOpen className="size-3 shrink-0" />
-                        <span
-                          className="truncate"
-                          title={session.project_path.split("/").pop()}
+                        <LuFolderTree />
+                      </Button>
+
+                      <div className="min-w-0">
+                        <h2
+                          className="font-medium text-sm truncate"
+                          title={session.name}
                         >
-                          {session.project_path.split("/").pop() || "-"}
+                          {session.name}
+                        </h2>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <LuGitBranch className="size-3" />
+                            {session.branch_name || "-"}
+                            <SyncButton projectPath={session.project_path} />
+                          </span>
+                          <span
+                            className="flex items-center gap-1 truncate"
+                            title={session.project_path || "-"}
+                          >
+                            <LuFolderOpen className="size-3 shrink-0" />
+                            <span
+                              className="truncate"
+                              title={session.project_path.split("/").pop()}
+                            >
+                              {session.project_path.split("/").pop() || "-"}
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Action Toolbar */}
+                      <ActionToolbar
+                        sessionId={session.id}
+                        sessionCwd={session.worktree_path}
+                      />
+
+                      {session.status === "error" &&
+                      sessionErrors[session.id] ? (
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-600 cursor-default">
+                                Error
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="bottom"
+                              className="max-w-sm bg-destructive text-destructive-foreground"
+                            >
+                              {sessionErrors[session.id].message}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <span
+                          className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            session.status === "active"
+                              ? "bg-green-500/10 text-green-600"
+                              : session.status === "error"
+                                ? "bg-red-500/10 text-red-600"
+                                : isCreating
+                                  ? "bg-yellow-500/10 text-yellow-600"
+                                  : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {session.status === "active"
+                            ? "Active"
+                            : isCreating
+                              ? "Creating..."
+                              : session.status}
                         </span>
-                      </span>
+                      )}
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {/* Action Toolbar */}
-                  <ActionToolbar
-                    sessionId={session.id}
-                    sessionCwd={session.worktree_path}
-                  />
 
-                  {session.status === "error" && sessionErrors[session.id] ? (
-                    <TooltipProvider delayDuration={200}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-600 cursor-default">
-                            Error
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent
-                          side="bottom"
-                          className="max-w-sm bg-destructive text-destructive-foreground"
-                        >
-                          {sessionErrors[session.id].message}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  ) : (
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        session.status === "active"
-                          ? "bg-green-500/10 text-green-600"
-                          : session.status === "error"
-                            ? "bg-red-500/10 text-red-600"
-                            : isCreating
-                              ? "bg-yellow-500/10 text-yellow-600"
-                              : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {session.status === "active"
-                        ? "Active"
-                        : isCreating
-                          ? "Creating..."
-                          : session.status}
-                    </span>
-                  )}
+                  {/* Chat Window */}
+                  <ChatWindow sessionId={session.id} isActive={isActive} />
                 </div>
+
+                {/* Terminal Panel */}
+                <TerminalPanel
+                  sessionId={session.id}
+                  sessionCwd={session.worktree_path}
+                  isVisible={isActive}
+                />
               </div>
-
-              {/* Chat Window */}
-              <ChatWindow sessionId={session.id} isActive={isActive} />
-            </div>
-
-            {/* Terminal Panel */}
-            <TerminalPanel
-              sessionId={session.id}
-              sessionCwd={session.worktree_path}
-              isVisible={isActive}
-            />
-          </div>
-        </ResizablePanel>
-
-        {/* Right: File Viewer / Diff / Conflict (conditional) */}
-        {showFileViewer && selectedFile && (
-          <>
-            <ResizableHandle withHandle />
-            <ResizablePanel defaultSize="50%" minSize="40%" maxSize="50%">
-              {fileViewerContext === "conflict" ? (
-                <ConflictResolver
-                  sessionId={session.id}
-                  repoPath={repoPath}
-                  filePath={selectedFile}
-                  onClose={() => closeFileViewer(session.id)}
-                  onResolved={() => {
-                    setFileViewerContext(session.id, "file");
-                    closeFileViewer(session.id);
-                  }}
-                />
-              ) : fileViewerContext === "diff" ? (
-                <ScmDiffViewer
-                  sessionId={session.id}
-                  repoPath={repoPath}
-                  filePath={selectedFile}
-                  staged={
-                    scmStatus?.staged.some((f) => f.path === selectedFile) ??
-                    false
-                  }
-                  onClose={() => closeFileViewer(session.id)}
-                />
-              ) : (
-                <FileViewer
-                  sessionId={session.id}
-                  projectPath={session.project_path}
-                  filePath={selectedFile}
-                  mode={fileViewerMode}
-                  onModeChange={(mode) => setFileViewerMode(session.id, mode)}
-                  onClose={() => closeFileViewer(session.id)}
-                />
-              )}
             </ResizablePanel>
-          </>
-        )}
-      </ResizablePanelGroup>
+
+            {/* Right: File Viewer / Diff / Conflict (conditional) */}
+            {showFileViewer && selectedFile && (
+              <>
+                <ResizableHandle className="w-0 bg-transparent after:w-0.5 data-[separator=hover]:after:bg-primary data-[separator=active]:after:bg-primary after:rounded-full after:delay-200" />
+                <ResizablePanel
+                  defaultSize="50%"
+                  minSize="40%"
+                  maxSize="50%"
+                  className="rounded-lg overflow-hidden border"
+                >
+                  {fileViewerContext === "conflict" ? (
+                    <ConflictResolver
+                      sessionId={session.id}
+                      repoPath={repoPath}
+                      filePath={selectedFile}
+                      onClose={() => closeFileViewer(session.id)}
+                      onResolved={() => {
+                        setFileViewerContext(session.id, "file");
+                        closeFileViewer(session.id);
+                      }}
+                    />
+                  ) : fileViewerContext === "diff" ? (
+                    <ScmDiffViewer
+                      sessionId={session.id}
+                      repoPath={repoPath}
+                      filePath={selectedFile}
+                      staged={
+                        scmStatus?.staged.some(
+                          (f) => f.path === selectedFile,
+                        ) ?? false
+                      }
+                      onClose={() => closeFileViewer(session.id)}
+                    />
+                  ) : (
+                    <FileViewer
+                      sessionId={session.id}
+                      projectPath={session.project_path}
+                      filePath={selectedFile}
+                      mode={fileViewerMode}
+                      onModeChange={(mode) =>
+                        setFileViewerMode(session.id, mode)
+                      }
+                      onClose={() => closeFileViewer(session.id)}
+                    />
+                  )}
+                </ResizablePanel>
+              </>
+            )}
+          </ResizablePanelGroup>
+        );
+      })()}
     </div>
   );
 }
