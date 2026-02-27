@@ -152,7 +152,7 @@ function FileTreeItem({
         onCancelRename();
       }
     },
-    [entry.path, renameValue, onFinishRename, onCancelRename]
+    [entry.path, renameValue, onFinishRename, onCancelRename],
   );
 
   const isSelected = selectedPath === entry.path;
@@ -177,7 +177,7 @@ function FileTreeItem({
                   "group hover:bg-accent hover:text-accent-foreground w-full flex items-center transition-none h-7 px-2 gap-1 rounded-md cursor-pointer text-sm",
                   isSelected && "bg-accent text-accent-foreground",
                   isContextMenuOpen && "bg-accent text-accent-foreground",
-                  isDropTarget && "bg-accent/50 border-2 border-accent"
+                  isDropTarget && "bg-accent/50 border-2 border-accent",
                 )}
                 onClick={!isRenaming ? handleToggle : undefined}
                 {...(!isRenaming ? attributes : {})}
@@ -265,7 +265,7 @@ function FileTreeItem({
           className={cn(
             "w-full flex items-center gap-1 h-7 px-2 hover:bg-accent hover:text-accent-foreground rounded-md cursor-pointer text-sm",
             isSelected && "bg-accent text-accent-foreground",
-            isContextMenuOpen && "bg-accent text-accent-foreground"
+            isContextMenuOpen && "bg-accent text-accent-foreground",
           )}
           onClick={!isRenaming ? handleClick : undefined}
           {...(!isRenaming ? attributes : {})}
@@ -274,7 +274,7 @@ function FileTreeItem({
           {fileIconSrc ? (
             <img src={fileIconSrc} alt="" className="size-5.5 shrink-0" />
           ) : (
-            <DocumentText1 className="size-4 shrink-0" />
+            <DocumentText1 className="size-5.5 shrink-0 scale-70" />
           )}
           {isRenaming ? (
             <Input
@@ -320,7 +320,7 @@ export function FileTree({ projectPath, sessionId }: FileTreeProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 5 },
-    })
+    }),
   );
 
   const loadRootDirectory = useCallback(async () => {
@@ -360,7 +360,7 @@ export function FileTree({ projectPath, sessionId }: FileTreeProps) {
     (filePath: string) => {
       selectFile(sessionId, filePath);
     },
-    [sessionId, selectFile]
+    [sessionId, selectFile],
   );
 
   // Helper to find entry by path
@@ -373,7 +373,7 @@ export function FileTree({ projectPath, sessionId }: FileTreeProps) {
       }
       return null;
     },
-    [rootEntries]
+    [rootEntries],
   );
 
   // Rename handlers
@@ -416,7 +416,7 @@ export function FileTree({ projectPath, sessionId }: FileTreeProps) {
         setRenamingPath(null);
       }
     },
-    [projectPath, findEntry, recordOperation, handleRefresh]
+    [projectPath, findEntry, recordOperation, handleRefresh],
   );
 
   const handleCancelRename = useCallback(() => {
@@ -427,7 +427,7 @@ export function FileTree({ projectPath, sessionId }: FileTreeProps) {
     (path: string | null, open: boolean) => {
       setContextMenuPath(open ? path : null);
     },
-    []
+    [],
   );
 
   // Check if target is a descendant of source
@@ -510,7 +510,7 @@ export function FileTree({ projectPath, sessionId }: FileTreeProps) {
 
       // Only handle if file tree is focused
       const isFileTreeFocused = document.activeElement?.closest(
-        ".file-tree-container"
+        ".file-tree-container",
       );
       if (!isFileTreeFocused) return;
 

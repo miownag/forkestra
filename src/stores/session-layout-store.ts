@@ -160,6 +160,7 @@ export const useSessionLayoutStore = create<SessionLayoutState>((set, get) => ({
 
     set((state) => {
       const layout = state.layouts[sessionId] || DEFAULT_LAYOUT;
+      const modeChanged = layout.leftPanelMode !== mode;
       return {
         layouts: {
           ...state.layouts,
@@ -167,6 +168,12 @@ export const useSessionLayoutStore = create<SessionLayoutState>((set, get) => ({
             ...layout,
             leftPanelMode: mode,
             showFileTree: true,
+            // Reset right panel when switching modes
+            ...(modeChanged && {
+              showFileViewer: false,
+              selectedFile: null,
+              fileViewerContext: mode === "scm" ? "diff" : "file",
+            }),
           },
         },
       };
@@ -185,6 +192,10 @@ export const useSessionLayoutStore = create<SessionLayoutState>((set, get) => ({
             ...layout,
             leftPanelMode: newMode,
             showFileTree: true,
+            // Reset right panel when toggling modes
+            showFileViewer: false,
+            selectedFile: null,
+            fileViewerContext: newMode === "scm" ? "diff" : "file",
           },
         },
       };

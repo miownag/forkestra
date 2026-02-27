@@ -44,6 +44,7 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
   const {
     getLayout,
     toggleFileTree,
+    setLeftPanelMode,
     setFileViewerMode,
     closeFileViewer,
     setFileViewerContext,
@@ -81,6 +82,7 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
     >
       {(() => {
         const isMultiPanel = showFileTree || (showFileViewer && selectedFile);
+        const hasRightPanel = showFileViewer && selectedFile;
         return (
           <ResizablePanelGroup
             orientation="horizontal"
@@ -90,9 +92,9 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
             {showFileTree && (
               <>
                 <ResizablePanel
-                  defaultSize="10%"
+                  defaultSize={hasRightPanel ? "10%" : "15%"}
                   minSize="10%"
-                  maxSize="15%"
+                  maxSize={hasRightPanel ? "15%" : "30%"}
                   className="rounded-lg overflow-hidden border"
                 >
                   {leftPanelMode === "scm" ? (
@@ -112,7 +114,7 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
             <ResizablePanel
               defaultSize="40%"
               minSize="40%"
-              maxSize="50%"
+              maxSize={hasRightPanel ? "50%" : undefined}
               className={cn(
                 isMultiPanel && "rounded-lg overflow-hidden border",
               )}
@@ -133,7 +135,14 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
                         variant="ghost"
                         size="icon"
                         className="w-8 h-8 shrink-0 [&_svg]:size-4.5 rounded-md opacity-60"
-                        onClick={() => toggleFileTree(session.id)}
+                        onClick={() => {
+                          const l = getLayout(session.id);
+                          if (l.showFileTree && l.leftPanelMode === "file-tree") {
+                            toggleFileTree(session.id);
+                          } else {
+                            setLeftPanelMode(session.id, "file-tree");
+                          }
+                        }}
                         title="Toggle file tree"
                       >
                         <LuFolderTree />

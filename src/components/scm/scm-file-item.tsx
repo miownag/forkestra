@@ -64,7 +64,7 @@ export function ScmFileItem({
       {fileIconSrc ? (
         <img src={fileIconSrc} alt="" className="size-4 shrink-0" />
       ) : (
-        <DocumentText1 className="size-3.5 shrink-0" />
+        <DocumentText1 className="size-4 shrink-0 scale-70" />
       )}
       <span className="truncate flex-1 min-w-0">
         <span>{fileName}</span>

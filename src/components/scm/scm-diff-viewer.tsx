@@ -45,7 +45,12 @@ export function ScmDiffViewer({
     ] || "";
 
   // Parse diff lines with line numbers
-  const parsedLines: { oldNum: string; newNum: string; text: string; type: "add" | "del" | "ctx" }[] = [];
+  const parsedLines: {
+    oldNum: string;
+    newNum: string;
+    text: string;
+    type: "add" | "del" | "ctx";
+  }[] = [];
   if (diff) {
     let oldLine = 0;
     let newLine = 0;
@@ -72,13 +77,28 @@ export function ScmDiffViewer({
         continue;
       }
       if (line.startsWith("+")) {
-        parsedLines.push({ oldNum: "", newNum: String(newLine), text: line, type: "add" });
+        parsedLines.push({
+          oldNum: "",
+          newNum: String(newLine),
+          text: line,
+          type: "add",
+        });
         newLine++;
       } else if (line.startsWith("-")) {
-        parsedLines.push({ oldNum: String(oldLine), newNum: "", text: line, type: "del" });
+        parsedLines.push({
+          oldNum: String(oldLine),
+          newNum: "",
+          text: line,
+          type: "del",
+        });
         oldLine++;
       } else {
-        parsedLines.push({ oldNum: String(oldLine), newNum: String(newLine), text: line, type: "ctx" });
+        parsedLines.push({
+          oldNum: String(oldLine),
+          newNum: String(newLine),
+          text: line,
+          type: "ctx",
+        });
         oldLine++;
         newLine++;
       }
@@ -93,7 +113,7 @@ export function ScmDiffViewer({
           {fileIconSrc ? (
             <img src={fileIconSrc} alt="" className="size-5.5 shrink-0" />
           ) : (
-            <DocumentText1 className="size-4 shrink-0" />
+            <DocumentText1 className="size-5.5 shrink-0 scale-70" />
           )}
           <span className="font-medium truncate mr-2">{fileName}</span>
         </div>

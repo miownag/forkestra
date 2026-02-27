@@ -95,7 +95,7 @@ export function FileViewer({
       toast.success("File saved");
     } catch (err) {
       toast.error(
-        `Save failed: ${err instanceof Error ? err.message : String(err)}`
+        `Save failed: ${err instanceof Error ? err.message : String(err)}`,
       );
     } finally {
       setIsSaving(false);
@@ -105,7 +105,7 @@ export function FileViewer({
   const handleRefresh = useCallback(() => {
     if (isDirty) {
       const confirmed = window.confirm(
-        "You have unsaved changes. Refreshing will discard them. Continue?"
+        "You have unsaved changes. Refreshing will discard them. Continue?",
       );
       if (!confirmed) return;
     }
@@ -134,7 +134,7 @@ export function FileViewer({
               {fileIconSrc ? (
                 <img src={fileIconSrc} alt="" className="size-5.5 shrink-0" />
               ) : (
-                <DocumentText1 className="size-4 shrink-0" />
+                <DocumentText1 className="size-5.5 shrink-0 scale-70" />
               )}
               {fileName}
             </h3>
@@ -162,7 +162,7 @@ export function FileViewer({
                 className={cn(
                   "h-7 px-2 gap-1",
                   mode === "edit" &&
-                    "bg-background hover:bg-background shadow-sm"
+                    "bg-background hover:bg-background shadow-sm",
                 )}
                 onClick={() => onModeChange("edit")}
               >
@@ -175,7 +175,7 @@ export function FileViewer({
                 className={cn(
                   "h-7 px-2 gap-1",
                   mode === "preview" &&
-                    "bg-background hover:bg-background shadow-sm"
+                    "bg-background hover:bg-background shadow-sm",
                 )}
                 onClick={() => onModeChange("preview")}
               >
