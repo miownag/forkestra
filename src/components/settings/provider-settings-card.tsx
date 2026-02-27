@@ -655,25 +655,7 @@ export function ProviderSettingsCard({
           </div>
         </div>
 
-        {/* Enable/Disable Provider */}
-        <div className="flex items-center justify-between">
-          <div>
-            <Label className="text-sm">Enable Provider</Label>
-            <p className="text-xs text-muted-foreground">
-              Show this provider in session creation
-            </p>
-          </div>
-          <Switch
-            checked={localSettings.enabled}
-            onCheckedChange={(checked) => {
-              setLocalSettings({
-                ...localSettings,
-                enabled: checked,
-              });
-              setIsDirty(true);
-            }}
-          />
-        </div>
+
       </div>
 
       {/* Save Button */}

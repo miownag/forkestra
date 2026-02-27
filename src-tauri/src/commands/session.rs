@@ -322,3 +322,35 @@ pub async fn git_resolve_conflict(
     WorktreeManager::resolve_conflict(Path::new(&repo_path), &file_path, &content)
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn git_checkout_branch(repo_path: String, branch_name: String) -> Result<(), String> {
+    WorktreeManager::checkout_branch(Path::new(&repo_path), &branch_name)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn git_create_branch(
+    repo_path: String,
+    branch_name: String,
+    start_point: Option<String>,
+) -> Result<(), String> {
+    WorktreeManager::create_and_checkout_branch(
+        Path::new(&repo_path),
+        &branch_name,
+        start_point.as_deref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn update_session_branch(
+    manager: State<'_, SessionManager>,
+    session_id: String,
+    branch_name: String,
+) -> Result<Vec<Session>, String> {
+    manager
+        .update_session_branch(&session_id, &branch_name)
+        .await
+        .map_err(|e| e.to_string())
+}

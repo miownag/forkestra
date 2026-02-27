@@ -1,5 +1,5 @@
 // Provider types
-export type ProviderType = "claude" | "kimi" | "codex" | "gemini" | "open_code" | "qoder" | "qwen_code";
+export type ProviderType = "claude" | "codex" | "gemini" | "open_code" | "kimi" | "qoder" | "qwen_code";
 
 export interface ProviderInfo {
   provider_type: ProviderType;
@@ -69,7 +69,7 @@ export interface QwenCodeProviderSettings {
 }
 
 // Discriminated union for all provider settings
-export type ProviderSettings = ClaudeProviderSettings | KimiProviderSettings | CodexProviderSettings | GeminiProviderSettings | OpenCodeProviderSettings | QoderProviderSettings | QwenCodeProviderSettings;
+export type ProviderSettings = ClaudeProviderSettings | CodexProviderSettings | GeminiProviderSettings | OpenCodeProviderSettings | KimiProviderSettings | QoderProviderSettings | QwenCodeProviderSettings;
 
 // Type guards
 export function isClaudeSettings(

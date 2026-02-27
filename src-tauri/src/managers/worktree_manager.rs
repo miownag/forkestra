@@ -1100,6 +1100,84 @@ impl WorktreeManager {
         })
     }
 
+    /// Checkout an existing local branch in a repo/worktree
+    pub fn checkout_branch(repo_path: &Path, branch_name: &str) -> AppResult<()> {
+        let repo = Repository::open(repo_path)?;
+
+        // Reject if working tree is dirty
+        let mut opts = StatusOptions::new();
+        opts.include_untracked(false);
+        opts.include_ignored(false);
+        let statuses = repo.statuses(Some(&mut opts))?;
+        if !statuses.is_empty() {
+            return Err(AppError::Git(
+                "Cannot switch branch: uncommitted changes exist. Please commit or discard changes first.".to_string(),
+            ));
+        }
+
+        // Find the local branch
+        let branch = repo
+            .find_branch(branch_name, BranchType::Local)
+            .map_err(|_| AppError::Git(format!("Local branch '{}' not found", branch_name)))?;
+
+        let ref_name = branch
+            .get()
+            .name()
+            .ok_or_else(|| AppError::Git("Failed to get branch reference name".to_string()))?
+            .to_string();
+
+        repo.set_head(&ref_name)?;
+        repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
+
+        Ok(())
+    }
+
+    /// Create a new branch and check it out
+    pub fn create_and_checkout_branch(
+        repo_path: &Path,
+        new_branch_name: &str,
+        start_point: Option<&str>,
+    ) -> AppResult<()> {
+        let repo = Repository::open(repo_path)?;
+
+        // Reject if working tree is dirty
+        let mut opts = StatusOptions::new();
+        opts.include_untracked(false);
+        opts.include_ignored(false);
+        let statuses = repo.statuses(Some(&mut opts))?;
+        if !statuses.is_empty() {
+            return Err(AppError::Git(
+                "Cannot create branch: uncommitted changes exist. Please commit or discard changes first.".to_string(),
+            ));
+        }
+
+        // Resolve the base commit
+        let base_commit = if let Some(sp) = start_point {
+            // Try local branch first, then remote
+            let branch = repo
+                .find_branch(sp, BranchType::Local)
+                .or_else(|_| repo.find_branch(sp, BranchType::Remote))
+                .map_err(|_| AppError::Git(format!("Branch '{}' not found", sp)))?;
+            branch.get().peel_to_commit()?
+        } else {
+            repo.head()?.peel_to_commit()?
+        };
+
+        // Create the new branch
+        let branch = repo.branch(new_branch_name, &base_commit, false)?;
+
+        let ref_name = branch
+            .into_reference()
+            .name()
+            .ok_or_else(|| AppError::Git("Failed to get branch reference name".to_string()))?
+            .to_string();
+
+        repo.set_head(&ref_name)?;
+        repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
+
+        Ok(())
+    }
+
     /// Resolve a conflict by writing content and staging the file
     pub fn resolve_conflict(
         repo_path: &Path,

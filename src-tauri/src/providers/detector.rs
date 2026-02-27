@@ -72,7 +72,7 @@ impl ProviderDetector {
 
     /// Detect all available providers
     pub fn detect_all() -> Vec<ProviderInfo> {
-        let providers = vec![ProviderType::Claude, ProviderType::Kimi, ProviderType::Codex, ProviderType::Gemini, ProviderType::OpenCode, ProviderType::Qoder, ProviderType::QwenCode];
+        let providers = vec![ProviderType::Claude, ProviderType::Codex, ProviderType::Gemini, ProviderType::OpenCode, ProviderType::Kimi, ProviderType::Qoder, ProviderType::QwenCode];
 
         providers
             .into_iter()
@@ -92,10 +92,10 @@ impl ProviderDetector {
     ) -> Vec<ProviderInfo> {
         vec![
             Self::detect_provider(&ProviderType::Claude, claude_custom_path),
-            Self::detect_provider(&ProviderType::Kimi, kimi_custom_path),
             Self::detect_provider(&ProviderType::Codex, codex_custom_path),
             Self::detect_provider(&ProviderType::Gemini, gemini_custom_path),
             Self::detect_provider(&ProviderType::OpenCode, open_code_custom_path),
+            Self::detect_provider(&ProviderType::Kimi, kimi_custom_path),
             Self::detect_provider(&ProviderType::Qoder, qoder_custom_path),
             Self::detect_provider(&ProviderType::QwenCode, qwen_code_custom_path),
         ]

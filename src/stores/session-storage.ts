@@ -69,6 +69,7 @@ interface SessionState {
   ) => Promise<void>;
   resumeSession: (sessionId: string) => Promise<Session>;
   renameSession: (sessionId: string, newName: string) => Promise<void>;
+  updateSessionBranch: (sessionId: string, branchName: string) => Promise<void>;
   setSessionModel: (sessionId: string, modelId: string) => Promise<void>;
   setSessionMode: (sessionId: string, modeId: string) => Promise<void>;
   setSessionConfigOption: (
@@ -594,6 +595,24 @@ export const useSessionStore = create<SessionState>()(
             }));
           } catch (error) {
             set({ error: String(error), isLoading: false });
+          }
+        },
+
+        updateSessionBranch: async (sessionId, branchName) => {
+          try {
+            const updatedSessions = await invoke<Session[]>(
+              "update_session_branch",
+              { sessionId, branchName },
+            );
+            set((state) => ({
+              sessions: state.sessions.map((s) => {
+                const updated = updatedSessions.find((u) => u.id === s.id);
+                return updated ?? s;
+              }),
+            }));
+          } catch (error) {
+            set({ error: String(error) });
+            throw error;
           }
         },
 

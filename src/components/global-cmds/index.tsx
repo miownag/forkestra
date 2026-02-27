@@ -53,6 +53,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { NewSessionDialog } from "@/components/session/new-session-dialog";
 import { MergeRebaseDialog } from "@/components/scm/merge-rebase-dialog";
+import { BranchSwitcherDialog } from "@/components/session/branch-switcher-dialog";
 import { MCP } from "@lobehub/icons";
 import { menuEventBus } from "@/lib/menu-events";
 
@@ -70,6 +71,8 @@ export function GlobalCommands({ className }: { className?: string }) {
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [showBranchSwitcher, setShowBranchSwitcher] = useState(false);
+  const [branchSwitcherMode, setBranchSwitcherMode] = useState<"list" | "create">("list");
   const [newName, setNewName] = useState("");
 
   const navigate = useNavigate();
@@ -262,6 +265,32 @@ export function GlobalCommands({ className }: { className?: string }) {
                   <LuGitMerge />
                   <span>Merge / Rebase</span>
                 </CommandItem>
+                <CommandItem
+                  className="cursor-pointer"
+                  onSelect={() => {
+                    if (!activeSession) return;
+                    setOpen(false);
+                    setBranchSwitcherMode("list");
+                    setShowBranchSwitcher(true);
+                  }}
+                  disabled={!activeSession}
+                >
+                  <LuGitBranch />
+                  <span>Switch Branch</span>
+                </CommandItem>
+                <CommandItem
+                  className="cursor-pointer"
+                  onSelect={() => {
+                    if (!activeSession) return;
+                    setOpen(false);
+                    setBranchSwitcherMode("create");
+                    setShowBranchSwitcher(true);
+                  }}
+                  disabled={!activeSession}
+                >
+                  <LuGitBranch />
+                  <span>Create Branch</span>
+                </CommandItem>
               </CommandGroup>
               <CommandSeparator />
               <CommandGroup heading="Tools">
@@ -428,6 +457,16 @@ export function GlobalCommands({ className }: { className?: string }) {
           }
           currentBranch={activeSession.branch_name}
           isLocal={activeSession.is_local}
+        />
+      )}
+
+      {/* Branch Switcher Dialog */}
+      {activeSession && (
+        <BranchSwitcherDialog
+          open={showBranchSwitcher}
+          onOpenChange={setShowBranchSwitcher}
+          session={activeSession}
+          initialMode={branchSwitcherMode}
         />
       )}
     </>

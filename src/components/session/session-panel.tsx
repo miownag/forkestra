@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Driving, Refresh } from "iconsax-reactjs";
 import { toast } from "sonner";
+import { BranchSwitcherDialog } from "@/components/session/branch-switcher-dialog";
 
 interface SessionTabContentProps {
   sessionId: string;
@@ -50,6 +51,7 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
     setFileViewerContext,
   } = useSessionLayoutStore();
   const scmStatus = useScmStore((s) => s.statuses[sessionId]);
+  const [showBranchSwitcher, setShowBranchSwitcher] = useState(false);
 
   const session = sessions.find((s) => s.id === sessionId);
   const isCreating =
@@ -157,8 +159,15 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
                         </h2>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
-                            <LuGitBranch className="size-3" />
-                            {session.branch_name || "-"}
+                            <button
+                              type="button"
+                              className="flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer"
+                              onClick={() => setShowBranchSwitcher(true)}
+                              title="Switch branch"
+                            >
+                              <LuGitBranch className="size-3" />
+                              {session.branch_name || "-"}
+                            </button>
                             <SyncButton projectPath={session.project_path} />
                           </span>
                           <span
@@ -286,6 +295,12 @@ function SessionTabContent({ sessionId, isActive }: SessionTabContentProps) {
           </ResizablePanelGroup>
         );
       })()}
+
+      <BranchSwitcherDialog
+        open={showBranchSwitcher}
+        onOpenChange={setShowBranchSwitcher}
+        session={session}
+      />
     </div>
   );
 }

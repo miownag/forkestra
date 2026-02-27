@@ -60,10 +60,10 @@ export const useProviderSettingsStore = create<ProviderSettingsState>()(
         settings: {
           claude:
             createDefaultProviderSettings("claude") as ClaudeProviderSettings,
-          kimi: createDefaultProviderSettings("kimi") as KimiProviderSettings,
           codex: createDefaultProviderSettings("codex") as CodexProviderSettings,
           gemini: createDefaultProviderSettings("gemini") as GeminiProviderSettings,
           open_code: createDefaultProviderSettings("open_code") as OpenCodeProviderSettings,
+          kimi: createDefaultProviderSettings("kimi") as KimiProviderSettings,
           qoder: createDefaultProviderSettings("qoder") as QoderProviderSettings,
           qwen_code: createDefaultProviderSettings("qwen_code") as QwenCodeProviderSettings,
         },

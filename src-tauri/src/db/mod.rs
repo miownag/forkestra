@@ -315,6 +315,19 @@ impl Database {
         Ok(())
     }
 
+    pub fn update_session_branch(&self, session_id: &str, branch_name: &str) -> AppResult<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Database(format!("Database lock poisoned: {}", e)))?;
+        conn.execute(
+            "UPDATE sessions SET branch_name = ?1 WHERE id = ?2",
+            params![branch_name, session_id],
+        )
+        .map_err(|e| AppError::Database(format!("Failed to update session branch: {}", e)))?;
+        Ok(())
+    }
+
     pub fn update_session_acp_id(
         &self,
         session_id: &str,

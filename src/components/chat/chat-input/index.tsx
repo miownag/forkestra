@@ -1,6 +1,11 @@
 import { PromptInput } from "@/components/prompt-kit/prompt-input";
 import { useState, useCallback } from "react";
-import type { Session, SessionError, AvailableCommand, PromptContent } from "@/types";
+import type {
+  Session,
+  SessionError,
+  AvailableCommand,
+  PromptContent,
+} from "@/types";
 import { ChatInputInner } from "./input-inner";
 import { RotatingTip, TipItem } from "@/components/ui/rotating-tip";
 import {
@@ -19,7 +24,7 @@ const tips: TipItem[] = [
     id: "1",
     content: (
       <span className="flex items-center gap-1.5">
-        <Keyboard className="size-4" />
+        <Keyboard className="size-3.5" />
         Press{" "}
         <kbd className="px-1 bg-muted text-[0.65rem] font-mono rounded">
           Enter
@@ -68,9 +73,9 @@ const tips: TipItem[] = [
     id: "5",
     content: (
       <span className="flex items-center gap-1.5">
-        <Command className="size-3" />
+        <Command className="size-3.5" />
         Use{" "}
-        <kbd className="px-1 py-0.5 text-[0.65rem] bg-muted font-mono rounded">
+        <kbd className="px-1 text-[0.65rem] bg-muted font-mono rounded">
           ⌘ + ⌥ + N
         </kbd>{" "}
         to quickly create a new session based on the current one

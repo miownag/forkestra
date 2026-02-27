@@ -89,10 +89,6 @@ impl Default for AppSettings {
             ProviderSettings::Claude(ClaudeProviderSettings::default()),
         );
         provider_settings.insert(
-            ProviderType::Kimi,
-            ProviderSettings::Kimi(KimiProviderSettings::default()),
-        );
-        provider_settings.insert(
             ProviderType::Codex,
             ProviderSettings::Codex(CodexProviderSettings::default()),
         );
@@ -103,6 +99,10 @@ impl Default for AppSettings {
         provider_settings.insert(
             ProviderType::OpenCode,
             ProviderSettings::OpenCode(OpenCodeProviderSettings::default()),
+        );
+        provider_settings.insert(
+            ProviderType::Kimi,
+            ProviderSettings::Kimi(KimiProviderSettings::default()),
         );
         provider_settings.insert(
             ProviderType::Qoder,

@@ -790,6 +790,58 @@ impl SessionManager {
         }
     }
 
+    /// Update branch name for a session (and all co-located local sessions)
+    pub async fn update_session_branch(
+        &self,
+        session_id: &str,
+        new_branch_name: &str,
+    ) -> AppResult<Vec<Session>> {
+        let mut sessions = self.sessions.write().await;
+
+        let entry = sessions.get(session_id).ok_or_else(|| {
+            AppError::NotFound(format!("Session '{}' not found", session_id))
+        })?;
+        let is_local = entry.session.is_local;
+        let project_path = entry.session.project_path.clone();
+
+        let mut updated = Vec::new();
+
+        if is_local {
+            // Update all local sessions sharing the same project_path
+            for entry in sessions.values_mut() {
+                if entry.session.is_local && entry.session.project_path == project_path {
+                    entry.session.branch_name = new_branch_name.to_string();
+                    if let Err(e) = self
+                        .db
+                        .update_session_branch(&entry.session.id, new_branch_name)
+                    {
+                        eprintln!(
+                            "[SessionManager] Failed to update session branch in DB: {}",
+                            e
+                        );
+                    }
+                    updated.push(entry.session.clone());
+                }
+            }
+        } else {
+            // Only update this single session
+            let entry = sessions.get_mut(session_id).unwrap();
+            entry.session.branch_name = new_branch_name.to_string();
+            if let Err(e) = self
+                .db
+                .update_session_branch(session_id, new_branch_name)
+            {
+                eprintln!(
+                    "[SessionManager] Failed to update session branch in DB: {}",
+                    e
+                );
+            }
+            updated.push(entry.session.clone());
+        }
+
+        Ok(updated)
+    }
+
     /// Update available commands for a session
     pub async fn update_session_commands(&self, session_id: &str, commands: Vec<AvailableCommand>) {
         let mut sessions = self.sessions.write().await;

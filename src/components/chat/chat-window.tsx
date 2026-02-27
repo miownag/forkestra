@@ -133,7 +133,9 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
               type="color"
               className="flex items-center justify-center"
             />
-            {!sessionError && (
+            {["creating", "active", "paused"].includes(
+              session?.status || "",
+            ) && (
               <Typewriter
                 className="font-short-stack text-lg mt-4"
                 text="How can I assist you with your code today?"

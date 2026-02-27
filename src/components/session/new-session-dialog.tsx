@@ -70,8 +70,10 @@ export function NewSessionDialog({
   // Update form values when dialog opens
   useEffect(() => {
     if (open) {
+      const installed = providers.filter((p) => p.installed);
+      const defaultProvider = installed[0]?.provider_type ?? "claude";
       // Apply default values if provided, otherwise use settings defaults
-      setProvider(defaultValues?.provider || "claude");
+      setProvider(defaultValues?.provider || defaultProvider);
       setProjectPath(defaultValues?.projectPath || "");
       setBaseBranch(defaultValues?.baseBranch || "");
       setUseLocal(defaultValues?.useLocal ?? defaultWorkMode === "local");
@@ -79,7 +81,7 @@ export function NewSessionDialog({
       setExcludedMcpIds(new Set());
       setMcpOpen(false);
     }
-  }, [open, defaultValues, defaultWorkMode]);
+  }, [open, defaultValues, defaultWorkMode, providers]);
 
   // Fetch MCP servers when projectPath changes
   useEffect(() => {

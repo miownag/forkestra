@@ -26,8 +26,13 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { TbCodeDots } from "react-icons/tb";
-import { ArrowLeft2, Refresh, Setting2 } from "iconsax-reactjs";
+import { ArrowLeft2, ArrowDown2, Refresh, Setting2 } from "iconsax-reactjs";
 import { LuFolderOpen } from "react-icons/lu";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 import { DragArea } from "@/components/ui/drag-area";
 
 export const Route = createFileRoute("/settings")({
@@ -625,7 +630,7 @@ function RouteComponent() {
                     </div>
 
                     <div className="space-y-4">
-                      {providers.map((provider) => (
+                      {providers.filter((p) => p.installed).map((provider) => (
                         <ProviderSettingsCard
                           key={provider.provider_type}
                           provider={provider}
@@ -633,6 +638,31 @@ function RouteComponent() {
                         />
                       ))}
                     </div>
+
+                    {providers.some((p) => !p.installed) && (
+                      <Collapsible className="mt-4">
+                        <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 cursor-pointer group text-sm text-muted-foreground hover:text-foreground transition-colors">
+                          <ArrowDown2
+                            size={14}
+                            className="transition-transform duration-200 group-data-[state=closed]:-rotate-90"
+                          />
+                          <span>
+                            Not Installed ({providers.filter((p) => !p.installed).length})
+                          </span>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="space-y-4 mt-2">
+                            {providers.filter((p) => !p.installed).map((provider) => (
+                              <ProviderSettingsCard
+                                key={provider.provider_type}
+                                provider={provider}
+                                refresh={detectProviders}
+                              />
+                            ))}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )}
 
                     {providers.every((p) => !p.installed) && (
                       <p className="text-xs text-muted-foreground mt-4 p-3 bg-yellow-500/10 rounded-lg">
