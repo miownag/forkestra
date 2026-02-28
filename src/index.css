@@ -732,6 +732,11 @@ textarea,
   border-left: 2px solid var(--diff-remove-border);
 }
 
+.prose td .text-sm,
+.prose th .text-sm {
+  font-size: inherit;
+}
+
 .diff-viewer table {
   width: 100%;
   border-collapse: collapse;

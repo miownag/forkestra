@@ -9,7 +9,8 @@ import {
 import { PromptContent, AvailableCommand, FileEntry, Session } from "@/types";
 import { Editor } from "@tiptap/core";
 import { DocumentText1, Folder, Send2, StopCircle } from "iconsax-reactjs";
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
+import { VscClose } from "react-icons/vsc";
 import { GrAttachment } from "react-icons/gr";
 import { TbSlash } from "react-icons/tb";
 import { FileSelector } from "./file-selector";
@@ -25,6 +26,28 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+interface ImageFile {
+  name: string;
+  data: string; // base64
+  mimeType: string;
+  preview: string; // object URL for display
+}
+
+// Helper function to convert File to base64
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove data URL prefix to get pure base64
+      const base64 = result.split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 // Simple MIME type lookup from extension
 function guessMimeType(filename: string): string | undefined {
@@ -97,6 +120,79 @@ export function ChatInputInner({
     useChatInputStore();
   // Track whether the file selector was opened via @ trigger or via button
   const fileOpenSourceRef = useRef<"inline" | "button">("inline");
+
+  // Image attachments
+  const [images, setImages] = useState<ImageFile[]>([]);
+  const submitRef = useRef<() => void>(() => {});
+
+  const removeImage = useCallback((index: number) => {
+    setImages((prev) => {
+      const removed = prev[index];
+      if (removed?.preview) URL.revokeObjectURL(removed.preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  }, []);
+
+  // Register TipTap handlePaste (for images) and handleKeyDown (for Enter submit)
+  useEffect(() => {
+    if (!editor) return;
+
+    editor.setOptions({
+      editorProps: {
+        ...editor.options.editorProps,
+        handlePaste: (_view, event) => {
+          const items = event.clipboardData?.items;
+          if (!items) return false;
+
+          const imageItems = Array.from(items).filter((item) =>
+            item.type.startsWith("image/")
+          );
+
+          if (imageItems.length === 0) return false;
+
+          // Process images asynchronously
+          (async () => {
+            const newImages: ImageFile[] = [];
+            for (const item of imageItems) {
+              const file = item.getAsFile();
+              if (!file) continue;
+              try {
+                const base64 = await fileToBase64(file);
+                const preview = URL.createObjectURL(file);
+                newImages.push({
+                  name:
+                    file.name ||
+                    `image-${Date.now()}.${file.type.split("/")[1]}`,
+                  data: base64,
+                  mimeType: file.type,
+                  preview,
+                });
+              } catch (error) {
+                console.error("Failed to read pasted image:", error);
+              }
+            }
+            if (newImages.length > 0) {
+              setImages((prev) => [...prev, ...newImages]);
+            }
+          })();
+
+          return true; // prevent TipTap default paste for image items
+        },
+        handleKeyDown: (_view, event) => {
+          if (
+            event.key === "Enter" &&
+            !event.shiftKey &&
+            !(event as unknown as { isComposing: boolean }).isComposing
+          ) {
+            event.preventDefault();
+            submitRef.current();
+            return true;
+          }
+          return false;
+        },
+      },
+    });
+  }, [editor]);
 
   // Update the source ref when inline file open changes
   useEffect(() => {
@@ -254,7 +350,7 @@ export function ChatInputInner({
 
     const contentParts = extractContentParts(editor);
 
-    if (contentParts.length === 0 && !disabled) return;
+    if (contentParts.length === 0 && images.length === 0 && !disabled) return;
     if (disabled) return;
 
     setInlineSlashOpen(false);
@@ -287,13 +383,28 @@ export function ChatInputInner({
       }
     });
 
+    // Add image content
+    images.forEach((img) => {
+      content.push({
+        type: "image",
+        data: img.data,
+        mimeType: img.mimeType,
+      });
+    });
+
     if (content.length > 0) {
       await onSend(content);
       editor.commands.clearContent();
+      // Clean up image previews
+      images.forEach((img) => {
+        if (img.preview) URL.revokeObjectURL(img.preview);
+      });
+      setImages([]);
     }
   }, [
     editor,
     disabled,
+    images,
     onSend,
     setInlineSlashOpen,
     setInlineSlashQuery,
@@ -301,36 +412,46 @@ export function ChatInputInner({
     setInlineFileOpen,
   ]);
 
-  // Register submit handler with the editor's handleKeyDown
+  // Keep submitRef in sync with latest handleOnSubmit
   useEffect(() => {
-    if (!editor) return;
-
-    // Override the Enter key handling to use our submit
-    const originalKeyDown = editor.options.editorProps?.handleKeyDown;
-    editor.setOptions({
-      editorProps: {
-        ...editor.options.editorProps,
-        handleKeyDown: (view, event) => {
-          if (
-            event.key === "Enter" &&
-            !event.shiftKey &&
-            !(event as unknown as { isComposing: boolean }).isComposing
-          ) {
-            event.preventDefault();
-            handleOnSubmit();
-            return true;
-          }
-          if (originalKeyDown) {
-            return originalKeyDown(view, event);
-          }
-          return false;
-        },
-      },
-    });
-  }, [editor, handleOnSubmit]);
+    submitRef.current = handleOnSubmit;
+  }, [handleOnSubmit]);
 
   return (
     <>
+      {/* Image attachment previews */}
+      {images.length > 0 && (
+        <div className="flex flex-wrap gap-2 px-3 pt-2">
+          {images.map((img, index) => (
+            <div
+              key={index}
+              className="relative group flex items-center gap-2 rounded-lg bg-primary/5 p-2"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={img.preview}
+                alt={img.name}
+                className="h-16 w-16 rounded object-cover"
+              />
+              <div className="flex-1 min-w-0">
+                <span className="block truncate text-sm max-w-[120px]">
+                  {img.name}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {img.mimeType}
+                </span>
+              </div>
+              <button
+                className="cursor-pointer hover:bg-muted p-1 rounded-md"
+                onClick={() => removeImage(index)}
+              >
+                <VscClose />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Textarea with popover selectors */}
       <FileSelector
         open={inlineFileOpen}
