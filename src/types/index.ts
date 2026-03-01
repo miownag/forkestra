@@ -1,5 +1,6 @@
 // Provider types
-export type ProviderType = "claude" | "codex" | "gemini" | "open_code" | "kimi" | "qoder" | "qwen_code";
+export type BuiltinProviderType = "claude" | "codex" | "gemini" | "open_code" | "kimi" | "qoder" | "qwen_code";
+export type ProviderType = string; // Supports any provider ID (builtin + custom)
 
 export interface ProviderInfo {
   provider_type: ProviderType;
@@ -8,6 +9,7 @@ export interface ProviderInfo {
   cli_path: string | null;
   installed: boolean;
   version: string | null;
+  builtin: boolean;
 }
 
 export interface ProviderConfig {
@@ -17,159 +19,31 @@ export interface ProviderConfig {
   enabled: boolean;
 }
 
-// Provider-specific settings
-export interface ClaudeProviderSettings {
-  provider_type: "claude";
-  enabled: boolean;
-  custom_cli_path: string | null;
-  disable_login_prompt: boolean;
-  env_vars?: Record<string, string>;
-}
-
-export interface KimiProviderSettings {
-  provider_type: "kimi";
+// Unified provider settings (flat struct, no more discriminated union)
+export interface ProviderSettings {
   enabled: boolean;
   custom_cli_path: string | null;
   env_vars?: Record<string, string>;
 }
 
-export interface CodexProviderSettings {
-  provider_type: "codex";
-  enabled: boolean;
-  custom_cli_path: string | null;
-  env_vars?: Record<string, string>;
-}
-
-export interface GeminiProviderSettings {
-  provider_type: "gemini";
-  enabled: boolean;
-  custom_cli_path: string | null;
-  env_vars?: Record<string, string>;
-}
-
-export interface OpenCodeProviderSettings {
-  provider_type: "open_code";
-  enabled: boolean;
-  custom_cli_path: string | null;
-  env_vars?: Record<string, string>;
-}
-
-export interface QoderProviderSettings {
-  provider_type: "qoder";
-  enabled: boolean;
-  custom_cli_path: string | null;
-  env_vars?: Record<string, string>;
-}
-
-export interface QwenCodeProviderSettings {
-  provider_type: "qwen_code";
-  enabled: boolean;
-  custom_cli_path: string | null;
-  env_vars?: Record<string, string>;
-}
-
-// Discriminated union for all provider settings
-export type ProviderSettings = ClaudeProviderSettings | CodexProviderSettings | GeminiProviderSettings | OpenCodeProviderSettings | KimiProviderSettings | QoderProviderSettings | QwenCodeProviderSettings;
-
-// Type guards
-export function isClaudeSettings(
-  settings: ProviderSettings
-): settings is ClaudeProviderSettings {
-  return settings.provider_type === "claude";
-}
-
-export function isKimiSettings(
-  settings: ProviderSettings
-): settings is KimiProviderSettings {
-  return settings.provider_type === "kimi";
-}
-
-export function isCodexSettings(
-  settings: ProviderSettings
-): settings is CodexProviderSettings {
-  return settings.provider_type === "codex";
-}
-
-export function isGeminiSettings(
-  settings: ProviderSettings
-): settings is GeminiProviderSettings {
-  return settings.provider_type === "gemini";
-}
-
-export function isOpenCodeSettings(
-  settings: ProviderSettings
-): settings is OpenCodeProviderSettings {
-  return settings.provider_type === "open_code";
-}
-
-export function isQoderSettings(
-  settings: ProviderSettings
-): settings is QoderProviderSettings {
-  return settings.provider_type === "qoder";
-}
-
-export function isQwenCodeSettings(
-  settings: ProviderSettings
-): settings is QwenCodeProviderSettings {
-  return settings.provider_type === "qwen_code";
+// Provider definition describes how to launch an ACP provider
+export interface ProviderDefinition {
+  id: string;
+  name: string;
+  command: string;
+  args: string[];
+  cli_command?: string;
+  env?: Record<string, string>;
+  builtin: boolean;
 }
 
 // Default settings factory
-export function createDefaultProviderSettings(
-  providerType: ProviderType
-): ProviderSettings {
-  switch (providerType) {
-    case "claude":
-      return {
-        provider_type: "claude",
-        enabled: true,
-        custom_cli_path: null,
-        disable_login_prompt: false,
-        env_vars: {},
-      };
-    case "kimi":
-      return {
-        provider_type: "kimi",
-        enabled: true,
-        custom_cli_path: null,
-        env_vars: {},
-      };
-    case "codex":
-      return {
-        provider_type: "codex",
-        enabled: true,
-        custom_cli_path: null,
-        env_vars: {},
-      };
-    case "gemini":
-      return {
-        provider_type: "gemini",
-        enabled: true,
-        custom_cli_path: null,
-        env_vars: {},
-      };
-    case "open_code":
-      return {
-        provider_type: "open_code",
-        enabled: true,
-        custom_cli_path: null,
-        env_vars: {},
-      };
-    case "qoder":
-      return {
-        provider_type: "qoder",
-        enabled: true,
-        custom_cli_path: null,
-        env_vars: {},
-      };
-    case "qwen_code":
-      return {
-        provider_type: "qwen_code",
-        enabled: true,
-        custom_cli_path: null,
-        env_vars: {},
-      };
-  }
+export function createDefaultProviderSettings(): ProviderSettings {
+  return {
+    enabled: true,
+    custom_cli_path: null,
+    env_vars: {},
+  };
 }
 
 // Session types
@@ -491,7 +365,8 @@ export type PostMergeAction = "ask" | "keep" | "cleanup";
 
 // App settings from backend
 export interface AppSettings {
-  provider_settings: Record<ProviderType, ProviderSettings>;
+  provider_settings: Record<string, ProviderSettings>;
+  custom_providers?: ProviderDefinition[];
 }
 
 // ========== Git SCM Types ==========

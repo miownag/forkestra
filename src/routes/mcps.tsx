@@ -271,7 +271,7 @@ function RouteComponent() {
                       <div key={`${group.provider}:${group.scope}:${group.projectPath ?? ""}`}>
                         <div className="flex items-center gap-2 mb-2">
                           <ProviderColorIcon
-                            icon={PROVIDER_ICONS_MAP[group.provider]}
+                            icon={PROVIDER_ICONS_MAP[group.provider as keyof typeof PROVIDER_ICONS_MAP]}
                             size={16}
                           />
                           <Badge variant="secondary" className="text-[0.65rem] px-1.5 py-0 font-medium capitalize">

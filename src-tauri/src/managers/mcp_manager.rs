@@ -7,7 +7,6 @@ use parking_lot::RwLock;
 use crate::error::{AppError, AppResult};
 use crate::managers::SettingsManager;
 use crate::models::mcp::*;
-use crate::models::{ProviderSettings, ProviderType};
 
 use agent_client_protocol::{
     EnvVariable, HttpHeader, McpServer, McpServerHttp, McpServerSse, McpServerStdio,
@@ -95,10 +94,8 @@ impl McpManager {
     /// Get the Claude config directory, respecting CLAUDE_CONFIG_DIR from provider settings.
     fn get_claude_config_dir(&self) -> PathBuf {
         let settings = self.settings_manager.get_settings();
-        if let Some(ProviderSettings::Claude(claude_settings)) =
-            settings.provider_settings.get(&ProviderType::Claude)
-        {
-            if let Some(config_dir) = claude_settings.env_vars.get("CLAUDE_CONFIG_DIR") {
+        if let Some(provider_settings) = settings.provider_settings.get("claude") {
+            if let Some(config_dir) = provider_settings.env_vars.get("CLAUDE_CONFIG_DIR") {
                 let expanded = if config_dir.starts_with('~') {
                     if let Some(home) = dirs::home_dir() {
                         home.join(&config_dir[2..])
@@ -124,7 +121,7 @@ impl McpManager {
         let mut servers = Vec::new();
 
         let kimi_config_dir = self.get_provider_config_dir(
-            &ProviderType::Kimi,
+            "kimi",
             "KIMI_CONFIG_DIR",
             ".kimi",
         );
@@ -170,7 +167,7 @@ impl McpManager {
         let mut servers = Vec::new();
 
         let codex_config_dir = self.get_provider_config_dir(
-            &ProviderType::Codex,
+            "codex",
             "CODEX_CONFIG_DIR",
             ".codex",
         );
@@ -216,7 +213,7 @@ impl McpManager {
         let mut servers = Vec::new();
 
         let gemini_config_dir = self.get_provider_config_dir(
-            &ProviderType::Gemini,
+            "gemini",
             "GEMINI_CONFIG_DIR",
             ".gemini",
         );
@@ -259,33 +256,26 @@ impl McpManager {
     /// Get config directory for a provider, respecting env var overrides from settings.
     fn get_provider_config_dir(
         &self,
-        provider_type: &ProviderType,
+        provider_id: &str,
         env_var_name: &str,
         default_dir: &str,
     ) -> PathBuf {
         let settings = self.settings_manager.get_settings();
 
         // Check if provider has a custom config dir env var
-        let env_vars = match settings.provider_settings.get(provider_type) {
-            Some(ProviderSettings::Kimi(s)) => &s.env_vars,
-            Some(ProviderSettings::Codex(s)) => &s.env_vars,
-            Some(ProviderSettings::Gemini(s)) => &s.env_vars,
-            _ => return dirs::home_dir()
-                .unwrap_or_else(|| PathBuf::from("/"))
-                .join(default_dir),
-        };
-
-        if let Some(config_dir) = env_vars.get(env_var_name) {
-            let expanded = if config_dir.starts_with('~') {
-                if let Some(home) = dirs::home_dir() {
-                    home.join(&config_dir[2..])
+        if let Some(provider_settings) = settings.provider_settings.get(provider_id) {
+            if let Some(config_dir) = provider_settings.env_vars.get(env_var_name) {
+                let expanded = if config_dir.starts_with('~') {
+                    if let Some(home) = dirs::home_dir() {
+                        home.join(&config_dir[2..])
+                    } else {
+                        PathBuf::from(config_dir)
+                    }
                 } else {
                     PathBuf::from(config_dir)
-                }
-            } else {
-                PathBuf::from(config_dir)
-            };
-            return expanded;
+                };
+                return expanded;
+            }
         }
 
         dirs::home_dir()

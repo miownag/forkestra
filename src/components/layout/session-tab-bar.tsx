@@ -271,7 +271,7 @@ function SortableTabItem({
     transition,
   };
 
-  const ProviderIcon = PROVIDER_ICONS_MAP[session.provider];
+  const ProviderIcon = PROVIDER_ICONS_MAP[session.provider as keyof typeof PROVIDER_ICONS_MAP];
 
   return (
     <ContextMenu>
@@ -353,7 +353,7 @@ function SortableTabItem({
 }
 
 function TabOverlay({ session, width }: { session: Session; width: number }) {
-  const ProviderIcon = PROVIDER_ICONS_MAP[session.provider];
+  const ProviderIcon = PROVIDER_ICONS_MAP[session.provider as keyof typeof PROVIDER_ICONS_MAP];
   return (
     <div
       style={{ width }}

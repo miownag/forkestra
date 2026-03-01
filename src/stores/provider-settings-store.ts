@@ -2,183 +2,91 @@ import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
 import type {
-  ProviderType,
   ProviderSettings,
   AppSettings,
-  ClaudeProviderSettings,
-  KimiProviderSettings,
-  CodexProviderSettings,
-  GeminiProviderSettings,
-  OpenCodeProviderSettings,
-  QoderProviderSettings,
-  QwenCodeProviderSettings,
 } from "@/types";
 import { createDefaultProviderSettings } from "@/types";
 import { useShallow } from "zustand/react/shallow";
 import { pick } from "es-toolkit";
 
+const BUILTIN_PROVIDER_IDS = ["claude", "codex", "gemini", "open_code", "kimi", "qoder", "qwen_code"] as const;
+
 interface ProviderSettingsState {
   // State
-  settings: Record<ProviderType, ProviderSettings>;
+  settings: Record<string, ProviderSettings>;
   isLoading: boolean;
   error: string | null;
 
   // Actions
   loadSettings: () => Promise<void>;
-  updateProviderSettings: (settings: ProviderSettings) => Promise<void>;
-  getProviderSettings: <T extends ProviderType>(
-    providerType: T
-  ) => T extends "claude" ? ClaudeProviderSettings : T extends "kimi" ? KimiProviderSettings : T extends "gemini" ? GeminiProviderSettings : T extends "open_code" ? OpenCodeProviderSettings : T extends "qoder" ? QoderProviderSettings : T extends "qwen_code" ? QwenCodeProviderSettings : CodexProviderSettings;
-
-  // Claude-specific helpers
-  setClaudeCliPath: (path: string | null) => Promise<void>;
-  setClaudeDisableLoginPrompt: (disable: boolean) => Promise<void>;
-
-  // Kimi-specific helpers
-  setKimiCliPath: (path: string | null) => Promise<void>;
-
-  // Codex-specific helpers
-  setCodexCliPath: (path: string | null) => Promise<void>;
-
-  // Gemini-specific helpers
-  setGeminiCliPath: (path: string | null) => Promise<void>;
-
-  // OpenCode-specific helpers
-  setOpenCodeCliPath: (path: string | null) => Promise<void>;
-
-  // Qoder-specific helpers
-  setQoderCliPath: (path: string | null) => Promise<void>;
-
-  // QwenCode-specific helpers
-  setQwenCodeCliPath: (path: string | null) => Promise<void>;
+  updateProviderSettings: (providerId: string, settings: ProviderSettings) => Promise<void>;
+  getProviderSettings: (providerId: string) => ProviderSettings;
+  setCliPath: (providerId: string, path: string | null) => Promise<void>;
 }
 
 export const useProviderSettingsStore = create<ProviderSettingsState>()(
   devtools(
     persist(
-      (set, get) => ({
-        settings: {
-          claude:
-            createDefaultProviderSettings("claude") as ClaudeProviderSettings,
-          codex: createDefaultProviderSettings("codex") as CodexProviderSettings,
-          gemini: createDefaultProviderSettings("gemini") as GeminiProviderSettings,
-          open_code: createDefaultProviderSettings("open_code") as OpenCodeProviderSettings,
-          kimi: createDefaultProviderSettings("kimi") as KimiProviderSettings,
-          qoder: createDefaultProviderSettings("qoder") as QoderProviderSettings,
-          qwen_code: createDefaultProviderSettings("qwen_code") as QwenCodeProviderSettings,
-        },
-        isLoading: false,
-        error: null,
+      (set, get) => {
+        // Build default settings for all builtin providers
+        const defaultSettings: Record<string, ProviderSettings> = {};
+        for (const id of BUILTIN_PROVIDER_IDS) {
+          defaultSettings[id] = createDefaultProviderSettings();
+        }
 
-        loadSettings: async () => {
-          set({ isLoading: true, error: null });
-          try {
-            const appSettings = await invoke<AppSettings>("get_settings");
-            // Merge with defaults so newly added providers are never undefined
-            set((state) => ({
-              settings: {
-                ...state.settings,
-                ...appSettings.provider_settings,
-              },
-              isLoading: false,
-            }));
-          } catch (error) {
-            set({ error: String(error), isLoading: false });
-          }
-        },
+        return {
+          settings: defaultSettings,
+          isLoading: false,
+          error: null,
 
-        updateProviderSettings: async (settings) => {
-          set({ isLoading: true, error: null });
-          try {
-            await invoke("update_provider_settings", { settings });
-            set((state) => ({
-              settings: {
-                ...state.settings,
-                [settings.provider_type]: settings,
-              },
-              isLoading: false,
-            }));
-          } catch (error) {
-            set({ error: String(error), isLoading: false });
-          }
-        },
+          loadSettings: async () => {
+            set({ isLoading: true, error: null });
+            try {
+              const appSettings = await invoke<AppSettings>("get_settings");
+              // Merge with defaults so newly added providers are never undefined
+              set((state) => ({
+                settings: {
+                  ...state.settings,
+                  ...appSettings.provider_settings,
+                },
+                isLoading: false,
+              }));
+            } catch (error) {
+              set({ error: String(error), isLoading: false });
+            }
+          },
 
-        getProviderSettings: (providerType) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          return get().settings[providerType] as any;
-        },
+          updateProviderSettings: async (providerId, settings) => {
+            set({ isLoading: true, error: null });
+            try {
+              await invoke("update_provider_settings", {
+                settings: { provider_id: providerId, ...settings },
+              });
+              set((state) => ({
+                settings: {
+                  ...state.settings,
+                  [providerId]: settings,
+                },
+                isLoading: false,
+              }));
+            } catch (error) {
+              set({ error: String(error), isLoading: false });
+            }
+          },
 
-        // Claude helpers
-        setClaudeCliPath: async (path) => {
-          const current = get().settings.claude as ClaudeProviderSettings;
-          await get().updateProviderSettings({
-            ...current,
-            custom_cli_path: path,
-          });
-        },
+          getProviderSettings: (providerId) => {
+            return get().settings[providerId] ?? createDefaultProviderSettings();
+          },
 
-        setClaudeDisableLoginPrompt: async (disable) => {
-          const current = get().settings.claude as ClaudeProviderSettings;
-          await get().updateProviderSettings({
-            ...current,
-            disable_login_prompt: disable,
-          });
-        },
-
-        // Kimi helpers
-        setKimiCliPath: async (path) => {
-          const current = get().settings.kimi as KimiProviderSettings;
-          await get().updateProviderSettings({
-            ...current,
-            custom_cli_path: path,
-          });
-        },
-
-        // Codex helpers
-        setCodexCliPath: async (path) => {
-          const current = get().settings.codex as CodexProviderSettings;
-          await get().updateProviderSettings({
-            ...current,
-            custom_cli_path: path,
-          });
-        },
-
-        // Gemini helpers
-        setGeminiCliPath: async (path) => {
-          const current = get().settings.gemini as GeminiProviderSettings;
-          await get().updateProviderSettings({
-            ...current,
-            custom_cli_path: path,
-          });
-        },
-
-        // OpenCode helpers
-        setOpenCodeCliPath: async (path) => {
-          const current = get().settings.open_code as OpenCodeProviderSettings;
-          await get().updateProviderSettings({
-            ...current,
-            custom_cli_path: path,
-          });
-        },
-
-        // Qoder helpers
-        setQoderCliPath: async (path) => {
-          const current = get().settings.qoder as QoderProviderSettings;
-          await get().updateProviderSettings({
-            ...current,
-            custom_cli_path: path,
-          });
-        },
-
-        // QwenCode helpers
-        setQwenCodeCliPath: async (path) => {
-          const current = get().settings.qwen_code as QwenCodeProviderSettings;
-          await get().updateProviderSettings({
-            ...current,
-            custom_cli_path: path,
-          });
-        },
-      }),
+          setCliPath: async (providerId, path) => {
+            const current = get().getProviderSettings(providerId);
+            await get().updateProviderSettings(providerId, {
+              ...current,
+              custom_cli_path: path,
+            });
+          },
+        };
+      },
       {
         name: "forkestra-provider-settings",
         partialize: (state) => ({

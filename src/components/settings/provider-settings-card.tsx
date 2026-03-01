@@ -5,12 +5,24 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useProviderSettingsStore } from "@/stores";
 import type { ProviderInfo, ProviderSettings } from "@/types";
-import { isClaudeSettings, isCodexSettings, isGeminiSettings, isKimiSettings, isOpenCodeSettings, isQoderSettings, isQwenCodeSettings } from "@/types";
+import { createDefaultProviderSettings } from "@/types";
 import { LuFolderOpen } from "react-icons/lu";
 import { VscCheck, VscClose } from "react-icons/vsc";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { PROVIDER_ICONS_MAP, ProviderCombineIcon } from "@/constants/icons";
 import { Trash } from "iconsax-reactjs";
+
+// Known env var keys to hide from the "Custom Environment Variables" section
+// because they already have dedicated UI fields.
+const PROVIDER_SPECIFIC_ENV_KEYS: Record<string, string[]> = {
+  claude: ["CLAUDE_CONFIG_DIR"],
+  codex: ["OPENAI_API_KEY", "CODEX_API_KEY", "NO_BROWSER"],
+  kimi: ["KIMI_API_KEY", "KIMI_BASE_URL", "OPENAI_API_KEY", "OPENAI_BASE_URL", "KIMI_SHARE_DIR", "KIMI_CLI_NO_AUTO_UPDATE"],
+  gemini: ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_CLOUD_PROJECT", "GOOGLE_CLOUD_LOCATION"],
+  open_code: ["OPENCODE_API_KEY"],
+  qoder: ["QODER_API_KEY"],
+  qwen_code: ["DASHSCOPE_API_KEY"],
+};
 
 interface ProviderSettingsCardProps {
   provider: ProviderInfo;
@@ -22,7 +34,7 @@ export function ProviderSettingsCard({
   refresh,
 }: ProviderSettingsCardProps) {
   const storeSettings = useProviderSettingsStore(
-    (s) => s.settings[provider.provider_type]
+    (s) => s.settings[provider.provider_type] ?? createDefaultProviderSettings()
   );
   const updateProviderSettings = useProviderSettingsStore(
     (s) => s.updateProviderSettings
@@ -32,6 +44,8 @@ export function ProviderSettingsCard({
   const [localSettings, setLocalSettings] =
     useState<ProviderSettings>(storeSettings);
   const [isDirty, setIsDirty] = useState(false);
+
+  const providerType = provider.provider_type;
 
   // Sync local settings when store changes
   useEffect(() => {
@@ -55,7 +69,7 @@ export function ProviderSettingsCard({
   };
 
   const handleSave = async () => {
-    await updateProviderSettings(localSettings);
+    await updateProviderSettings(providerType, localSettings);
     refresh();
     setIsDirty(false);
   };
@@ -150,24 +164,32 @@ export function ProviderSettingsCard({
     setIsDirty(true);
   };
 
-  const ProviderIcon = PROVIDER_ICONS_MAP[provider.provider_type];
+  const ProviderIcon = PROVIDER_ICONS_MAP[providerType as keyof typeof PROVIDER_ICONS_MAP];
+
+  // Determine which env var keys are "provider-specific" (shown in dedicated UI)
+  const specificKeys = PROVIDER_SPECIFIC_ENV_KEYS[providerType] ?? [];
+  const isNpxBased = providerType === "codex"; // npx-based providers don't need CLI path
 
   return (
     <div className="p-4 rounded-lg border bg-card">
       {/* Provider Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <ProviderCombineIcon
-            icon={ProviderIcon}
-            size={20}
-            className="flex items-center gap-1 mb-1"
-            type="color"
-          />
+          {ProviderIcon ? (
+            <ProviderCombineIcon
+              icon={ProviderIcon}
+              size={20}
+              className="flex items-center gap-1 mb-1"
+              type="color"
+            />
+          ) : (
+            <span className="text-sm font-medium mb-1 block">{provider.name}</span>
+          )}
           <p
             className="text-xs text-muted-foreground truncate max-w-75"
             title={provider.cli_path || ""}
           >
-            {provider.provider_type === "codex"
+            {isNpxBased
               ? "via npx @zed-industries/codex-acp"
               : provider.cli_path || `${provider.cli_command} (not found)`}
           </p>
@@ -194,8 +216,8 @@ export function ProviderSettingsCard({
 
       {/* Settings Form */}
       <div className="space-y-4">
-        {/* Custom CLI Path (not for Codex) */}
-        {!isCodexSettings(localSettings) && (
+        {/* Custom CLI Path (not for npx-based providers) */}
+        {!isNpxBased && (
           <div>
             <Label className="text-sm">Custom CLI Path (Process Wrapper)</Label>
             <p className="text-xs text-muted-foreground mb-2">
@@ -227,7 +249,7 @@ export function ProviderSettingsCard({
         )}
 
         {/* Codex-specific: Auth & Environment Variables */}
-        {isCodexSettings(localSettings) && (
+        {providerType === "codex" && (
           <>
             <div>
               <Label className="text-sm">OPENAI_API_KEY</Label>
@@ -275,7 +297,7 @@ export function ProviderSettingsCard({
         )}
 
         {/* Kimi-specific: Auth & Environment Variables */}
-        {isKimiSettings(localSettings) && (
+        {providerType === "kimi" && (
           <>
             <div>
               <Label className="text-sm">KIMI_API_KEY</Label>
@@ -384,7 +406,7 @@ export function ProviderSettingsCard({
         )}
 
         {/* Gemini-specific: Auth & Environment Variables */}
-        {isGeminiSettings(localSettings) && (
+        {providerType === "gemini" && (
           <>
             <div>
               <Label className="text-sm">GEMINI_API_KEY</Label>
@@ -444,7 +466,7 @@ export function ProviderSettingsCard({
         )}
 
         {/* OpenCode-specific: Auth & Environment Variables */}
-        {isOpenCodeSettings(localSettings) && (
+        {providerType === "open_code" && (
           <>
             <div>
               <Label className="text-sm">OPENCODE_API_KEY</Label>
@@ -464,7 +486,7 @@ export function ProviderSettingsCard({
         )}
 
         {/* Qoder-specific: Auth & Environment Variables */}
-        {isQoderSettings(localSettings) && (
+        {providerType === "qoder" && (
           <>
             <div>
               <Label className="text-sm">QODER_API_KEY</Label>
@@ -484,7 +506,7 @@ export function ProviderSettingsCard({
         )}
 
         {/* QwenCode-specific: Auth & Environment Variables */}
-        {isQwenCodeSettings(localSettings) && (
+        {providerType === "qwen_code" && (
           <>
             <div>
               <Label className="text-sm">DASHSCOPE_API_KEY</Label>
@@ -503,32 +525,8 @@ export function ProviderSettingsCard({
           </>
         )}
 
-        {/* Claude-specific: Disable Login Prompt */}
-        {/* {isClaudeSettings(localSettings) && (
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-sm">Disable Login Prompt</Label>
-              <p className="text-xs text-muted-foreground">
-                Skip authentication prompts when starting sessions
-              </p>
-            </div>
-            <Switch
-              checked={
-                (localSettings as ClaudeProviderSettings).disable_login_prompt
-              }
-              onCheckedChange={(checked) => {
-                setLocalSettings({
-                  ...localSettings,
-                  disable_login_prompt: checked,
-                } as ClaudeProviderSettings);
-                setIsDirty(true);
-              }}
-            />
-          </div>
-        )} */}
-
         {/* Claude-specific: Config Directory */}
-        {isClaudeSettings(localSettings) && (
+        {providerType === "claude" && (
           <div>
             <Label className="text-sm">Config Directory</Label>
             <p className="text-xs text-muted-foreground mb-2">
@@ -571,43 +569,7 @@ export function ProviderSettingsCard({
           </p>
           <div className="space-y-2">
             {Object.entries(localSettings.env_vars || {})
-              .filter(([key]) => key !== "CLAUDE_CONFIG_DIR") // Don't show CLAUDE_CONFIG_DIR here
-              .filter(([key]) =>
-                !isCodexSettings(localSettings) ||
-                !["OPENAI_API_KEY", "CODEX_API_KEY", "NO_BROWSER"].includes(key)
-              ) // Don't show Codex-specific vars here
-              .filter(([key]) =>
-                !isKimiSettings(localSettings) ||
-                ![
-                  "KIMI_API_KEY",
-                  "KIMI_BASE_URL",
-                  "OPENAI_API_KEY",
-                  "OPENAI_BASE_URL",
-                  "KIMI_SHARE_DIR",
-                  "KIMI_CLI_NO_AUTO_UPDATE",
-                ].includes(key)
-              ) // Don't show Kimi-specific vars here
-              .filter(([key]) =>
-                !isGeminiSettings(localSettings) ||
-                ![
-                  "GEMINI_API_KEY",
-                  "GOOGLE_API_KEY",
-                  "GOOGLE_CLOUD_PROJECT",
-                  "GOOGLE_CLOUD_LOCATION",
-                ].includes(key)
-              ) // Don't show Gemini-specific vars here
-              .filter(([key]) =>
-                !isOpenCodeSettings(localSettings) ||
-                !["OPENCODE_API_KEY"].includes(key)
-              ) // Don't show OpenCode-specific vars here
-              .filter(([key]) =>
-                !isQoderSettings(localSettings) ||
-                !["QODER_API_KEY"].includes(key)
-              ) // Don't show Qoder-specific vars here
-              .filter(([key]) =>
-                !isQwenCodeSettings(localSettings) ||
-                !["DASHSCOPE_API_KEY"].includes(key)
-              ) // Don't show QwenCode-specific vars here
+              .filter(([key]) => !specificKeys.includes(key))
               .map(([key, value]) => (
                 <div key={key} className="flex gap-2">
                   <Input

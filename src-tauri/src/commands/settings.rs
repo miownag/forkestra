@@ -17,6 +17,14 @@ pub struct UiSettings {
     pub notification: Option<NotificationSettings>,
 }
 
+/// Input for update_provider_settings: includes the provider_id to identify which provider.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProviderSettingsUpdate {
+    pub provider_id: String,
+    #[serde(flatten)]
+    pub settings: ProviderSettings,
+}
+
 #[tauri::command]
 pub async fn get_settings(manager: State<'_, Arc<SettingsManager>>) -> Result<AppSettings, String> {
     Ok(manager.get_settings())
@@ -51,10 +59,10 @@ pub async fn update_settings(
 #[tauri::command]
 pub async fn update_provider_settings(
     manager: State<'_, Arc<SettingsManager>>,
-    settings: ProviderSettings,
+    settings: ProviderSettingsUpdate,
 ) -> Result<(), String> {
     manager
-        .update_provider_settings(settings)
+        .update_provider_settings_by_id(&settings.provider_id, settings.settings)
         .map_err(|e| e.to_string())
 }
 

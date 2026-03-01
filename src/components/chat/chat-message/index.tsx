@@ -69,7 +69,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
       >
         <div className="flex flex-col gap-2 max-w-full">
           {/* Text bubble */}
-          {message.content && (
+          {(message.content || !isUser) && (
             <div
               className={cn(
                 "rounded-lg px-4 py-3",

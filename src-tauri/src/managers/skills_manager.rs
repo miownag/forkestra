@@ -143,13 +143,9 @@ impl SkillsManager {
 
     /// Get the Claude config directory, respecting CLAUDE_CONFIG_DIR from provider settings.
     fn get_claude_config_dir(&self) -> PathBuf {
-        use crate::models::{ProviderSettings, ProviderType};
-
         let settings = self.settings_manager.get_settings();
-        if let Some(ProviderSettings::Claude(claude_settings)) =
-            settings.provider_settings.get(&ProviderType::Claude)
-        {
-            if let Some(config_dir) = claude_settings.env_vars.get("CLAUDE_CONFIG_DIR") {
+        if let Some(provider_settings) = settings.provider_settings.get("claude") {
+            if let Some(config_dir) = provider_settings.env_vars.get("CLAUDE_CONFIG_DIR") {
                 let expanded = if config_dir.starts_with('~') {
                     if let Some(home) = dirs::home_dir() {
                         home.join(&config_dir[2..])

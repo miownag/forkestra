@@ -5,7 +5,7 @@ import { ChatInput } from "./chat-input";
 import { InteractionPromptPanel } from "./interaction-prompt";
 import { Button } from "@/components/ui/button";
 import { PROVIDER_ICONS_MAP, ProviderCombineIcon } from "@/constants/icons";
-import { ProviderType, PromptContent } from "@/types";
+import { PromptContent } from "@/types";
 import { Loader } from "@/components/prompt-kit/loader";
 import {
   ChatContainerRoot,
@@ -80,7 +80,7 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
 
   const ProviderIcon = session?.provider
-    ? PROVIDER_ICONS_MAP[session.provider as ProviderType]
+    ? PROVIDER_ICONS_MAP[session.provider as keyof typeof PROVIDER_ICONS_MAP]
     : PROVIDER_ICONS_MAP.claude;
   const lastMessage = messages[messages.length - 1];
   const isWaitingForResponse =

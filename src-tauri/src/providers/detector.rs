@@ -2,7 +2,9 @@ use std::process::Command;
 use std::sync::OnceLock;
 
 use crate::error::AppResult;
-use crate::models::{ProviderInfo, ProviderType};
+use crate::models::{
+    builtin_definitions, ProviderDefinition, ProviderInfo, ProviderSettings, ProviderType,
+};
 
 pub struct ProviderDetector;
 
@@ -70,55 +72,46 @@ impl ProviderDetector {
         None
     }
 
-    /// Detect all available providers
-    pub fn detect_all() -> Vec<ProviderInfo> {
-        let providers = vec![ProviderType::Claude, ProviderType::Codex, ProviderType::Gemini, ProviderType::OpenCode, ProviderType::Kimi, ProviderType::Qoder, ProviderType::QwenCode];
-
-        providers
-            .into_iter()
-            .map(|p| Self::detect_provider(&p, None))
+    /// Detect all providers from definitions + settings.
+    /// `definitions` should be `builtin_definitions()` merged with `AppSettings.custom_providers`.
+    pub fn detect_all_with_definitions(
+        definitions: &[ProviderDefinition],
+        provider_settings: &std::collections::HashMap<String, ProviderSettings>,
+    ) -> Vec<ProviderInfo> {
+        definitions
+            .iter()
+            .map(|def| {
+                let settings = provider_settings.get(&def.id);
+                let custom_cli_path = settings.and_then(|s| s.custom_cli_path.as_deref());
+                Self::detect_provider_from_def(def, custom_cli_path)
+            })
             .collect()
     }
 
-    /// Detect all available providers with custom CLI paths
-    pub fn detect_all_with_settings(
-        claude_custom_path: Option<&str>,
-        kimi_custom_path: Option<&str>,
-        codex_custom_path: Option<&str>,
-        gemini_custom_path: Option<&str>,
-        open_code_custom_path: Option<&str>,
-        qoder_custom_path: Option<&str>,
-        qwen_code_custom_path: Option<&str>,
-    ) -> Vec<ProviderInfo> {
-        vec![
-            Self::detect_provider(&ProviderType::Claude, claude_custom_path),
-            Self::detect_provider(&ProviderType::Codex, codex_custom_path),
-            Self::detect_provider(&ProviderType::Gemini, gemini_custom_path),
-            Self::detect_provider(&ProviderType::OpenCode, open_code_custom_path),
-            Self::detect_provider(&ProviderType::Kimi, kimi_custom_path),
-            Self::detect_provider(&ProviderType::Qoder, qoder_custom_path),
-            Self::detect_provider(&ProviderType::QwenCode, qwen_code_custom_path),
-        ]
-    }
-
-    /// Detect a specific provider
-    pub fn detect_provider(
-        provider_type: &ProviderType,
+    /// Detect a provider from its definition and optional custom CLI path.
+    pub fn detect_provider_from_def(
+        def: &ProviderDefinition,
         custom_cli_path: Option<&str>,
     ) -> ProviderInfo {
-        // Codex doesn't need a local CLI binary - it runs via npx
-        if matches!(provider_type, ProviderType::Codex) {
+        let provider_type = ProviderType::from_id(&def.id);
+
+        // npx-based providers that don't have a cli_command are always "installed"
+        if def.cli_command.is_none() && def.command == "npx" {
             return ProviderInfo {
-                provider_type: provider_type.clone(),
-                name: provider_type.display_name().to_string(),
-                cli_command: provider_type.cli_command().to_string(),
+                provider_type,
+                name: def.name.clone(),
+                cli_command: def.command.clone(),
                 cli_path: None,
                 installed: true,
                 version: None,
+                builtin: def.builtin,
             };
         }
 
-        let cli_command = provider_type.cli_command();
+        let cli_command = def
+            .cli_command
+            .as_deref()
+            .unwrap_or(&def.command);
 
         // Try custom CLI path first, then fall back to PATH
         let (cli_path, installed) = if let Some(custom_path) = custom_cli_path {
@@ -150,12 +143,36 @@ impl ProviderDetector {
         };
 
         ProviderInfo {
-            provider_type: provider_type.clone(),
-            name: provider_type.display_name().to_string(),
+            provider_type,
+            name: def.name.clone(),
             cli_command: cli_command.to_string(),
             cli_path,
             installed,
             version,
+            builtin: def.builtin,
+        }
+    }
+
+    /// Detect a specific provider (backward-compat helper for built-in types)
+    pub fn detect_provider(
+        provider_type: &ProviderType,
+        custom_cli_path: Option<&str>,
+    ) -> ProviderInfo {
+        let id = provider_type.as_id();
+        let defs = builtin_definitions();
+        if let Some(def) = defs.iter().find(|d| d.id == id) {
+            Self::detect_provider_from_def(def, custom_cli_path)
+        } else {
+            // Unknown provider without a definition
+            ProviderInfo {
+                provider_type: provider_type.clone(),
+                name: provider_type.display_name().to_string(),
+                cli_command: id.to_string(),
+                cli_path: None,
+                installed: false,
+                version: None,
+                builtin: false,
+            }
         }
     }
 
@@ -187,10 +204,6 @@ impl ProviderDetector {
             .to_string();
 
         // Parse version string (format varies by CLI)
-        // Claude Code: "claude x.y.z"
-        // Kimi Code: "kimi, version 1.8.0"
-        // Codex: "codex x.y.z" or similar
-        // Extract the last token that looks like a version number
         let version = version_str
             .split(|c: char| c.is_whitespace() || c == ',')
             .filter(|s| !s.is_empty())

@@ -50,7 +50,7 @@ export function NewSessionDialog({
   defaultValues,
 }: NewSessionDialogProps) {
   const [name, setName] = useState("");
-  const [provider, setProvider] = useState<ProviderType>("claude");
+  const [provider, setProvider] = useState<string>("claude");
   const [projectPath, setProjectPath] = useState("");
   const [baseBranch, setBaseBranch] = useState("");
   const [useLocal, setUseLocal] = useState(false);
@@ -201,7 +201,7 @@ export function NewSessionDialog({
             <Label htmlFor="provider">AI Provider</Label>
             <div className="flex w-fit items-center gap-1 mt-2 p-1 rounded-full border border-border/60 bg-muted/30">
               {installedProviders.map((p) => {
-                const Icon = PROVIDER_ICONS_MAP[p.provider_type];
+                const Icon = PROVIDER_ICONS_MAP[p.provider_type as keyof typeof PROVIDER_ICONS_MAP];
                 const isSelected = provider === p.provider_type;
                 return (
                   <button
@@ -218,16 +218,24 @@ export function NewSessionDialog({
                   >
                     {isSelected ? (
                       <span className="px-2 flex items-center justify-center">
-                        <ProviderCombineIcon
-                          icon={Icon}
-                          className="flex items-center gap-1"
-                          size={18}
-                          type="color"
-                        />
+                        {Icon ? (
+                          <ProviderCombineIcon
+                            icon={Icon}
+                            className="flex items-center gap-1"
+                            size={18}
+                            type="color"
+                          />
+                        ) : (
+                          <span className="text-xs font-medium">{p.name}</span>
+                        )}
                       </span>
                     ) : (
                       <span className="px-2 flex items-center justify-center">
-                        <Icon.Avatar size={20} />
+                        {Icon ? (
+                          <Icon.Avatar size={20} />
+                        ) : (
+                          <span className="text-xs">{p.name.charAt(0)}</span>
+                        )}
                       </span>
                     )}
                   </button>

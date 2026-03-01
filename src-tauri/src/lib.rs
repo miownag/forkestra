@@ -240,6 +240,9 @@ pub fn run() {
             commands::remove_skill,
             commands::update_skills,
             commands::create_skill,
+            commands::add_custom_provider,
+            commands::remove_custom_provider,
+            commands::update_custom_provider,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
