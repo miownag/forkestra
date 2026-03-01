@@ -130,7 +130,7 @@ const SessionSidebarItem = forwardRef<
     const terminateSession = useSessionStore((s) => s.terminateSession);
     const renameSession = useSessionStore((s) => s.renameSession);
 
-    const ProviderIcon = PROVIDER_ICONS_MAP[session.provider];
+    const ProviderIcon = PROVIDER_ICONS_MAP[session.provider as keyof typeof PROVIDER_ICONS_MAP];
 
     const quickCreateDefaults = {
       provider: session.provider,

@@ -13,10 +13,10 @@ use crate::managers::settings_manager::SettingsManager;
 use crate::managers::skills_manager::SkillsManager;
 use crate::managers::worktree_manager::WorktreeManager;
 use crate::models::{
-    AvailableCommand, CreateSessionRequest, PlanEntry, PromptContent, ProviderSettings, ProviderType, Session, SessionStatus,
-    SessionStatusEvent, StreamChunk,
+    AvailableCommand, CreateSessionRequest, PlanEntry, PromptContent, ProviderType, Session,
+    SessionStatus, SessionStatusEvent, StreamChunk, builtin_definitions, ProviderDefinition,
 };
-use crate::providers::{ClaudeAdapter, CodexAdapter, GeminiAdapter, KimiAdapter, OpenCodeAdapter, QoderAdapter, QwenCodeAdapter, ProviderAdapter};
+use crate::providers::{GenericAcpAdapter, ProviderAdapter};
 
 /// Code-level switch: set to `true` to prepend skill contents into the first
 /// message of each ACP session. This is an experimental feature for internal use.
@@ -36,6 +36,38 @@ pub struct SessionManager {
     skills_manager: Arc<SkillsManager>,
     /// Track which sessions have already had skills injected
     skills_injected: Arc<RwLock<std::collections::HashSet<String>>>,
+}
+
+/// Look up a ProviderDefinition by provider type from the combined list of
+/// builtin + custom definitions.
+fn find_definition(
+    provider: &ProviderType,
+    custom_providers: &[ProviderDefinition],
+) -> Option<ProviderDefinition> {
+    let id = provider.as_id();
+    let all_defs = builtin_definitions();
+    all_defs
+        .iter()
+        .chain(custom_providers.iter())
+        .find(|d| d.id == id)
+        .cloned()
+}
+
+/// Create a provider adapter from a ProviderType and settings.
+fn create_adapter(
+    provider: &ProviderType,
+    settings_manager: &SettingsManager,
+) -> AppResult<Box<dyn ProviderAdapter>> {
+    let settings = settings_manager.get_settings();
+    let custom_providers = &settings.custom_providers;
+    let def = find_definition(provider, custom_providers).ok_or_else(|| {
+        AppError::Provider(format!(
+            "No provider definition found for '{}'",
+            provider.as_id()
+        ))
+    })?;
+    let provider_settings = settings.provider_settings.get(provider.as_id());
+    Ok(Box::new(GenericAcpAdapter::new(&def, provider_settings)))
 }
 
 impl SessionManager {
@@ -213,58 +245,30 @@ impl SessionManager {
             tokio::task::yield_now().await;
 
             // Create provider adapter with settings
-            let provider_settings = settings_manager.get_provider_settings(&provider);
-            let mut adapter: Box<dyn ProviderAdapter> = match &provider {
-                ProviderType::Claude => {
-                    if let Some(ProviderSettings::Claude(settings)) = provider_settings {
-                        Box::new(ClaudeAdapter::with_settings(&settings))
-                    } else {
-                        Box::new(ClaudeAdapter::new())
+            let mut adapter: Box<dyn ProviderAdapter> =
+                match create_adapter(&provider, &settings_manager) {
+                    Ok(a) => a,
+                    Err(e) => {
+                        let session_error = e.to_session_error();
+                        eprintln!(
+                            "[SessionManager] Failed to create adapter for {}: [{}] {}",
+                            session_id, session_error.code, session_error.message
+                        );
+                        let mut sessions_guard = sessions.write().await;
+                        if let Some(entry) = sessions_guard.get_mut(&session_id) {
+                            entry.session.status = SessionStatus::Error;
+                            entry.session.error = Some(session_error.clone());
+                        }
+                        let event = SessionStatusEvent {
+                            session_id: session_id.clone(),
+                            status: SessionStatus::Error,
+                            session: None,
+                            error: Some(session_error),
+                        };
+                        let _ = app_handle.emit("session-status-changed", &event);
+                        return;
                     }
-                }
-                ProviderType::Kimi => {
-                    if let Some(ProviderSettings::Kimi(settings)) = provider_settings {
-                        Box::new(KimiAdapter::with_settings(&settings))
-                    } else {
-                        Box::new(KimiAdapter::new())
-                    }
-                }
-                ProviderType::Codex => {
-                    if let Some(ProviderSettings::Codex(settings)) = provider_settings {
-                        Box::new(CodexAdapter::with_settings(&settings))
-                    } else {
-                        Box::new(CodexAdapter::new())
-                    }
-                }
-                ProviderType::Gemini => {
-                    if let Some(ProviderSettings::Gemini(settings)) = provider_settings {
-                        Box::new(GeminiAdapter::with_settings(&settings))
-                    } else {
-                        Box::new(GeminiAdapter::new())
-                    }
-                }
-                ProviderType::OpenCode => {
-                    if let Some(ProviderSettings::OpenCode(settings)) = provider_settings {
-                        Box::new(OpenCodeAdapter::with_settings(&settings))
-                    } else {
-                        Box::new(OpenCodeAdapter::new())
-                    }
-                }
-                ProviderType::Qoder => {
-                    if let Some(ProviderSettings::Qoder(settings)) = provider_settings {
-                        Box::new(QoderAdapter::with_settings(&settings))
-                    } else {
-                        Box::new(QoderAdapter::new())
-                    }
-                }
-                ProviderType::QwenCode => {
-                    if let Some(ProviderSettings::QwenCode(settings)) = provider_settings {
-                        Box::new(QwenCodeAdapter::with_settings(&settings))
-                    } else {
-                        Box::new(QwenCodeAdapter::new())
-                    }
-                }
-            };
+                };
 
             // Create channel for streaming
             let (tx, mut rx) = mpsc::channel::<StreamChunk>(100);
@@ -565,58 +569,7 @@ impl SessionManager {
         let project_path = PathBuf::from(&session.project_path);
 
         // Create provider adapter with settings
-        let provider_settings = self.settings_manager.get_provider_settings(&session.provider);
-        let mut adapter: Box<dyn ProviderAdapter> = match &session.provider {
-            ProviderType::Claude => {
-                if let Some(ProviderSettings::Claude(settings)) = provider_settings {
-                    Box::new(ClaudeAdapter::with_settings(&settings))
-                } else {
-                    Box::new(ClaudeAdapter::new())
-                }
-            }
-            ProviderType::Kimi => {
-                if let Some(ProviderSettings::Kimi(settings)) = provider_settings {
-                    Box::new(KimiAdapter::with_settings(&settings))
-                } else {
-                    Box::new(KimiAdapter::new())
-                }
-            }
-            ProviderType::Codex => {
-                if let Some(ProviderSettings::Codex(settings)) = provider_settings {
-                    Box::new(CodexAdapter::with_settings(&settings))
-                } else {
-                    Box::new(CodexAdapter::new())
-                }
-            }
-            ProviderType::Gemini => {
-                if let Some(ProviderSettings::Gemini(settings)) = provider_settings {
-                    Box::new(GeminiAdapter::with_settings(&settings))
-                } else {
-                    Box::new(GeminiAdapter::new())
-                }
-            }
-            ProviderType::OpenCode => {
-                if let Some(ProviderSettings::OpenCode(settings)) = provider_settings {
-                    Box::new(OpenCodeAdapter::with_settings(&settings))
-                } else {
-                    Box::new(OpenCodeAdapter::new())
-                }
-            }
-            ProviderType::Qoder => {
-                if let Some(ProviderSettings::Qoder(settings)) = provider_settings {
-                    Box::new(QoderAdapter::with_settings(&settings))
-                } else {
-                    Box::new(QoderAdapter::new())
-                }
-            }
-            ProviderType::QwenCode => {
-                if let Some(ProviderSettings::QwenCode(settings)) = provider_settings {
-                    Box::new(QwenCodeAdapter::with_settings(&settings))
-                } else {
-                    Box::new(QwenCodeAdapter::new())
-                }
-            }
-        };
+        let mut adapter = create_adapter(&session.provider, &self.settings_manager)?;
 
         // Create channel for streaming
         let (tx, mut rx) = mpsc::channel::<StreamChunk>(100);

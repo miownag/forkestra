@@ -13,7 +13,7 @@ import {
 } from "@/stores";
 import { cn } from "@/lib/utils";
 import { MermaidDiagram } from "@/components/chat/chat-message/mermaid-diagram";
-import { Copy, CopySuccess, Code1 } from "iconsax-reactjs";
+import { Copy, CopySuccess, Code1, DocumentText1 } from "iconsax-reactjs";
 import { MD_LANG_TYPE_SETI_ICONS_MAP } from "@/constants/icons";
 
 const BASH_LANGUAGES = new Set(["bash", "sh", "shell", "zsh"]);
@@ -66,22 +66,28 @@ export function CodeBlockWithHeader({
           <button
             className={cn(
               "flex items-center text-muted-foreground text-sm gap-1.5",
-              "hover:bg-muted/50 rounded-sm px-1.5 py-0.5 cursor-pointer"
+              "hover:bg-muted/50 rounded-sm px-1.5 py-0.5 cursor-pointer",
             )}
             onClick={() => setCollapsed((pre) => !pre)}
             title={collapsed ? "Expand" : "Collapse"}
           >
             {collapsed ? <BiExpandVertical /> : <BiCollapseVertical />}
             <div className="flex items-center gap-0.5">
-              <img
-                src={
-                  MD_LANG_TYPE_SETI_ICONS_MAP[
-                    language as keyof typeof MD_LANG_TYPE_SETI_ICONS_MAP
-                  ] || ""
-                }
-                alt=""
-                className="size-5.5"
-              />
+              {MD_LANG_TYPE_SETI_ICONS_MAP[
+                language as keyof typeof MD_LANG_TYPE_SETI_ICONS_MAP
+              ] ? (
+                <img
+                  src={
+                    MD_LANG_TYPE_SETI_ICONS_MAP[
+                      language as keyof typeof MD_LANG_TYPE_SETI_ICONS_MAP
+                    ]
+                  }
+                  alt=""
+                  className="size-5.5"
+                />
+              ) : (
+                <DocumentText1 className="size-5.5 scale-75" />
+              )}
               {language}
             </div>
           </button>
@@ -102,7 +108,7 @@ export function CodeBlockWithHeader({
               size="icon"
               className={cn(
                 "h-8 w-8 text-muted-foreground",
-                copied && "cursor-default hover:bg-transparent"
+                copied && "cursor-default hover:bg-transparent",
               )}
               onClick={handleCopy}
             >

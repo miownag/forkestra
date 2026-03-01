@@ -9,7 +9,8 @@ use tokio::sync::{mpsc, Mutex};
 
 use crate::error::{AppError, AppResult};
 use crate::models::{
-    KimiProviderSettings, ModeInfo, ModelInfo, PromptContent, ProviderInfo, ProviderType, StreamChunk,
+    ModeInfo, ModelInfo, PromptContent, ProviderDefinition, ProviderInfo, ProviderSettings,
+    ProviderType, StreamChunk,
 };
 use crate::providers::acp_client_sdk::{
     build_clean_env_with_custom, spawn_acp_connection, spawn_acp_resume_connection,
@@ -18,63 +19,83 @@ use crate::providers::acp_client_sdk::{
 use crate::providers::adapter::ProviderAdapter;
 use crate::providers::detector::ProviderDetector;
 
-pub struct KimiAdapter {
+pub struct GenericAcpAdapter {
+    provider_type: ProviderType,
+    provider_name: String,
+    command: String,
+    args: Vec<String>,
     child: Option<tokio::process::Child>,
     cmd_tx: Option<mpsc::Sender<AcpCommand>>,
     acp_session_id: Option<String>,
     session_id: Option<String>,
     current_message_id: Arc<Mutex<String>>,
     is_active: bool,
-    cli_path: String,
+    env_vars: HashMap<String, String>,
     available_models: Vec<ModelInfo>,
     current_model_id: Option<String>,
     available_modes: Vec<ModeInfo>,
     current_mode_id: Option<String>,
     config_options: Vec<agent_client_protocol::SessionConfigOption>,
-    env_vars: HashMap<String, String>,
 }
 
-impl KimiAdapter {
-    pub fn new() -> Self {
+impl GenericAcpAdapter {
+    /// Create a new adapter from a provider definition and optional user settings.
+    pub fn new(def: &ProviderDefinition, settings: Option<&ProviderSettings>) -> Self {
+        // Start with the definition's default env vars
+        let mut env_vars = def.env.clone();
+
+        // Determine the effective command
+        let command = if let Some(s) = settings {
+            if let Some(ref custom) = s.custom_cli_path {
+                // Claude backward-compat: when user sets a custom CLI path for Claude,
+                // the npx wrapper needs the CLAUDE_CODE_EXECUTABLE env var.
+                if def.id == "claude" {
+                    let resolved = ProviderDetector::find_in_path(custom)
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or_else(|| custom.clone());
+                    env_vars.insert("CLAUDE_CODE_EXECUTABLE".to_string(), resolved);
+                    def.command.clone() // still use npx
+                } else if def.command == "npx" {
+                    // For npx-based providers, custom_cli_path doesn't change the command
+                    def.command.clone()
+                } else {
+                    custom.clone()
+                }
+            } else {
+                def.command.clone()
+            }
+        } else {
+            def.command.clone()
+        };
+
+        // Merge user env vars (overrides definition defaults)
+        if let Some(s) = settings {
+            for (k, v) in &s.env_vars {
+                env_vars.insert(k.clone(), v.clone());
+            }
+        }
+
         Self {
+            provider_type: ProviderType::from_id(&def.id),
+            provider_name: def.name.clone(),
+            command,
+            args: def.args.clone(),
             child: None,
             cmd_tx: None,
             acp_session_id: None,
             session_id: None,
             current_message_id: Arc::new(Mutex::new(uuid::Uuid::new_v4().to_string())),
             is_active: false,
-            cli_path: "kimi".to_string(),
+            env_vars,
             available_models: vec![],
             current_model_id: None,
             available_modes: vec![],
             current_mode_id: None,
             config_options: vec![],
-            env_vars: HashMap::new(),
         }
     }
 
-    pub fn with_settings(settings: &KimiProviderSettings) -> Self {
-        Self {
-            child: None,
-            cmd_tx: None,
-            acp_session_id: None,
-            session_id: None,
-            current_message_id: Arc::new(Mutex::new(uuid::Uuid::new_v4().to_string())),
-            is_active: false,
-            cli_path: settings
-                .custom_cli_path
-                .clone()
-                .unwrap_or_else(|| "kimi".to_string()),
-            available_models: vec![],
-            current_model_id: None,
-            available_modes: vec![],
-            current_mode_id: None,
-            config_options: vec![],
-            env_vars: settings.env_vars.clone(),
-        }
-    }
-
-    /// Spawn the kimi ACP process. Returns (child, stdin, stdout, stderr).
+    /// Spawn the ACP process. Returns (child, stdin, stdout, stderr).
     fn spawn_process(
         &self,
         worktree_path: &Path,
@@ -84,20 +105,35 @@ impl KimiAdapter {
         tokio::process::ChildStdout,
         tokio::process::ChildStderr,
     )> {
-        let cli_path = ProviderDetector::find_in_path(&self.cli_path)
-            .unwrap_or_else(|| std::path::PathBuf::from(&self.cli_path));
-
         let env = build_clean_env_with_custom(self.env_vars.clone());
 
-        let mut child = tokio::process::Command::new(&cli_path)
-            .arg("acp")
+        let resolved_cmd = ProviderDetector::find_in_path(&self.command)
+            .unwrap_or_else(|| std::path::PathBuf::from(&self.command));
+
+        println!(
+            "[{}] Executing command: {} {:?}",
+            self.provider_name,
+            resolved_cmd.display(),
+            self.args
+        );
+        println!("  Working directory: {}", worktree_path.display());
+
+        let mut child = tokio::process::Command::new(&resolved_cmd)
+            .args(&self.args)
             .current_dir(worktree_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .envs(&env)
             .spawn()
-            .map_err(|e| AppError::Provider(format!("Failed to spawn kimi acp: {}", e)))?;
+            .map_err(|e| {
+                AppError::Provider(format!(
+                    "Failed to spawn {} {:?}: {}",
+                    resolved_cmd.display(),
+                    self.args,
+                    e
+                ))
+            })?;
 
         let stdin = child
             .stdin
@@ -116,20 +152,17 @@ impl KimiAdapter {
     }
 }
 
-impl Default for KimiAdapter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[async_trait]
-impl ProviderAdapter for KimiAdapter {
+impl ProviderAdapter for GenericAcpAdapter {
     fn provider_type(&self) -> ProviderType {
-        ProviderType::Kimi
+        self.provider_type.clone()
     }
 
     fn detect(&self) -> AppResult<ProviderInfo> {
-        Ok(ProviderDetector::detect_provider(&ProviderType::Kimi, None))
+        Ok(ProviderDetector::detect_provider(
+            &self.provider_type,
+            None,
+        ))
     }
 
     async fn start_session(
@@ -140,13 +173,16 @@ impl ProviderAdapter for KimiAdapter {
         app_handle: AppHandle,
         mcp_servers: Vec<agent_client_protocol::McpServer>,
     ) -> AppResult<()> {
-        println!("[KimiAdapter] Starting ACP session for {}", session_id);
+        println!(
+            "[{}] Starting ACP session for {}",
+            self.provider_name, session_id
+        );
 
         let (child, stdin, stdout, stderr) = self.spawn_process(worktree_path)?;
 
         spawn_stderr_reader(
             stderr,
-            "kimi".to_string(),
+            self.provider_type.as_id().to_string(),
             stream_tx.clone(),
             session_id.to_string(),
             self.current_message_id.clone(),
@@ -169,8 +205,8 @@ impl ProviderAdapter for KimiAdapter {
             .map_err(|e| AppError::Provider(e))?;
 
         println!(
-            "[KimiAdapter] ACP session established: {}",
-            handshake.session_id
+            "[{}] ACP session established: {}",
+            self.provider_name, handshake.session_id
         );
 
         self.child = Some(child);
@@ -178,8 +214,8 @@ impl ProviderAdapter for KimiAdapter {
         self.acp_session_id = Some(handshake.session_id);
         self.session_id = Some(session_id.to_string());
         println!(
-            "[KimiAdapter] Handshake complete: available_models = {:?}, current_model = {:?}",
-            handshake.models, handshake.current_model_id
+            "[{}] Handshake complete: available_models = {:?}, current_model = {:?}, available_modes = {:?}, current_mode = {:?}",
+            self.provider_name, handshake.models, handshake.current_model_id, handshake.modes, handshake.current_mode_id
         );
         self.available_models = handshake.models;
         self.current_model_id = handshake.current_model_id;
@@ -202,7 +238,8 @@ impl ProviderAdapter for KimiAdapter {
         mcp_servers: Vec<agent_client_protocol::McpServer>,
     ) -> AppResult<()> {
         println!(
-            "[KimiAdapter] Resuming ACP session {} for {} (worktree: {}, project: {})",
+            "[{}] Resuming ACP session {} for {} (worktree: {}, project: {})",
+            self.provider_name,
             acp_session_id,
             session_id,
             worktree_path.display(),
@@ -213,7 +250,7 @@ impl ProviderAdapter for KimiAdapter {
 
         spawn_stderr_reader(
             stderr,
-            "kimi".to_string(),
+            self.provider_type.as_id().to_string(),
             stream_tx.clone(),
             session_id.to_string(),
             self.current_message_id.clone(),
@@ -237,8 +274,8 @@ impl ProviderAdapter for KimiAdapter {
             .map_err(|e| AppError::Provider(e))?;
 
         println!(
-            "[KimiAdapter] ACP session resumed: {}",
-            handshake.session_id
+            "[{}] ACP session resumed: {}",
+            self.provider_name, handshake.session_id
         );
 
         self.child = Some(child);
@@ -246,8 +283,8 @@ impl ProviderAdapter for KimiAdapter {
         self.acp_session_id = Some(handshake.session_id);
         self.session_id = Some(session_id.to_string());
         println!(
-            "[KimiAdapter] Handshake complete: available_models = {:?}, current_model = {:?}",
-            handshake.models, handshake.current_model_id
+            "[{}] Handshake complete: available_models = {:?}, current_model = {:?}, available_modes = {:?}, current_mode = {:?}",
+            self.provider_name, handshake.models, handshake.current_model_id, handshake.modes, handshake.current_mode_id
         );
         self.available_models = handshake.models;
         self.current_model_id = handshake.current_model_id;
@@ -310,7 +347,8 @@ impl ProviderAdapter for KimiAdapter {
                 match reply_rx.await {
                     Ok(Ok(())) => {
                         println!(
-                            "[KimiAdapter] Sent permission response: option_id={}",
+                            "[{}] Sent permission response: option_id={}",
+                            self.provider_name,
                             text.trim()
                         );
                         return Ok(());
@@ -361,14 +399,15 @@ impl ProviderAdapter for KimiAdapter {
             AppError::Provider(format!("Failed to send prompt command: {}", e))
         })?;
 
+        let provider_name = self.provider_name.clone();
         tokio::spawn(async move {
             match reply_rx.await {
                 Ok(Ok(())) => {}
                 Ok(Err(e)) => {
-                    eprintln!("[KimiAdapter] Prompt error: {}", e);
+                    eprintln!("[{}] Prompt error: {}", provider_name, e);
                 }
                 Err(_) => {
-                    eprintln!("[KimiAdapter] Prompt reply channel closed");
+                    eprintln!("[{}] Prompt reply channel closed", provider_name);
                 }
             }
         });
@@ -460,6 +499,7 @@ impl ProviderAdapter for KimiAdapter {
     }
 
     async fn cancel(&mut self) -> AppResult<()> {
+        println!("[{}] cancel() called", self.provider_name);
         let cmd_tx = self
             .cmd_tx
             .as_ref()
@@ -470,6 +510,10 @@ impl ProviderAdapter for KimiAdapter {
             .as_ref()
             .ok_or_else(|| AppError::Provider("ACP session not established".to_string()))?;
 
+        println!(
+            "[{}] Sending Cancel command for session: {}",
+            self.provider_name, acp_session_id
+        );
         let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
         let cmd = AcpCommand::Cancel {
             session_id: acp_session_id.clone(),
@@ -480,14 +524,17 @@ impl ProviderAdapter for KimiAdapter {
             AppError::Provider(format!("Failed to send cancel command: {}", e))
         })?;
 
-        reply_rx
+        let result = reply_rx
             .await
             .map_err(|_| AppError::Provider("Cancel reply channel closed".to_string()))?
-            .map_err(|e| AppError::Provider(e))
+            .map_err(|e| AppError::Provider(e));
+
+        println!("[{}] Cancel command result: {:?}", self.provider_name, result);
+        result
     }
 
     async fn terminate(&mut self) -> AppResult<()> {
-        println!("[KimiAdapter] Terminating session");
+        println!("[{}] Terminating session", self.provider_name);
 
         if let Some(cmd_tx) = self.cmd_tx.take() {
             let _ = cmd_tx.send(AcpCommand::Shutdown).await;

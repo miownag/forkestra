@@ -2,11 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::mcp::McpSettings;
-use super::provider::{
-    ClaudeProviderSettings, CodexProviderSettings, GeminiProviderSettings, KimiProviderSettings,
-    OpenCodeProviderSettings, QoderProviderSettings, QwenCodeProviderSettings,
-    ProviderSettings, ProviderType,
-};
+use super::provider::{ProviderDefinition, ProviderSettings};
 use super::skill::SkillSettings;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,46 +68,25 @@ pub struct AppSettings {
     pub general: Option<GeneralSettings>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub appearance: Option<AppearanceSettings>,
-    pub provider_settings: HashMap<ProviderType, ProviderSettings>,
+    /// Key is the provider id string (e.g. "claude", "kimi", "my-custom-agent")
+    pub provider_settings: HashMap<String, ProviderSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mcp: Option<McpSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skills: Option<SkillSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notification: Option<NotificationSettings>,
+    /// User-defined custom ACP providers
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub custom_providers: Vec<ProviderDefinition>,
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
         let mut provider_settings = HashMap::new();
-        provider_settings.insert(
-            ProviderType::Claude,
-            ProviderSettings::Claude(ClaudeProviderSettings::default()),
-        );
-        provider_settings.insert(
-            ProviderType::Codex,
-            ProviderSettings::Codex(CodexProviderSettings::default()),
-        );
-        provider_settings.insert(
-            ProviderType::Gemini,
-            ProviderSettings::Gemini(GeminiProviderSettings::default()),
-        );
-        provider_settings.insert(
-            ProviderType::OpenCode,
-            ProviderSettings::OpenCode(OpenCodeProviderSettings::default()),
-        );
-        provider_settings.insert(
-            ProviderType::Kimi,
-            ProviderSettings::Kimi(KimiProviderSettings::default()),
-        );
-        provider_settings.insert(
-            ProviderType::Qoder,
-            ProviderSettings::Qoder(QoderProviderSettings::default()),
-        );
-        provider_settings.insert(
-            ProviderType::QwenCode,
-            ProviderSettings::QwenCode(QwenCodeProviderSettings::default()),
-        );
+        for id in &["claude", "codex", "gemini", "open_code", "kimi", "qoder", "qwen_code"] {
+            provider_settings.insert(id.to_string(), ProviderSettings::default());
+        }
 
         Self {
             general: Some(GeneralSettings::default()),
@@ -120,6 +95,7 @@ impl Default for AppSettings {
             mcp: None,
             skills: None,
             notification: None,
+            custom_providers: Vec::new(),
         }
     }
 }

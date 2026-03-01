@@ -4,7 +4,7 @@ use tauri::State;
 
 use crate::error::AppResult;
 use crate::managers::SettingsManager;
-use crate::models::{ProviderInfo, ProviderSettings, ProviderType};
+use crate::models::{builtin_definitions, ProviderDefinition, ProviderInfo};
 use crate::providers::ProviderDetector;
 
 #[tauri::command]
@@ -13,76 +13,98 @@ pub async fn detect_providers(
 ) -> AppResult<Vec<ProviderInfo>> {
     let settings = settings_manager.get_settings();
 
-    // Extract custom CLI paths from settings and convert to owned Strings
-    let claude_custom_path: Option<String> = settings
-        .provider_settings
-        .get(&ProviderType::Claude)
-        .and_then(|s| match s {
-            ProviderSettings::Claude(c) => c.custom_cli_path.clone(),
-            _ => None,
-        });
+    // Combine builtin definitions with user's custom providers
+    let mut definitions = builtin_definitions();
+    definitions.extend(settings.custom_providers.clone());
 
-    let kimi_custom_path: Option<String> = settings
-        .provider_settings
-        .get(&ProviderType::Kimi)
-        .and_then(|s| match s {
-            ProviderSettings::Kimi(k) => k.custom_cli_path.clone(),
-            _ => None,
-        });
-
-    let codex_custom_path: Option<String> = settings
-        .provider_settings
-        .get(&ProviderType::Codex)
-        .and_then(|s| match s {
-            ProviderSettings::Codex(c) => c.custom_cli_path.clone(),
-            _ => None,
-        });
-
-    let gemini_custom_path: Option<String> = settings
-        .provider_settings
-        .get(&ProviderType::Gemini)
-        .and_then(|s| match s {
-            ProviderSettings::Gemini(g) => g.custom_cli_path.clone(),
-            _ => None,
-        });
-
-    let open_code_custom_path: Option<String> = settings
-        .provider_settings
-        .get(&ProviderType::OpenCode)
-        .and_then(|s| match s {
-            ProviderSettings::OpenCode(o) => o.custom_cli_path.clone(),
-            _ => None,
-        });
-
-    let qoder_custom_path: Option<String> = settings
-        .provider_settings
-        .get(&ProviderType::Qoder)
-        .and_then(|s| match s {
-            ProviderSettings::Qoder(q) => q.custom_cli_path.clone(),
-            _ => None,
-        });
-
-    let qwen_code_custom_path: Option<String> = settings
-        .provider_settings
-        .get(&ProviderType::QwenCode)
-        .and_then(|s| match s {
-            ProviderSettings::QwenCode(q) => q.custom_cli_path.clone(),
-            _ => None,
-        });
+    let provider_settings = settings.provider_settings.clone();
 
     let result = tokio::task::spawn_blocking(move || {
-        ProviderDetector::detect_all_with_settings(
-            claude_custom_path.as_deref(),
-            kimi_custom_path.as_deref(),
-            codex_custom_path.as_deref(),
-            gemini_custom_path.as_deref(),
-            open_code_custom_path.as_deref(),
-            qoder_custom_path.as_deref(),
-            qwen_code_custom_path.as_deref(),
-        )
+        ProviderDetector::detect_all_with_definitions(&definitions, &provider_settings)
     })
     .await
     .map_err(|e| crate::error::AppError::Provider(format!("Task failed: {}", e)))?;
 
     Ok(result)
+}
+
+#[tauri::command]
+pub async fn add_custom_provider(
+    settings_manager: State<'_, Arc<SettingsManager>>,
+    definition: ProviderDefinition,
+) -> AppResult<()> {
+    let mut settings = settings_manager.get_settings();
+
+    // Don't allow overriding builtin provider IDs
+    let builtin_ids: Vec<String> = builtin_definitions().iter().map(|d| d.id.clone()).collect();
+    if builtin_ids.contains(&definition.id) {
+        return Err(crate::error::AppError::InvalidOperation(format!(
+            "Cannot add custom provider with built-in ID '{}'",
+            definition.id
+        )));
+    }
+
+    // Remove existing definition with same ID if any
+    settings.custom_providers.retain(|d| d.id != definition.id);
+    settings.custom_providers.push(definition.clone());
+
+    // Ensure provider_settings entry exists
+    if !settings.provider_settings.contains_key(&definition.id) {
+        settings.provider_settings.insert(
+            definition.id,
+            crate::models::ProviderSettings::default(),
+        );
+    }
+
+    settings_manager.update_settings(settings)
+}
+
+#[tauri::command]
+pub async fn remove_custom_provider(
+    settings_manager: State<'_, Arc<SettingsManager>>,
+    id: String,
+) -> AppResult<()> {
+    let mut settings = settings_manager.get_settings();
+
+    // Don't allow removing builtin providers
+    let builtin_ids: Vec<String> = builtin_definitions().iter().map(|d| d.id.clone()).collect();
+    if builtin_ids.contains(&id) {
+        return Err(crate::error::AppError::InvalidOperation(format!(
+            "Cannot remove built-in provider '{}'",
+            id
+        )));
+    }
+
+    settings.custom_providers.retain(|d| d.id != id);
+    settings.provider_settings.remove(&id);
+
+    settings_manager.update_settings(settings)
+}
+
+#[tauri::command]
+pub async fn update_custom_provider(
+    settings_manager: State<'_, Arc<SettingsManager>>,
+    definition: ProviderDefinition,
+) -> AppResult<()> {
+    let mut settings = settings_manager.get_settings();
+
+    // Don't allow updating builtin providers through this command
+    let builtin_ids: Vec<String> = builtin_definitions().iter().map(|d| d.id.clone()).collect();
+    if builtin_ids.contains(&definition.id) {
+        return Err(crate::error::AppError::InvalidOperation(format!(
+            "Cannot update built-in provider '{}' through this command",
+            definition.id
+        )));
+    }
+
+    if let Some(existing) = settings.custom_providers.iter_mut().find(|d| d.id == definition.id) {
+        *existing = definition;
+    } else {
+        return Err(crate::error::AppError::NotFound(format!(
+            "Custom provider '{}' not found",
+            definition.id
+        )));
+    }
+
+    settings_manager.update_settings(settings)
 }
