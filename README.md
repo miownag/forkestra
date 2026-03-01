@@ -4,6 +4,8 @@
 
 **English** | [中文](./README.zh-CN.md)
 
+<img width="1920" height="967" alt="image" src="https://github.com/user-attachments/assets/8f20fdaa-9ebb-4e07-853a-75cae5d662f7" />
+
 Seamlessly create distinct Git worktrees that let coding agents work in parallel, with built-in isolation to prevent any code conflicts.
 
 Leveraging **multithreading and concurrent programming** is the key to supercharge your development efficiency!
