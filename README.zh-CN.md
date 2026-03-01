@@ -4,6 +4,8 @@
 
 [English](./README.md) | **中文**
 
+<img width="1920" height="967" alt="image" src="https://github.com/user-attachments/assets/599da56d-ffa5-42db-bda8-da536f862d29" />
+
 无缝创建独立的 Git worktree，让多个 AI 编码 Agent 并行工作，内置隔离机制彻底避免代码冲突。
 
 **多线程并发编程**是提升开发效率的关键——Forkestra 让你把这一优势发挥到极致！
