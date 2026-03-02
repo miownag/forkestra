@@ -288,8 +288,8 @@ function SortableTabItem({
             "cursor-pointer select-none rounded-md rounded-b-none border border-b-0 border-border/30!",
             isDragging && "opacity-40",
             isActive
-              ? "font-semibold bg-linear-to-b from-primary/20 to-primary/2"
-              : "hover:bg-linear-to-b hover:from-muted/50 hover:to-muted/10",
+              ? "font-semibold bg-primary/10"
+              : "hover:bg-muted/40",
             session.is_local ? "text-local/75" : "text-worktree/75",
             isActive && (session.is_local ? "text-local" : "text-worktree"),
             "transition-none",
@@ -360,7 +360,7 @@ function TabOverlay({ session, width }: { session: Session; width: number }) {
       className={cn(
         "inline-flex items-center h-8 px-3 pr-1.5 text-xs gap-1.5",
         "select-none rounded-md rounded-b-none border border-b-0 border-border!",
-        "bg-linear-to-b from-primary/20 to-primary/2 font-semibold shadow-lg",
+        "bg-primary/10 font-semibold shadow-lg",
         session.is_local ? "text-local" : "text-worktree",
       )}
     >

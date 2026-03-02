@@ -150,8 +150,8 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
           <div className="w-full relative">
             {/* Create error state - floating above input */}
             {hasCreateError && (
-              <div className="absolute left-4 right-4 bottom-full mb-3 flex items-center gap-3 px-4 py-3 rounded-xl border border-destructive/30 bg-linear-to-r from-destructive/10 to-destructive/5 backdrop-blur-sm shadow-lg shadow-destructive/10">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-destructive/20 text-destructive">
+              <div className="absolute left-4 right-4 bottom-full mb-3 flex items-center gap-3 px-4 py-3 rounded-xl border border-destructive/20 bg-destructive/5 shadow-sm">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
                   <Warning2 className="size-4" />
                 </div>
                 <div>
@@ -169,9 +169,9 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
 
             {/* Resume Banner - floating above input */}
             {canResume && !isResuming && !isCreating && !hasResumeError && (
-              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 w-fit flex items-center justify-between gap-4 px-4 py-3 rounded-xl border border-amber-500/20 bg-linear-to-r from-amber-500/10 to-orange-500/5 backdrop-blur-sm shadow-lg shadow-amber-500/10">
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 w-fit flex items-center justify-between gap-4 px-4 py-3 rounded-xl border border-border/60 bg-muted/60 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-amber-500/30 to-orange-500/20 text-muted-foreground ring-1 ring-amber-500/30">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                     <Pause className="size-4" />
                   </div>
                   <div>
@@ -186,7 +186,7 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
                 <Button
                   size="sm"
                   onClick={handleResume}
-                  className="h-8 px-4 gap-1.5 text-xs font-medium border-0 shadow-sm shadow-primary/20 transition-all duration-200"
+                  className="h-8 px-4 gap-1.5 text-xs font-medium transition-all duration-200"
                 >
                   <Play className="size-3.5" />
                   Resume
@@ -196,9 +196,9 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
 
             {/* Resume error state - floating above input */}
             {hasResumeError && (
-              <div className="absolute left-4 right-4 bottom-full mb-3 flex flex-col gap-3 px-4 py-4 rounded-xl border border-destructive/30 bg-linear-to-r from-destructive/10 to-destructive/5 backdrop-blur-sm shadow-lg shadow-destructive/10">
+              <div className="absolute left-4 right-4 bottom-full mb-3 flex flex-col gap-3 px-4 py-4 rounded-xl border border-destructive/20 bg-destructive/5 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-destructive/20 text-destructive">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
                     <FiAlertCircle className="size-4" />
                   </div>
                   <div>
@@ -237,9 +237,9 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
 
             {/* Resuming state - floating above input */}
             {isResuming && (
-              <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 flex items-center gap-3 max-w-lg px-4 py-3 rounded-xl border border-cyan-500/20 bg-linear-to-r from-cyan-500/10 to-blue-500/5 backdrop-blur-sm shadow-lg shadow-cyan-500/10">
-                <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-cyan-500/30 to-blue-500/20">
-                  <Spinner className="size-4 text-cyan-400" />
+              <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 flex items-center gap-3 max-w-lg px-4 py-3 rounded-xl border border-border/60 bg-muted/60 shadow-sm">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                  <Spinner className="size-4" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground/90">
@@ -294,8 +294,8 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
           <div className="px-8 relative">
             {/* Create error state - floating above input */}
             {hasCreateError && (
-              <div className="absolute left-12 right-12 bottom-full mb-3 flex items-center gap-3 px-4 py-3 rounded-xl border border-destructive/30 bg-linear-to-r from-destructive/10 to-destructive/5 backdrop-blur-sm shadow-lg shadow-destructive/10">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-destructive/20 text-destructive">
+              <div className="absolute left-12 right-12 bottom-full mb-3 flex items-center gap-3 px-4 py-3 rounded-xl border border-destructive/20 bg-destructive/5 shadow-sm">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
                   <Warning2 className="size-4" />
                 </div>
                 <p className="text-sm text-destructive/90">
@@ -306,9 +306,9 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
 
             {/* Resume Banner - floating above input */}
             {canResume && !isResuming && !isCreating && !hasResumeError && (
-              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 w-fit flex items-center justify-between gap-4 px-4 py-3 rounded-xl border border-amber-500/20 bg-linear-to-r from-amber-500/10 to-orange-500/5 backdrop-blur-sm shadow-lg shadow-amber-500/10">
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 w-fit flex items-center justify-between gap-4 px-4 py-3 rounded-xl border border-border/60 bg-muted/60 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-amber-500/30 to-orange-500/20 text-muted-foreground ring-1 ring-amber-500/30">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                     <Pause className="size-4" />
                   </div>
                   <div>
@@ -323,7 +323,7 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
                 <Button
                   size="sm"
                   onClick={handleResume}
-                  className="h-8 px-4 gap-1.5 text-xs font-medium border-0 shadow-sm shadow-primary/20 transition-all duration-200"
+                  className="h-8 px-4 gap-1.5 text-xs font-medium transition-all duration-200"
                 >
                   <Play className="size-3.5" />
                   Resume
@@ -333,9 +333,9 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
 
             {/* Resume error state - floating above input */}
             {hasResumeError && (
-              <div className="absolute left-12 right-12 bottom-full mb-3 flex flex-col gap-3 px-4 py-4 rounded-xl border border-destructive/30 bg-linear-to-r from-destructive/10 to-destructive/5 backdrop-blur-sm shadow-lg shadow-destructive/10">
+              <div className="absolute left-12 right-12 bottom-full mb-3 flex flex-col gap-3 px-4 py-4 rounded-xl border border-destructive/20 bg-destructive/5 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-destructive/20 text-destructive">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
                     <FiAlertCircle className="size-4" />
                   </div>
                   <div>
@@ -374,9 +374,9 @@ export function ChatWindow({ sessionId, isActive }: ChatWindowProps) {
 
             {/* Resuming state - floating above input */}
             {isResuming && (
-              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 flex items-center gap-3 max-w-lg px-4 py-3 rounded-xl border border-cyan-500/20 bg-linear-to-r from-cyan-500/10 to-blue-500/5 backdrop-blur-sm shadow-lg shadow-cyan-500/10">
-                <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-cyan-500/30 to-blue-500/20">
-                  <Spinner className="size-4 text-cyan-400" />
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 flex items-center gap-3 max-w-lg px-4 py-3 rounded-xl border border-border/60 bg-muted/60 shadow-sm">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                  <Spinner className="size-4" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground/90">
