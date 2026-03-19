@@ -184,11 +184,13 @@ impl WorktreeManager {
     /// file tools to operate on the main repo.  By providing project-level
     /// settings inside the worktree we override that behaviour.
     fn setup_worktree_agent_configs(project_path: &Path, worktree_path: &Path) {
-        // 1. Copy .claude/ directory from main repo (if it exists)
+        // 1. Copy .claude/ directory from main repo (if it exists),
+        //    including settings.local.json so user allow-rules are preserved.
         Self::copy_agent_config_dir(project_path, worktree_path, ".claude");
 
-        // 2. Inject .claude/settings.local.json with directory restrictions
-        Self::inject_worktree_settings(worktree_path);
+        // 2. Merge worktree isolation rules into .claude/settings.local.json
+        //    (preserves existing user rules from the copied file).
+        Self::inject_worktree_settings(project_path, worktree_path);
 
         // 3. Append .claude/settings.local.json to worktree .gitignore so it
         //    is not committed back to the main repo.
@@ -224,10 +226,6 @@ impl WorktreeManager {
             if file_type.is_dir() {
                 Self::copy_dir_recursive(&src_path, &dst_path)?;
             } else if file_type.is_file() {
-                // Don't overwrite settings.local.json — we write our own below
-                if entry.file_name() == "settings.local.json" {
-                    continue;
-                }
                 std::fs::copy(&src_path, &dst_path)?;
             }
             // Skip symlinks and other special types
@@ -235,9 +233,14 @@ impl WorktreeManager {
         Ok(())
     }
 
-    /// Create or merge `.claude/settings.local.json` inside the worktree that
-    /// restricts all file-tool operations to paths under `worktree_path`.
-    fn inject_worktree_settings(worktree_path: &Path) {
+    /// Merge worktree isolation rules into `.claude/settings.local.json`.
+    ///
+    /// If the file already exists (e.g. copied from the main repo with user-
+    /// defined allow rules), the existing `permissions.allow` entries are
+    /// preserved and our worktree-scoped rules are prepended to
+    /// `permissions.rules`.  This ensures user customizations like
+    /// `"Bash(bun add:*)"` keep working inside the worktree.
+    fn inject_worktree_settings(project_path: &Path, worktree_path: &Path) {
         let claude_dir = worktree_path.join(".claude");
         if let Err(e) = std::fs::create_dir_all(&claude_dir) {
             eprintln!(
@@ -250,40 +253,108 @@ impl WorktreeManager {
         let settings_path = claude_dir.join("settings.local.json");
         let wt = worktree_path.to_string_lossy();
 
-        // Build the settings JSON.
-        //
-        // Claude Code's .claude/settings.local.json uses this format:
-        //   { "permissions": { "rules": ["allow ToolName(pattern)", "deny ToolName(pattern)"] } }
-        //
-        // Tool names: FileReadTool, FileWriteTool, FileEditTool, Bash, etc.
-        //
-        // Strategy:
-        //   1. Allow all file operations within the worktree directory.
-        //   2. Allow reads from common global config directories.
-        //   3. Deny all file read/write/edit operations globally (catch-all).
-        //
-        // Rules are evaluated in order — the first match wins — so specific allows
-        // MUST appear before the global denies.
-        let rules = vec![
-            // Allow all file operations within the worktree
+        // Read the existing settings (may have been copied from the main repo).
+        let mut settings: serde_json::Value = if settings_path.exists() {
+            std::fs::read_to_string(&settings_path)
+                .ok()
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .unwrap_or_else(|| serde_json::json!({}))
+        } else {
+            serde_json::json!({})
+        };
+
+        // Ensure permissions.allow exists and preserve user entries.
+        // We migrate any existing "allow" entries into a flat list and then
+        // add our worktree-scoped allows.
+        let permissions = settings
+            .as_object_mut()
+            .unwrap()
+            .entry("permissions")
+            .or_insert_with(|| serde_json::json!({}));
+
+        let perms_obj = permissions.as_object_mut().unwrap();
+
+        // Collect existing allow rules (user-defined).
+        let mut allow_rules: Vec<serde_json::Value> = perms_obj
+            .get("allow")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+
+        // Prepend our worktree-scoped allows (they must come before user rules
+        // so that our allows are evaluated first in case of overlap).
+        let worktree_allows = vec![
+            format!("Read({}/**)", wt),
+            format!("Write({}/**)", wt),
+            format!("Edit({}/**)", wt),
+            format!("Bash(cd {}:*)", wt),
+            "Read(~/.claude/**)".to_string(),
+            "Read(~/.config/**)".to_string(),
+        ];
+        let mut merged_allows: Vec<serde_json::Value> = worktree_allows
+            .into_iter()
+            .map(serde_json::Value::String)
+            .collect();
+        // Append user-defined allows so they are preserved
+        merged_allows.append(&mut allow_rules);
+        perms_obj.insert(
+            "allow".to_string(),
+            serde_json::Value::Array(merged_allows),
+        );
+
+        // Also inject deny rules to block file access outside the worktree.
+        // Existing deny rules (if any) from the user are preserved after ours.
+        let mut deny_rules: Vec<serde_json::Value> = perms_obj
+            .get("deny")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+
+        let worktree_denies = vec![
+            "Read".to_string(),
+            "Write".to_string(),
+            "Edit".to_string(),
+        ];
+        let mut merged_denies: Vec<serde_json::Value> = worktree_denies
+            .into_iter()
+            .map(serde_json::Value::String)
+            .collect();
+        merged_denies.append(&mut deny_rules);
+        perms_obj.insert(
+            "deny".to_string(),
+            serde_json::Value::Array(merged_denies),
+        );
+
+        // Also try the `rules` key (newer Claude Code format):
+        //   "rules": ["allow ToolName(pattern)", "deny ToolName(pattern)"]
+        let mut rules: Vec<serde_json::Value> = perms_obj
+            .get("rules")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+
+        let worktree_rules = vec![
             format!("allow FileReadTool({}/**)", wt),
             format!("allow FileWriteTool({}/**)", wt),
             format!("allow FileEditTool({}/**)", wt),
-            // Allow reads from common global config dirs
             "allow FileReadTool(~/.claude/**)".to_string(),
             "allow FileReadTool(~/.config/**)".to_string(),
-            // Deny everything else for file tools
             "deny FileReadTool".to_string(),
             "deny FileWriteTool".to_string(),
             "deny FileEditTool".to_string(),
         ];
+        // Prepend our rules, then append user rules
+        let mut merged_rules: Vec<serde_json::Value> = worktree_rules
+            .into_iter()
+            .map(serde_json::Value::String)
+            .collect();
+        merged_rules.append(&mut rules);
+        perms_obj.insert(
+            "rules".to_string(),
+            serde_json::Value::Array(merged_rules),
+        );
 
-        let settings = serde_json::json!({
-            "permissions": {
-                "rules": rules,
-            }
-        });
-
+        // Write back
         match serde_json::to_string_pretty(&settings) {
             Ok(json) => {
                 if let Err(e) = std::fs::write(&settings_path, json) {
