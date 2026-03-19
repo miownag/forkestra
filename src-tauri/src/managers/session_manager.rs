@@ -778,7 +778,9 @@ impl SessionManager {
             }
         } else {
             // Only update this single session
-            let entry = sessions.get_mut(session_id).unwrap();
+            let entry = sessions.get_mut(session_id).ok_or_else(|| {
+                AppError::NotFound(format!("Session '{}' not found", session_id))
+            })?;
             entry.session.branch_name = new_branch_name.to_string();
             if let Err(e) = self
                 .db

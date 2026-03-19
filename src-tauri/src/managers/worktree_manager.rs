@@ -55,6 +55,9 @@ impl WorktreeManager {
             Some(git2::WorktreeAddOptions::new().reference(Some(&branch_ref))),
         )?;
 
+        // Copy agent configs from main repo and inject worktree isolation settings
+        Self::setup_worktree_agent_configs(project_path, &worktree_path);
+
         Ok((worktree_path, branch_name))
     }
 
@@ -168,6 +171,163 @@ impl WorktreeManager {
         }
 
         Ok(())
+    }
+
+    // ========== Worktree Agent Config Isolation ==========
+
+    /// Copy agent config directories from the main repo into the worktree and
+    /// inject a `.claude/settings.local.json` that restricts file-tool access to
+    /// the worktree directory.
+    ///
+    /// This is necessary because Claude Code (when running via ACP) resolves
+    /// the git worktree `.git` file back to the main repository and allows its
+    /// file tools to operate on the main repo.  By providing project-level
+    /// settings inside the worktree we override that behaviour.
+    fn setup_worktree_agent_configs(project_path: &Path, worktree_path: &Path) {
+        // 1. Copy .claude/ directory from main repo (if it exists)
+        Self::copy_agent_config_dir(project_path, worktree_path, ".claude");
+
+        // 2. Inject .claude/settings.local.json with directory restrictions
+        Self::inject_worktree_settings(worktree_path);
+
+        // 3. Append .claude/settings.local.json to worktree .gitignore so it
+        //    is not committed back to the main repo.
+        Self::ensure_gitignore_entry(worktree_path, ".claude/settings.local.json");
+    }
+
+    /// Recursively copy `dir_name` from `src_root` into `dst_root`.
+    /// Silently skips if the source directory does not exist.
+    fn copy_agent_config_dir(src_root: &Path, dst_root: &Path, dir_name: &str) {
+        let src = src_root.join(dir_name);
+        if !src.is_dir() {
+            return;
+        }
+        let dst = dst_root.join(dir_name);
+        if let Err(e) = Self::copy_dir_recursive(&src, &dst) {
+            eprintln!(
+                "[WorktreeManager] Warning: failed to copy {} to worktree: {}",
+                dir_name, e
+            );
+        }
+    }
+
+    /// Simple recursive directory copy. Creates `dst` if it does not exist.
+    fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
+        if !dst.exists() {
+            std::fs::create_dir_all(dst)?;
+        }
+        for entry in std::fs::read_dir(src)? {
+            let entry = entry?;
+            let file_type = entry.file_type()?;
+            let src_path = entry.path();
+            let dst_path = dst.join(entry.file_name());
+            if file_type.is_dir() {
+                Self::copy_dir_recursive(&src_path, &dst_path)?;
+            } else if file_type.is_file() {
+                // Don't overwrite settings.local.json — we write our own below
+                if entry.file_name() == "settings.local.json" {
+                    continue;
+                }
+                std::fs::copy(&src_path, &dst_path)?;
+            }
+            // Skip symlinks and other special types
+        }
+        Ok(())
+    }
+
+    /// Create or merge `.claude/settings.local.json` inside the worktree that
+    /// restricts all file-tool operations to paths under `worktree_path`.
+    fn inject_worktree_settings(worktree_path: &Path) {
+        let claude_dir = worktree_path.join(".claude");
+        if let Err(e) = std::fs::create_dir_all(&claude_dir) {
+            eprintln!(
+                "[WorktreeManager] Warning: failed to create .claude/ in worktree: {}",
+                e
+            );
+            return;
+        }
+
+        let settings_path = claude_dir.join("settings.local.json");
+        let wt = worktree_path.to_string_lossy();
+
+        // Build the settings JSON.
+        //
+        // Claude Code's .claude/settings.local.json uses this format:
+        //   { "permissions": { "rules": ["allow ToolName(pattern)", "deny ToolName(pattern)"] } }
+        //
+        // Tool names: FileReadTool, FileWriteTool, FileEditTool, Bash, etc.
+        //
+        // Strategy:
+        //   1. Allow all file operations within the worktree directory.
+        //   2. Allow reads from common global config directories.
+        //   3. Deny all file read/write/edit operations globally (catch-all).
+        //
+        // Rules are evaluated in order — the first match wins — so specific allows
+        // MUST appear before the global denies.
+        let rules = vec![
+            // Allow all file operations within the worktree
+            format!("allow FileReadTool({}/**)", wt),
+            format!("allow FileWriteTool({}/**)", wt),
+            format!("allow FileEditTool({}/**)", wt),
+            // Allow reads from common global config dirs
+            "allow FileReadTool(~/.claude/**)".to_string(),
+            "allow FileReadTool(~/.config/**)".to_string(),
+            // Deny everything else for file tools
+            "deny FileReadTool".to_string(),
+            "deny FileWriteTool".to_string(),
+            "deny FileEditTool".to_string(),
+        ];
+
+        let settings = serde_json::json!({
+            "permissions": {
+                "rules": rules,
+            }
+        });
+
+        match serde_json::to_string_pretty(&settings) {
+            Ok(json) => {
+                if let Err(e) = std::fs::write(&settings_path, json) {
+                    eprintln!(
+                        "[WorktreeManager] Warning: failed to write .claude/settings.local.json: {}",
+                        e
+                    );
+                }
+            }
+            Err(e) => {
+                eprintln!(
+                    "[WorktreeManager] Warning: failed to serialize settings: {}",
+                    e
+                );
+            }
+        }
+    }
+
+    /// Append `entry` to the `.gitignore` in `worktree_path` if not already present.
+    fn ensure_gitignore_entry(worktree_path: &Path, entry: &str) {
+        let gitignore_path = worktree_path.join(".gitignore");
+
+        // Read existing content (may not exist yet)
+        let existing = std::fs::read_to_string(&gitignore_path).unwrap_or_default();
+
+        // Check if the entry is already present
+        if existing.lines().any(|line| line.trim() == entry) {
+            return;
+        }
+
+        // Append the entry
+        let separator = if existing.is_empty() || existing.ends_with('\n') {
+            ""
+        } else {
+            "\n"
+        };
+        let new_content = format!("{}{}{}\n", existing, separator, entry);
+
+        if let Err(e) = std::fs::write(&gitignore_path, new_content) {
+            eprintln!(
+                "[WorktreeManager] Warning: failed to update .gitignore in worktree: {}",
+                e
+            );
+        }
     }
 
     /// Get the base path for worktrees

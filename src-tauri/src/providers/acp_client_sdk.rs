@@ -601,6 +601,42 @@ fn convert_acp_content_block(block: &ContentBlock) -> crate::models::ContentBloc
 }
 
 // ========================
+// Worktree Isolation Meta
+// ========================
+
+/// Build the `_meta` payload for ACP `session/new` and `session/load` requests.
+///
+/// When the session runs inside a git worktree, Claude Code SDK resolves the
+/// worktree `.git` file back to the main repository and lets its file tools
+/// operate on the main repo.  To counteract this we inject a `systemPrompt`
+/// via `_meta.claudeCode.options` that instructs the agent to confine all
+/// file operations to the worktree directory.
+fn build_worktree_meta(cwd: &str) -> serde_json::Map<String, serde_json::Value> {
+    let system_prompt = format!(
+        "IMPORTANT: Your working directory is {}. \
+         You MUST only read, write, and edit files within this directory. \
+         Do NOT access files outside this directory. \
+         When using tools like Read, Write, Edit, Find, Grep, or Bash, \
+         always use paths relative to this directory or absolute paths \
+         that start with this directory.",
+        cwd
+    );
+
+    let mut meta = serde_json::Map::new();
+    meta.insert(
+        "claudeCode".to_string(),
+        serde_json::json!({
+            "options": {
+                "systemPrompt": {
+                    "append": system_prompt
+                }
+            }
+        }),
+    );
+    meta
+}
+
+// ========================
 // Environment
 // ========================
 
@@ -834,7 +870,11 @@ async fn run_acp_connection(
         }
 
         let session_response = conn
-            .new_session(NewSessionRequest::new(&cwd).mcp_servers(mcp_servers))
+            .new_session(
+                NewSessionRequest::new(&cwd)
+                    .mcp_servers(mcp_servers)
+                    .meta(build_worktree_meta(&cwd)),
+            )
             .await
             .map_err(|e| format!("session/new failed: {:?}", e))?;
 
@@ -946,7 +986,11 @@ async fn run_acp_resume_connection(
 
         println!("[ACP] Trying session/load for {}", acp_session_id);
         let load_response = conn
-            .load_session(LoadSessionRequest::new(acp_session_id.clone(), cwd.clone()).mcp_servers(mcp_servers))
+            .load_session(
+                LoadSessionRequest::new(acp_session_id.clone(), cwd.clone())
+                    .mcp_servers(mcp_servers)
+                    .meta(build_worktree_meta(&cwd)),
+            )
             .await
             .map_err(|e| {
                 let err_msg = format!("session/load failed for {}: {:?}", acp_session_id, e);
