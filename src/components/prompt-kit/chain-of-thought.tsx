@@ -40,9 +40,9 @@ export const ChainOfThoughtTrigger = ({
     )}
     {...props}
   >
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 min-w-0">
       {leftIcon ? (
-        <span className="relative inline-flex size-4 items-center justify-center">
+        <span className="relative inline-flex size-4 shrink-0 items-center justify-center">
           <span
             className={cn(
               "transition-opacity",
@@ -56,11 +56,11 @@ export const ChainOfThoughtTrigger = ({
           )}
         </span>
       ) : (
-        <span className="relative inline-flex size-4 items-center justify-center">
+        <span className="relative inline-flex size-4 shrink-0 items-center justify-center">
           <Circle className="size-2 fill-current" />
         </span>
       )}
-      <span>{children}</span>
+      <span className="min-w-0">{children}</span>
     </div>
     {!leftIcon && (
       <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />

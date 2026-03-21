@@ -368,10 +368,11 @@ function ToolStep({ tc, isLast }: { tc: ToolCallInfo; isLast: boolean }) {
       <ChainOfThoughtTrigger
         leftIcon={getToolIcon(getEffectiveStatus(tc), tc.kind)}
         swapIconOnHover={false}
+        className="min-w-0 max-w-full"
       >
-        <Markdown components={CUSTOM_COMPONENTS_FOR_MARKDOWN}>
+        <span className="truncate block" title={getToolTitle(tc)}>
           {getToolTitle(tc)}
-        </Markdown>
+        </span>
       </ChainOfThoughtTrigger>
       {hasContent && (
         <ChainOfThoughtContent>

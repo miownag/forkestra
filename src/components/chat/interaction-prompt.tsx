@@ -58,7 +58,10 @@ export function InteractionPromptPanel({ sessionId }: InteractionPromptProps) {
             <Terminal className="h-4 w-4" />
           </div>
           <div className="flex-1 min-w-0 pt-0.5">
-            <p className="text-sm font-medium text-foreground/90 leading-relaxed">
+            <p
+              className="text-sm font-medium text-foreground/90 leading-relaxed line-clamp-3"
+              title={prompt.message}
+            >
               {prompt.message}
             </p>
             <p className="text-xs text-muted-foreground/70 mt-1">
