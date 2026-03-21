@@ -509,7 +509,8 @@ impl SessionManager {
             // Cleanup worktree if requested and not a local session
             if cleanup_worktree && !session.is_local {
                 let project_path = PathBuf::from(&session.project_path);
-                WorktreeManager::remove_worktree(&project_path, session_id)?;
+                let worktree_path = PathBuf::from(&session.worktree_path);
+                WorktreeManager::remove_worktree(&project_path, session_id, &worktree_path)?;
             }
 
             // Remove from DB and memory entirely when cleanup is requested

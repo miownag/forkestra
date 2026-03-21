@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use git2::{BranchType, Repository, RepositoryState, StatusOptions};
+use sha2::{Digest, Sha256};
 
 use crate::error::{AppError, AppResult};
 use crate::models::session::{
@@ -74,7 +75,14 @@ impl WorktreeManager {
     }
 
     /// Remove a worktree
-    pub fn remove_worktree(project_path: &Path, session_id: &str) -> AppResult<()> {
+    ///
+    /// `worktree_path` is the actual filesystem path of the worktree (stored in
+    /// the session record) so we don't need to re-derive it.
+    pub fn remove_worktree(
+        project_path: &Path,
+        session_id: &str,
+        worktree_path: &Path,
+    ) -> AppResult<()> {
         let repo = Repository::open(project_path)?;
 
         // Find and prune the worktree
@@ -88,10 +96,8 @@ impl WorktreeManager {
                 ))?;
             } else {
                 // Remove the worktree directory first
-                let worktree_base = Self::get_worktree_base_path(project_path)?;
-                let worktree_path = worktree_base.join(session_id);
                 if worktree_path.exists() {
-                    std::fs::remove_dir_all(&worktree_path)?;
+                    std::fs::remove_dir_all(worktree_path)?;
                 }
 
                 // Then prune
@@ -100,6 +106,11 @@ impl WorktreeManager {
                         .valid(true)
                         .working_tree(true),
                 ))?;
+            }
+        } else {
+            // Worktree not found in git, but directory may still exist – clean it up
+            if worktree_path.exists() {
+                std::fs::remove_dir_all(worktree_path)?;
             }
         }
 
@@ -401,10 +412,42 @@ impl WorktreeManager {
         }
     }
 
-    /// Get the base path for worktrees
+    /// Get the base path for worktrees.
+    ///
+    /// Worktrees are stored under `~/.forkestra/worktrees/{projectName}-{hash}/`
+    /// where `{hash}` is the first 12 hex characters of the SHA-256 of the
+    /// canonical project path.  This provides:
+    /// - Physical isolation from the original project (agents cannot `../` out)
+    /// - Short, collision-resistant directory names
+    /// - Human-readable project name prefix
     fn get_worktree_base_path(project_path: &Path) -> AppResult<PathBuf> {
-        // Store worktrees in .forkestra directory within the project
-        let worktree_base = project_path.join(".forkestra").join("worktrees");
+        let home = dirs::home_dir().ok_or_else(|| {
+            AppError::InvalidOperation("Could not determine home directory".to_string())
+        })?;
+
+        // Canonicalize to resolve symlinks / relative components so that the
+        // same physical directory always produces the same hash.
+        let canonical = project_path.canonicalize().unwrap_or_else(|_| project_path.to_path_buf());
+
+        // Hash the full canonical path
+        let mut hasher = Sha256::new();
+        hasher.update(canonical.to_string_lossy().as_bytes());
+        let hash_bytes = hasher.finalize();
+        let hash_hex = format!("{:x}", hash_bytes);
+        let short_hash = &hash_hex[..12]; // 48 bits – practically collision-free
+
+        // Use the last component of the path as a human-readable prefix
+        let project_name = canonical
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "project".to_string());
+
+        let dir_name = format!("{}-{}", project_name, short_hash);
+        let worktree_base = home
+            .join(".forkestra")
+            .join("worktrees")
+            .join(dir_name);
+
         if !worktree_base.exists() {
             std::fs::create_dir_all(&worktree_base)?;
         }

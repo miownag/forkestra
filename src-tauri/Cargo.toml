@@ -44,4 +44,5 @@ tokio-util = { version = "0.7", features = ["compat"] }
 libc = "0.2"
 tauri-plugin-notification = "2"
 base64 = "0.22.1"
+sha2 = "0.10"
 
