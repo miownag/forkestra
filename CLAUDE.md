@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What is Forkestra
 
-Forkestra (fork + orchestra) is a Tauri 2 desktop app that provides a unified UI for multiple AI coding CLI providers (Claude Code, Kimi Code, Codex, Gemini). Each session gets its own Git worktree so agents can work in parallel without conflicts.
+Forkestra (fork + orchestra) is a Tauri 2 desktop app that provides a unified UI for AI coding CLI providers. Each session gets its own Git worktree so agents can work in parallel without conflicts. Built-in providers: Claude Code, Gemini CLI, Codex CLI, OpenCode, Kimi Code, Qoder CLI, Qwen Code. Any ACP-compatible CLI tool can be added as a custom provider.
 
 ## Commands
 
@@ -43,7 +43,7 @@ Rust + Tauri 2. Layered architecture:
 
 - **Commands** (`commands/`): Tauri command handlers, thin wrappers that extract manager state and delegate. Split into modules by domain (session, settings, provider, fs, mcp, skills, terminal). All re-exported from `commands/mod.rs` and registered in `lib.rs`.
 - **Managers** (`managers/`): Business logic layer. `SessionManager` orchestrates ACP sessions and worktrees. `McpManager` aggregates MCP server configs from multiple sources. `SettingsManager` persists YAML config. `TerminalManager` manages PTY instances. `WorktreeManager` handles git worktree lifecycle. `SkillsManager` manages skill packages.
-- **Providers** (`providers/`): Trait-based adapter pattern. `ProviderAdapter` trait in `adapter.rs` defines the interface. Implementations for Claude (`claude.rs`), Kimi (`kimi.rs`), Codex (`codex.rs`), Gemini (`gemini.rs`). All communicate with CLI tools via the `agent-client-protocol` crate. `detector.rs` auto-detects installed providers.
+- **Providers** (`providers/`): Trait-based adapter pattern. `ProviderAdapter` trait in `adapter.rs` defines the interface. `GenericAcpAdapter` in `generic.rs` is the single concrete implementation — it is data-driven, instantiated with a `ProviderDefinition` (command, args, env vars) so all providers share the same code. Special case: Claude's custom CLI path is forwarded via the `CLAUDE_CODE_EXECUTABLE` env var while still launching through `npx`. `detector.rs` auto-detects installed providers.
 - **Models** (`models/`): Shared data types (session, message, provider, mcp, settings, skill, fs).
 - **Database** (`db/`): SQLite via rusqlite. Schema in `schema.sql` with two tables: `sessions` and `messages`. Migrations run on startup.
 - **Errors** (`error.rs`): `AppError` enum with `thiserror`. `AppResult<T>` used throughout.
