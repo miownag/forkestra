@@ -5,98 +5,18 @@ import type {
   PlanEntry,
   ImageContent,
   ToolCallContentItem,
-  ToolKind,
 } from "@/types";
-import {
-  ChainOfThought,
-  ChainOfThoughtContent,
-  ChainOfThoughtItem,
-  ChainOfThoughtStep,
-  ChainOfThoughtTrigger,
-} from "@/components/prompt-kit/chain-of-thought";
 import { Markdown } from "@/components/prompt-kit/markdown";
 import { Loader } from "@/components/prompt-kit/loader";
-import {
-  LuCircleCheckBig,
-  LuLoader,
-  LuCircle,
-  LuFileText,
-  LuPencil,
-  LuTrash,
-  LuSearch,
-  LuTerminal,
-} from "react-icons/lu";
-import { useState, useCallback, useEffect } from "react";
+import { Tool } from "@/components/prompt-kit/tool";
+import { LuCircleCheckBig, LuLoader, LuCircle } from "react-icons/lu";
+import { useState, useCallback } from "react";
 import { DiffViewer } from "./diff-viewer";
 import { cn } from "@/lib/utils";
-import {
-  Copy,
-  CopySuccess,
-  MessageText,
-  Task,
-  CloseCircle,
-  Forbidden,
-  Gallery,
-} from "iconsax-reactjs";
+import { Copy, CopySuccess, TaskSquare } from "iconsax-reactjs";
 import { CUSTOM_COMPONENTS_FOR_MARKDOWN } from "@/constants";
 
-/**
- * Detect if a "completed" tool call actually contains an error in its output.
- * Workaround for Claude Code ACP reporting some failed tool calls (e.g. WebSearch)
- * as "completed" with error text in raw_output.
- */
-function getEffectiveStatus(tc: ToolCallInfo): string {
-  if (tc.status !== "completed") return tc.status;
-
-  // Claude Code WebSearch: ACP reports completed but output contains API Error
-  if (tc.tool_name === "WebSearch" && tc.raw_output) {
-    const raw = JSON.stringify(tc.raw_output);
-    if (raw.includes("API Error") || raw.includes("error_code")) {
-      return "error";
-    }
-  }
-
-  return tc.status;
-}
-
-function getToolIcon(status: string, kind?: ToolKind) {
-  // Status-based icons take precedence
-  switch (status) {
-    case "running":
-      return <LuLoader className="size-4 animate-spin text-blue-500" />;
-    case "completed":
-      return <LuCircleCheckBig className="size-4 text-green-500" />;
-    case "error":
-      return <CloseCircle className="size-4 text-red-500" />;
-    case "interrupted":
-      return <Forbidden className="size-4 text-yellow-500" />;
-  }
-
-  // Fallback to kind-based icons
-  switch (kind) {
-    case "read":
-      return <LuFileText className="size-4 text-blue-500" />;
-    case "edit":
-      return <LuPencil className="size-4 text-yellow-500" />;
-    case "delete":
-      return <LuTrash className="size-4 text-red-500" />;
-    case "search":
-      return <LuSearch className="size-4 text-purple-500" />;
-    case "execute":
-      return <LuTerminal className="size-4 text-green-500" />;
-    default:
-      return <LuLoader className="size-4 animate-spin text-blue-500" />;
-  }
-}
-
-function getToolTitle(tc: ToolCallInfo) {
-  if (tc.tool_name === "WebSearch") {
-    return `${tc.tool_name} - ${tc.title}`;
-  }
-  return tc.title || tc.tool_name || "Tool Call";
-}
-
-function TextStep({ content, isLast }: { content: string; isLast: boolean }) {
+function CopyButton({ content }: { content: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(
@@ -107,82 +27,58 @@ function TextStep({ content, isLast }: { content: string; isLast: boolean }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     },
-    [content],
+    [content, copied],
   );
 
   return (
-    <ChainOfThoughtStep defaultOpen className="group" isLast={isLast}>
-      <ChainOfThoughtTrigger
-        leftIcon={<MessageText className="size-4 text-foreground" />}
-        swapIconOnHover={false}
-        className="flex-1"
-      >
-        <div className="flex items-center gap-2 uppercase">
-          Response
-          <div
-            onClick={handleCopy}
-            className={cn(
-              "text-muted-foreground p-1 rounded-md opacity-0",
-              "group-hover:opacity-100",
-              !copied && "hover:bg-muted",
-            )}
-            title="Copy content"
-          >
-            {copied ? (
-              <CopySuccess className="size-4 text-green-500" />
-            ) : (
-              <Copy className="size-4" />
-            )}
-          </div>
-        </div>
-      </ChainOfThoughtTrigger>
-      <ChainOfThoughtContent>
-        <ChainOfThoughtItem>
-          <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-strong:text-foreground text-foreground">
-            <Markdown components={CUSTOM_COMPONENTS_FOR_MARKDOWN}>
-              {content}
-            </Markdown>
-          </div>
-        </ChainOfThoughtItem>
-      </ChainOfThoughtContent>
-    </ChainOfThoughtStep>
+    <div
+      onClick={handleCopy}
+      className={cn(
+        "text-muted-foreground p-1 rounded-md opacity-0 group-hover/text:opacity-100 cursor-pointer",
+        !copied && "hover:bg-muted",
+      )}
+      title="Copy content"
+    >
+      {copied ? (
+        <CopySuccess className="size-3.5 text-green-500" />
+      ) : (
+        <Copy className="size-3.5" />
+      )}
+    </div>
   );
 }
 
-function ImageStep({
-  content,
-  isLast,
-}: {
-  content: ImageContent;
-  isLast: boolean;
-}) {
+function TextBlock({ content }: { content: string }) {
+  return (
+    <div className="group/text relative">
+      <div className="absolute right-0 top-0">
+        <CopyButton content={content} />
+      </div>
+      <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-strong:text-foreground text-foreground">
+        <Markdown components={CUSTOM_COMPONENTS_FOR_MARKDOWN}>
+          {content}
+        </Markdown>
+      </div>
+    </div>
+  );
+}
+
+function ImageBlock({ content }: { content: ImageContent }) {
   const imageUrl = `data:${content.mimeType};base64,${content.data}`;
 
   return (
-    <ChainOfThoughtStep defaultOpen isLast={isLast}>
-      <ChainOfThoughtTrigger
-        leftIcon={<Gallery className="size-4 text-foreground" />}
-        swapIconOnHover={false}
-      >
-        Image
-      </ChainOfThoughtTrigger>
-      <ChainOfThoughtContent>
-        <ChainOfThoughtItem>
-          <div className="space-y-2">
-            <img
-              src={imageUrl}
-              alt="AI generated content"
-              className="max-w-full rounded-md border border-border"
-            />
-            {content.uri && (
-              <div className="text-xs text-muted-foreground">
-                Source: {content.uri}
-              </div>
-            )}
-          </div>
-        </ChainOfThoughtItem>
-      </ChainOfThoughtContent>
-    </ChainOfThoughtStep>
+    <div className="my-2">
+      <img
+        src={imageUrl}
+        alt="AI generated content"
+        className="max-w-full rounded-md border border-border"
+      />
+      {content.uri && (
+        <div className="text-xs text-muted-foreground mt-1">
+          Source: {content.uri}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -220,69 +116,58 @@ function getPriorityColor(priority: PlanEntry["priority"]) {
   }
 }
 
-function PlanStep({
-  entries,
-  isLast,
-}: {
-  entries: PlanEntry[];
-  isLast: boolean;
-}) {
+function PlanBlock({ entries }: { entries: PlanEntry[] }) {
   const completedCount = entries.filter((e) => e.status === "completed").length;
   const totalCount = entries.length;
 
   return (
-    <ChainOfThoughtStep defaultOpen isLast={isLast}>
-      <ChainOfThoughtTrigger
-        leftIcon={<Task className="size-4 text-primary" />}
-        swapIconOnHover={false}
-      >
-        <div className="flex items-center gap-2">
-          <span className="uppercase">Plan</span>
-          <span className="text-xs text-muted-foreground">
-            ({completedCount}/{totalCount})
-          </span>
-        </div>
-      </ChainOfThoughtTrigger>
-      <ChainOfThoughtContent>
-        <ChainOfThoughtItem>
-          <div className="space-y-2">
-            {entries.map((entry, idx) => (
-              <div
-                key={idx}
-                className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-2.5"
-              >
-                <div className="mt-1">{getPlanStatusIcon(entry.status)}</div>
-                <div className="flex-1 space-y-1">
-                  <div className="text-sm leading-relaxed text-foreground">
-                    {entry.content}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "text-xs font-medium uppercase",
-                        getPriorityColor(entry.priority),
-                      )}
-                    >
-                      {entry.priority}
-                    </span>
-                    <span className="text-xs text-muted-foreground">•</span>
-                    <span className="text-xs capitalize text-muted-foreground">
-                      {entry.status.replace("_", " ")}
-                    </span>
-                  </div>
-                </div>
+    <div className="my-3 rounded-lg border border-border bg-muted/20 overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
+        <TaskSquare className="size-4 text-foreground" />
+        <span className="text-sm font-medium text-foreground">Plan</span>
+        <span className="text-xs text-muted-foreground">
+          ({completedCount}/{totalCount})
+        </span>
+      </div>
+      <div className="p-3 space-y-2">
+        {entries.map((entry, idx) => (
+          <div
+            key={idx}
+            className="flex items-start gap-2 rounded-md border border-border bg-background p-2.5"
+          >
+            <div className="mt-0.5">{getPlanStatusIcon(entry.status)}</div>
+            <div className="flex-1 space-y-1">
+              <div className="text-sm leading-relaxed text-foreground">
+                {entry.content}
               </div>
-            ))}
+              <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "text-xs font-medium uppercase",
+                    getPriorityColor(entry.priority),
+                  )}
+                >
+                  {entry.priority}
+                </span>
+                <span className="text-xs text-muted-foreground">·</span>
+                <span className="text-xs capitalize text-muted-foreground">
+                  {entry.status.replace("_", " ")}
+                </span>
+              </div>
+            </div>
           </div>
-        </ChainOfThoughtItem>
-      </ChainOfThoughtContent>
-    </ChainOfThoughtStep>
+        ))}
+      </div>
+    </div>
   );
 }
 
-function renderToolCallContent(
+/**
+ * Custom content renderer for Tool component that supports rich content (diff, images, etc.)
+ */
+function renderToolContent(
   content: ToolCallContentItem[] | null,
-  tcId: string,
+  toolCallId: string,
 ) {
   if (!content || content.length === 0) return null;
 
@@ -292,9 +177,9 @@ function renderToolCallContent(
         switch (item.type) {
           case "content":
             return (
-              <div key={`${tcId}-content-${idx}`}>
+              <div key={`${toolCallId}-content-${idx}`}>
                 {item.content.type === "text" ? (
-                  <pre className="whitespace-pre-wrap p-3 font-mono text-xs leading-relaxed text-foreground rounded-md border border-border bg-background">
+                  <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-foreground">
                     {item.content.text}
                   </pre>
                 ) : item.content.type === "image" ? (
@@ -319,7 +204,7 @@ function renderToolCallContent(
           case "diff":
             return (
               <DiffViewer
-                key={`${tcId}-diff-${idx}`}
+                key={`${toolCallId}-diff-${idx}`}
                 path={item.path}
                 oldText={item.oldText}
                 newText={item.newText}
@@ -329,13 +214,12 @@ function renderToolCallContent(
           case "terminal":
             return (
               <div
-                key={`${tcId}-terminal-${idx}`}
+                key={`${toolCallId}-terminal-${idx}`}
                 className="rounded-md border border-border bg-muted/30 p-3"
               >
                 <div className="text-xs text-muted-foreground">
                   Terminal output: {item.terminalId}
                 </div>
-                {/* TODO: Integrate with terminal viewer when implemented */}
               </div>
             );
 
@@ -347,89 +231,8 @@ function renderToolCallContent(
   );
 }
 
-function ToolStep({ tc, isLast }: { tc: ToolCallInfo; isLast: boolean }) {
-  const hasContent = tc.content || tc.raw_input;
-  const hasDiffContent = tc.content?.some((item) => item.type === "diff");
-  const [isOpen, setIsOpen] = useState(hasDiffContent);
-
-  useEffect(() => {
-    if (hasDiffContent) {
-      setIsOpen(true);
-    }
-  }, [hasDiffContent]);
-
-  return (
-    <ChainOfThoughtStep
-      key={tc.tool_call_id}
-      open={isOpen}
-      onOpenChange={setIsOpen}
-      isLast={isLast}
-    >
-      <ChainOfThoughtTrigger
-        leftIcon={getToolIcon(getEffectiveStatus(tc), tc.kind)}
-        swapIconOnHover={false}
-        className="min-w-0 max-w-full"
-      >
-        <span className="truncate block" title={getToolTitle(tc)}>
-          {getToolTitle(tc)}
-        </span>
-      </ChainOfThoughtTrigger>
-      {hasContent && (
-        <ChainOfThoughtContent>
-          <ChainOfThoughtItem className="gap-2">
-            {/* Only show raw_input if there's no diff content */}
-            {tc.raw_input && !hasDiffContent && (
-              <div className="rounded-md border border-border bg-muted/50">
-                <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Input
-                  </span>
-                </div>
-                <pre className="whitespace-pre-wrap p-3 font-mono text-xs leading-relaxed text-muted-foreground">
-                  {JSON.stringify(tc.raw_input, null, 2)}
-                </pre>
-              </div>
-            )}
-            {tc.content && (
-              <div
-                className={
-                  hasDiffContent
-                    ? ""
-                    : "rounded-md border border-border bg-background mt-2"
-                }
-              >
-                {!hasDiffContent && (
-                  <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Output
-                    </span>
-                  </div>
-                )}
-                <div className={hasDiffContent ? "" : "p-3"}>
-                  {renderToolCallContent(tc.content, tc.tool_call_id)}
-                </div>
-              </div>
-            )}
-            {tc.locations && tc.locations.length > 0 && (
-              <div className="rounded-md border border-border bg-muted/30 p-2 mt-2">
-                <div className="text-xs font-medium text-muted-foreground mb-2">
-                  Affected Files:
-                </div>
-                <div className="space-y-1">
-                  {tc.locations.map((loc, i) => (
-                    <div key={i} className="text-xs text-foreground font-mono">
-                      {loc.path}
-                      {loc.line ? `:${loc.line}` : ""}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </ChainOfThoughtItem>
-        </ChainOfThoughtContent>
-      )}
-    </ChainOfThoughtStep>
-  );
+function ToolCallBlock({ tc }: { tc: ToolCallInfo }) {
+  return <Tool toolCall={tc} renderContent={renderToolContent} />;
 }
 
 interface StepsProps {
@@ -464,85 +267,59 @@ export function Steps({ message }: StepsProps) {
     }
 
     return (
-      <ChainOfThought>
+      <div>
         {planEntries && planEntries.length > 0 && (
-          <PlanStep entries={planEntries} isLast={fallbackParts.length === 0} />
+          <PlanBlock entries={planEntries} />
         )}
         {fallbackParts.map((part, i) => {
-          const isLast = i === fallbackParts.length - 1;
           if (part.type === "text") {
             return (
-              <TextStep
-                key={`fallback-text-${i}`}
-                content={part.content}
-                isLast={isLast}
-              />
+              <TextBlock key={`fallback-text-${i}`} content={part.content} />
             );
           } else if (part.type === "image") {
             return (
-              <ImageStep
-                key={`fallback-image-${i}`}
-                content={part.content}
-                isLast={isLast}
-              />
+              <ImageBlock key={`fallback-image-${i}`} content={part.content} />
             );
           } else if (part.type === "tool_call") {
             return (
-              <ToolStep
+              <ToolCallBlock
                 key={`tool-${part.tool_call.tool_call_id}`}
                 tc={part.tool_call}
-                isLast={isLast}
               />
             );
           } else {
             return null;
           }
         })}
-      </ChainOfThought>
+      </div>
     );
   }
 
   return (
-    <>
-      <ChainOfThought>
-        {planEntries && planEntries.length > 0 && (
-          <PlanStep entries={planEntries} isLast={parts.length === 0} />
-        )}
-        {parts.map((part, i) => {
-          const isLast = i === parts.length - 1;
-          if (part.type === "text") {
-            return (
-              <TextStep
-                key={`text-${i}`}
-                content={part.content}
-                isLast={isLast}
-              />
-            );
-          } else if (part.type === "image") {
-            return (
-              <ImageStep
-                key={`image-${i}`}
-                content={part.content}
-                isLast={isLast}
-              />
-            );
-          } else if (part.type === "tool_call") {
-            return (
-              <ToolStep
-                key={`tool-${part.tool_call.tool_call_id}`}
-                tc={part.tool_call}
-                isLast={isLast}
-              />
-            );
-          } else {
-            return null;
-          }
-        })}
-      </ChainOfThought>
+    <div>
+      {planEntries && planEntries.length > 0 && (
+        <PlanBlock entries={planEntries} />
+      )}
+      {parts.map((part, i) => {
+        if (part.type === "text") {
+          return <TextBlock key={`text-${i}`} content={part.content} />;
+        } else if (part.type === "image") {
+          return <ImageBlock key={`image-${i}`} content={part.content} />;
+        } else if (part.type === "tool_call") {
+          return (
+            <ToolCallBlock
+              key={`tool-${part.tool_call.tool_call_id}`}
+              tc={part.tool_call}
+            />
+          );
+        } else {
+          return null;
+        }
+      })}
       {message.is_streaming &&
         !message.tool_calls?.some((tc) => tc.status === "running") && (
           <Loader variant="dots" className="ml-1 text-foreground mt-2" />
         )}
-    </>
+    </div>
   );
 }

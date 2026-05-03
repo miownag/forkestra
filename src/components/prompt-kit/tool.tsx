@@ -1,210 +1,277 @@
-import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { ChevronDown } from "lucide-react";
 import {
-  CheckCircle,
-  ChevronDown,
-  Loader2,
-  Settings,
-  XCircle,
-} from "lucide-react";
-import { useState } from "react";
-
-export type ToolPart = {
-  type: string;
-  state:
-    | "input-streaming"
-    | "input-available"
-    | "output-available"
-    | "output-error";
-  input?: Record<string, unknown>;
-  output?: Record<string, unknown>;
-  toolCallId?: string;
-  errorText?: string;
-};
+  LuCircleCheckBig,
+  LuLoader,
+  LuFileText,
+  LuPencil,
+  LuTrash,
+  LuSearch,
+  LuTerminal,
+} from "react-icons/lu";
+import { CloseSquare, Forbidden } from "iconsax-reactjs";
+import { useState, useEffect } from "react";
+import type {
+  ToolCallInfo,
+  ToolCallContentItem,
+  ToolKind,
+} from "@/types";
 
 export type ToolProps = {
-  toolPart: ToolPart;
+  toolCall: ToolCallInfo;
   defaultOpen?: boolean;
   className?: string;
+  renderContent?: (
+    content: ToolCallContentItem[] | null,
+    toolCallId: string
+  ) => React.ReactNode;
 };
 
-const Tool = ({ toolPart, defaultOpen = false, className }: ToolProps) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+function getStatusIcon(status: string, kind?: ToolKind) {
+  switch (status) {
+    case "running":
+      return <LuLoader className="size-4 animate-spin text-blue-500" />;
+    case "completed":
+      return <LuCircleCheckBig className="size-4 text-green-500" />;
+    case "error":
+      return <CloseSquare className="size-4 text-red-500" />;
+    case "interrupted":
+      return <Forbidden className="size-4 text-yellow-500" />;
+  }
 
-  const { state, input, output, toolCallId } = toolPart;
+  switch (kind) {
+    case "read":
+      return <LuFileText className="size-4 text-blue-500" />;
+    case "edit":
+      return <LuPencil className="size-4 text-yellow-500" />;
+    case "delete":
+      return <LuTrash className="size-4 text-red-500" />;
+    case "search":
+      return <LuSearch className="size-4 text-purple-500" />;
+    case "execute":
+      return <LuTerminal className="size-4 text-green-500" />;
+    default:
+      return <LuLoader className="size-4 animate-spin text-blue-500" />;
+  }
+}
 
-  const getStateIcon = () => {
-    switch (state) {
-      case "input-streaming":
-        return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
-      case "input-available":
-        return <Settings className="h-4 w-4 text-orange-500" />;
-      case "output-available":
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case "output-error":
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      default:
-        return <Settings className="text-muted-foreground h-4 w-4" />;
+function getStatusBadge(status: string) {
+  const baseClasses = "px-1.5 py-0.5 rounded-full text-xs font-medium";
+  switch (status) {
+    case "running":
+      return (
+        <span
+          className={cn(
+            baseClasses,
+            "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+          )}
+        >
+          Running
+        </span>
+      );
+    case "completed":
+      return (
+        <span
+          className={cn(
+            baseClasses,
+            "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+          )}
+        >
+          Completed
+        </span>
+      );
+    case "error":
+      return (
+        <span
+          className={cn(
+            baseClasses,
+            "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+          )}
+        >
+          Error
+        </span>
+      );
+    case "interrupted":
+      return (
+        <span
+          className={cn(
+            baseClasses,
+            "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+          )}
+        >
+          Interrupted
+        </span>
+      );
+    default:
+      return null;
+  }
+}
+
+function getToolTitle(tc: ToolCallInfo) {
+  if (tc.title) return tc.title;
+  if (tc.tool_name) return tc.tool_name;
+  return "Tool Call";
+}
+
+function DefaultContentRenderer(
+  content: ToolCallContentItem[] | null,
+  toolCallId: string
+) {
+  if (!content || content.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      {content.map((item, idx) => {
+        switch (item.type) {
+          case "content":
+            return (
+              <div key={`${toolCallId}-content-${idx}`}>
+                {item.content.type === "text" ? (
+                  <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-foreground">
+                    {item.content.text}
+                  </pre>
+                ) : item.content.type === "image" ? (
+                  <img
+                    src={`data:${item.content.mimeType};base64,${item.content.data}`}
+                    alt="Tool output"
+                    className="max-w-full rounded-md border border-border"
+                  />
+                ) : item.content.type === "resource_link" ? (
+                  <a
+                    href={item.content.uri}
+                    className="text-blue-500 hover:underline text-sm"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {item.content.name}
+                  </a>
+                ) : null}
+              </div>
+            );
+
+          case "terminal":
+            return (
+              <div
+                key={`${toolCallId}-terminal-${idx}`}
+                className="text-xs text-muted-foreground"
+              >
+                Terminal: {item.terminalId}
+              </div>
+            );
+
+          default:
+            return null;
+        }
+      })}
+    </div>
+  );
+}
+
+const Tool = ({
+  toolCall,
+  defaultOpen,
+  className,
+  renderContent,
+}: ToolProps) => {
+  const hasDiffContent = toolCall.content?.some(
+    (item) => item.type === "diff"
+  );
+  const [isOpen, setIsOpen] = useState(defaultOpen ?? !!hasDiffContent);
+  const hasContent = toolCall.content || toolCall.raw_input;
+
+  useEffect(() => {
+    if (hasDiffContent) {
+      setIsOpen(true);
     }
-  };
+  }, [hasDiffContent]);
 
-  const getStateBadge = () => {
-    const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
-    switch (state) {
-      case "input-streaming":
-        return (
-          <span
-            className={cn(
-              baseClasses,
-              "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-            )}
-          >
-            Processing
-          </span>
-        );
-      case "input-available":
-        return (
-          <span
-            className={cn(
-              baseClasses,
-              "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-            )}
-          >
-            Ready
-          </span>
-        );
-      case "output-available":
-        return (
-          <span
-            className={cn(
-              baseClasses,
-              "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-            )}
-          >
-            Completed
-          </span>
-        );
-      case "output-error":
-        return (
-          <span
-            className={cn(
-              baseClasses,
-              "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-            )}
-          >
-            Error
-          </span>
-        );
-      default:
-        return (
-          <span
-            className={cn(
-              baseClasses,
-              "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400",
-            )}
-          >
-            Pending
-          </span>
-        );
-    }
-  };
-
-  const formatValue = (value: unknown): string => {
-    if (value === null) return "null";
-    if (value === undefined) return "undefined";
-    if (typeof value === "string") return value;
-    if (typeof value === "object") {
-      return JSON.stringify(value, null, 2);
-    }
-    return String(value);
-  };
+  const contentRenderer = renderContent ?? DefaultContentRenderer;
 
   return (
     <div
       className={cn(
-        "border-border mt-3 overflow-hidden rounded-lg border",
-        className,
+        "my-2 overflow-hidden rounded-lg border border-border",
+        className
       )}
     >
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleTrigger asChild>
-          <Button
-            variant="ghost"
-            className="bg-background h-auto w-full justify-between rounded-b-none px-3 py-2 font-normal"
-          >
-            <div className="flex items-center gap-2">
-              {getStateIcon()}
-              <span className="font-mono text-sm font-medium">
-                {toolPart.type}
-              </span>
-              {getStateBadge()}
-            </div>
-            <ChevronDown className={cn("h-4 w-4", isOpen && "rotate-180")} />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent
-          className={cn(
-            "border-border border-t",
-            "data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down overflow-hidden",
+        <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer">
+          <div className="flex items-center gap-2 min-w-0">
+            {getStatusIcon(toolCall.status, toolCall.kind)}
+            <span className="text-sm truncate">{getToolTitle(toolCall)}</span>
+            {getStatusBadge(toolCall.status)}
+          </div>
+          {hasContent && (
+            <ChevronDown
+              className={cn(
+                "size-4 text-muted-foreground shrink-0 transition-transform",
+                isOpen && "rotate-180"
+              )}
+            />
           )}
-        >
-          <div className="bg-background space-y-3 p-3">
-            {input && Object.keys(input).length > 0 && (
-              <div>
-                <h4 className="text-muted-foreground mb-2 text-sm font-medium">
-                  Input
-                </h4>
-                <div className="bg-background rounded border p-2 font-mono text-sm">
-                  {Object.entries(input).map(([key, value]) => (
-                    <div key={key} className="mb-1">
-                      <span className="text-muted-foreground">{key}:</span>{" "}
-                      <span>{formatValue(value)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {output && (
-              <div>
-                <h4 className="text-muted-foreground mb-2 text-sm font-medium">
-                  Output
-                </h4>
-                <div className="bg-background max-h-60 overflow-auto rounded border p-2 font-mono text-sm">
-                  <pre className="whitespace-pre-wrap">
-                    {formatValue(output)}
+        </CollapsibleTrigger>
+        {hasContent && (
+          <CollapsibleContent className="data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down overflow-hidden">
+            <div className="border-t border-border bg-muted/10 p-3 space-y-3">
+              {/* Input section */}
+              {toolCall.raw_input && !hasDiffContent && (
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground mb-1.5">
+                    Input
+                  </div>
+                  <pre className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 font-mono text-xs leading-relaxed text-muted-foreground max-h-40 overflow-auto">
+                    {JSON.stringify(toolCall.raw_input, null, 2)}
                   </pre>
                 </div>
-              </div>
-            )}
+              )}
 
-            {state === "output-error" && toolPart.errorText && (
-              <div>
-                <h4 className="mb-2 text-sm font-medium text-red-500">Error</h4>
-                <div className="bg-background rounded border border-red-200 p-2 text-sm dark:border-red-950 dark:bg-red-900/20">
-                  {toolPart.errorText}
+              {/* Output / Content section */}
+              {toolCall.content && (
+                <div>
+                  {!hasDiffContent && (
+                    <div className="text-xs font-medium text-muted-foreground mb-1.5">
+                      Output
+                    </div>
+                  )}
+                  <div
+                    className={
+                      hasDiffContent
+                        ? ""
+                        : "rounded-md border border-border bg-background p-2.5 max-h-60 overflow-auto"
+                    }
+                  >
+                    {contentRenderer(toolCall.content, toolCall.tool_call_id)}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {state === "input-streaming" && (
-              <div className="text-muted-foreground text-sm">
-                Processing tool call...
-              </div>
-            )}
-
-            {toolCallId && (
-              <div className="text-muted-foreground border-t border-blue-200 pt-2 text-xs">
-                <span className="font-mono">Call ID: {toolCallId}</span>
-              </div>
-            )}
-          </div>
-        </CollapsibleContent>
+              {/* Locations */}
+              {toolCall.locations && toolCall.locations.length > 0 && (
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground mb-1.5">
+                    Affected Files
+                  </div>
+                  <div className="space-y-0.5">
+                    {toolCall.locations.map((loc, i) => (
+                      <div
+                        key={i}
+                        className="text-xs text-foreground font-mono"
+                      >
+                        {loc.path}
+                        {loc.line ? `:${loc.line}` : ""}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CollapsibleContent>
+        )}
       </Collapsible>
     </div>
   );
